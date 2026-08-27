@@ -1,0 +1,1656 @@
+From 3aa7478e936de6f80d73184c8526baefc05be527 Mon Sep 17 00:00:00 2001
+From: iceccarelli <vince.ceccarelli@gmail.com>
+Date: Thu, 27 Aug 2026 23:06:39 +0000
+Subject: [PATCH] chore: CI, unit tests, and the working process
+
+- .github/workflows/ci.yml: npm ci, typecheck, test, build, audit on every PR
+- 57 unit tests over lead validation, OBC thresholds, matrix invariants,
+  search ranking, and SEO helpers
+- fix: search ranked a project above a city's own page for a city query
+- docs/WORKFLOW.md: branch -> verify -> PR -> preview -> merge
+- PR template with content-change checklist
+---
+ .github/pull_request_template.md |  23 ++
+ .github/workflows/ci.yml         |  51 +++
+ README.md                        |  21 +-
+ docs/WORKFLOW.md                 | 213 +++++++++++++
+ lib/search-index.ts              |  35 ++-
+ package-lock.json                | 519 +++++++++++++++++++++++++++++++
+ package.json                     |   6 +-
+ tests/leads.test.ts              | 126 ++++++++
+ tests/matrix.test.ts             | 118 +++++++
+ tests/obc.test.ts                |  88 ++++++
+ tests/search.test.ts             |  64 ++++
+ tests/seo.test.ts                |  63 ++++
+ 12 files changed, 1322 insertions(+), 5 deletions(-)
+ create mode 100644 .github/pull_request_template.md
+ create mode 100644 .github/workflows/ci.yml
+ create mode 100644 docs/WORKFLOW.md
+ create mode 100644 tests/leads.test.ts
+ create mode 100644 tests/matrix.test.ts
+ create mode 100644 tests/obc.test.ts
+ create mode 100644 tests/search.test.ts
+ create mode 100644 tests/seo.test.ts
+
+diff --git a/.github/pull_request_template.md b/.github/pull_request_template.md
+new file mode 100644
+index 0000000..c324b38
+--- /dev/null
++++ b/.github/pull_request_template.md
+@@ -0,0 +1,23 @@
++## What changed
++
++<!-- One or two sentences. What does a visitor or a crawler see that they did not before? -->
++
++## Why
++
++<!-- The problem this solves. Link an issue if there is one. -->
++
++## Checked
++
++- [ ] `npm ci && npm run verify` passes locally
++- [ ] Walked the affected pages in `npm run dev`
++- [ ] Opened the Vercel preview deployment and clicked through it
++
++## Content changes only
++
++- [ ] Price bands edited? Updated **both** `data/estimate.ts` and any prose that quotes a number
++- [ ] Added a service or city? Confirmed the generated matrix pages read like real pages, not mad-libs
++- [ ] NAP, hours, or warranty changed? Updated `data/company.ts` **and** the Google Business Profile
++
++## Risk
++
++<!-- What breaks if this is wrong, and how would we notice? -->
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+new file mode 100644
+index 0000000..98cd439
+--- /dev/null
++++ b/.github/workflows/ci.yml
+@@ -0,0 +1,51 @@
++name: CI
++
++on:
++  pull_request:
++  push:
++    branches: [main]
++
++# A newer push to the same branch cancels the older run.
++concurrency:
++  group: ci-${{ github.ref }}
++  cancel-in-progress: true
++
++jobs:
++  verify:
++    name: Typecheck, test, build, audit
++    runs-on: ubuntu-latest
++    timeout-minutes: 15
++
++    env:
++      # Pin the host so the audit's canonical checks are deterministic and do
++      # not depend on which environment the build ran in.
++      NEXT_PUBLIC_SITE_URL: https://greenhardwood.ca
++
++    steps:
++      - uses: actions/checkout@v4
++
++      - uses: actions/setup-node@v4
++        with:
++          node-version: 22
++          cache: npm
++
++      # `npm ci` is what Vercel runs. It fails hard if package.json and
++      # package-lock.json have drifted, which is the single most common way a
++      # deploy dies at the install step before it ever reaches the build.
++      - name: Install (fails on lockfile drift)
++        run: npm ci
++
++      - name: Typecheck
++        run: npm run typecheck
++
++      - name: Unit tests
++        run: npm test
++
++      - name: Build
++        run: npm run build
++
++      # Reads the prerendered HTML: dead internal links, duplicate titles or
++      # descriptions, missing canonicals, missing h1 or alt text, unparseable
++      # JSON-LD, missing media. Exits non-zero on any of them.
++      - name: Site audit
++        run: npm run audit:site
+diff --git a/README.md b/README.md
+index e61aebc..5d56f8f 100644
+--- a/README.md
++++ b/README.md
+@@ -56,6 +56,21 @@ public/llms.txt ai.txt      canonical facts for answer engines
+ 
+ `data/services.ts` feeds the service page, the header mega-menu, the footer, the homepage grid, `hasOfferCatalog` in LocalBusiness JSON-LD, and `sitemap.ts`. Adding a service is one object literal, and eight surfaces update together. This is the property that makes programmatic local SEO safe to scale.
+ 
++## Working on this site
++
++`docs/WORKFLOW.md` is the operating manual: branch, verify, PR, preview, merge.
++Read it before your first change. The short version:
++
++```bash
++git checkout -b feat/thing
++# ...change...
++npm ci && npm run verify     # typecheck, tests, build, site audit
++git push -u origin feat/thing && gh pr create --fill
++```
++
++Never commit to `main` — it deploys to production in about a minute with no
++review and no preview.
++
+ ## Local development
+ 
+ ```bash
+@@ -63,10 +78,14 @@ npm install
+ npm run dev          # http://localhost:3000
+ npm run typecheck    # tsc --noEmit
+ npm run build        # prerenders every route
+-npm run verify       # typecheck + build + audit
++npm test             # 57 unit tests over the pure logic, ~2s
++npm run verify       # typecheck + tests + build + audit
+ npm run audit:site   # post-build: links, titles, canonicals, alt text, JSON-LD
+ ```
+ 
++CI (`.github/workflows/ci.yml`) runs the whole of `verify` on every pull request
++and every push to `main`.
++
+ ### The audit gate
+ 
+ `npm run audit:site` reads the prerendered HTML and fails the build on anything
+diff --git a/docs/WORKFLOW.md b/docs/WORKFLOW.md
+new file mode 100644
+index 0000000..2510ffb
+--- /dev/null
++++ b/docs/WORKFLOW.md
+@@ -0,0 +1,213 @@
++# How we work on this site
++
++The site is live. From here on, every change reaches production the same way, and
++nothing reaches production that has not been verified. This document is the whole
++process — it is short on purpose.
++
++---
++
++## The loop
++
++```
++branch  →  change  →  npm run verify  →  push  →  PR  →  CI + preview  →  merge  →  live
++```
++
++Every step has a reason. None of them are optional.
++
++### 1. Branch
++
++Never commit to `main`. `main` is what the public sees; a push to it deploys
++within about a minute, with no review and no preview.
++
++```bash
++git checkout main
++git pull --ff-only
++git checkout -b feat/short-description
++```
++
++Naming: `feat/` for new capability, `fix/` for a defect, `content/` for copy,
++prices, or new cities, `chore/` for tooling.
++
++### 2. Change one thing
++
++A branch that adds three cities *and* redesigns the header is a branch nobody can
++review and nobody can revert cleanly. One intent per branch.
++
++### 3. Verify locally
++
++```bash
++npm ci          # exactly what Vercel runs — catches lockfile drift
++npm run verify  # typecheck → tests → build → site audit
++```
++
++`npm ci`, not `npm install`. `npm install` will happily paper over a lockfile
++that has drifted from `package.json`; `npm ci` refuses, which is what Vercel
++does. A deploy that dies at the install step is always this.
++
++If you changed a dependency, commit `package-lock.json` in the same commit as
++`package.json`. They are one change.
++
++### 4. Push and open a PR
++
++```bash
++git push -u origin feat/short-description
++gh pr create --fill
++```
++
++Opening a PR does two things at once: CI runs the full verify, and Vercel builds
++a **preview deployment** at its own URL. The preview is `noindex` and its
++robots.txt is `Disallow: /`, so it cannot compete with production in search.
++
++### 5. Actually open the preview
++
++CI proves the site builds and the markup is sound. It cannot tell you the hero
++looks wrong on a phone. Click the Vercel link on the PR and use the thing.
++
++### 6. Merge
++
++Merge from the GitHub UI once CI is green. Vercel deploys `main` automatically.
++
++---
++
++## What CI checks, and why each one exists
++
++`.github/workflows/ci.yml` runs on every PR and every push to `main`.
++
++| Step | Catches |
++| --- | --- |
++| `npm ci` | Lockfile drift — the thing that kills a Vercel deploy at install |
++| `npm run typecheck` | Type errors, including `noUncheckedIndexedAccess` violations |
++| `npm test` | Broken lead validation, wrong stair-code thresholds, a matrix that has gone thin, search that stopped ranking |
++| `npm run build` | Anything that fails to prerender |
++| `npm run audit:site` | Dead internal links, duplicate titles or descriptions, missing canonicals, missing `h1` or `alt`, unparseable JSON-LD, missing media |
++
++The audit is the one that repays itself. It has already caught a title collision
++between the homepage and `/areas/toronto`, a duplicate meta description shared by
++`/contact` and the 404, and roughly fifty SERP-truncation problems.
++
++### Turn on branch protection
++
++Do this once, in GitHub → Settings → Branches → Add rule for `main`:
++
++- **Require status checks to pass before merging** → select `Typecheck, test, build, audit`
++- **Require branches to be up to date before merging**
++- **Do not allow bypassing the above settings** (yes, including for you)
++
++Without this, CI is advisory. With it, a red build cannot reach production.
++
++---
++
++## The test suite
++
++```bash
++npm test                              # all of it, ~2 seconds
++npx tsx --test tests/matrix.test.ts   # one file
++```
++
++It covers the pure logic where a silent bug is expensive:
++
++- **`tests/leads.test.ts`** — phone and email formats real people type, tampered
++  city/service values, sq ft written as "1,200 sq ft", all errors returned at
++  once, values echoed back so a failed submit does not clear the form.
++- **`tests/obc.test.ts`** — every Ontario stair threshold, including inclusive
++  boundaries, and a check that the prose in `obcRules` quotes the same numbers
++  `checkObc` enforces.
++- **`tests/matrix.test.ts`** — 84 unique paths, titles, and descriptions; titles
++  that fit a SERP; and, critically, that the same job prices *differently* in
++  different cities. If that assertion ever fails, the city multiplier has stopped
++  applying and all 84 pages have become the same page.
++- **`tests/search.test.ts`** — all query tokens must match; a city name reaches
++  that city's page.
++- **`tests/seo.test.ts`** — description clamping, and that the business and
++  founder JSON-LD nodes reference each other.
++
++When you fix a bug, add the test that would have caught it, in the same PR.
++
++---
++
++## Content changes
++
++Most work on this site is content, not code. It still goes through a branch and a
++PR, because content is what ranks.
++
++| Change | File | Watch out for |
++| --- | --- | --- |
++| Edit a service | `data/services.ts` | Feeds 8 surfaces at once: service page, matrix pages, header, footer, homepage, JSON-LD offer catalogue, sitemap, `llms.txt` |
++| Add a city | `data/areas.ts` | Also add a `cityMult` entry in `data/estimate.ts`, or the price silently falls back. `tests/matrix.test.ts` enforces this |
++| Publish a guide | `data/guides.ts` | Appears in the sitemap and RSS automatically |
++| Change price bands | `data/estimate.ts` | Updates the estimator, all 84 matrix bands, and `llms.txt` together |
++| NAP, hours, warranty | `data/company.ts` | Must match the Google Business Profile **character for character** |
++| Add or drop a matrix service | `matrixServices` in `data/matrix.ts` | Read a generated page before shipping. If it reads like a mad-lib, write a `localAngle` for it |
++| Ontario stair thresholds | `OBC_LIMITS` in `data/obc.ts` | One constant drives the checker, the pages, and `llms-full.txt` |
++
++Content lives in `data/` so that a page, its structured data, its sitemap entry,
++and its plain-text version for AI crawlers cannot drift apart. Editing copy
++directly into a `page.tsx` breaks that guarantee — do it in `data/`.
++
++---
++
++## Deploys and rollback
++
++`main` deploys automatically. Watch the build log reach
++`Generating static pages (173/173)`.
++
++**Rolling back is instant and does not need a commit.** Vercel → Deployments →
++find the last good one → ⋯ → *Promote to Production*. Do that first, then fix the
++cause on a branch. Never debug production by pushing to `main`.
++
++---
++
++## Environment variables
++
++Set in Vercel → Settings → Environment Variables. Nothing secret goes in the repo.
++
++| Variable | Purpose | Set? |
++| --- | --- | --- |
++| `RESEND_API_KEY` | Emails the lead. Without it, leads are captured in the server log only | ❌ pending |
++| `LEAD_TO_EMAIL` | Where leads land | ❌ |
++| `LEAD_FROM_EMAIL` | Must be a Resend-verified domain | ❌ |
++| `INDEXNOW_KEY` | Announces URL changes to Bing, Yandex, Naver | ❌ |
++| `NEXT_PUBLIC_SITE_URL` | Only to override Vercel's own production domain | not needed |
++
++`SITE_URL` resolves automatically from Vercel's production domain, so attaching
++`greenhardwood.ca` requires **no code change** — every canonical, JSON-LD `@id`,
++sitemap URL, and `llms.txt` link follows it.
++
++---
++
++## Working with a patch from Claude
++
++Patches are transport for work done outside the repo. They are not source and are
++never committed.
++
++```bash
++git checkout main && git pull --ff-only
++git checkout -b feat/whatever-the-patch-does
++
++git apply --check --verbose NNNN-name.patch   # dry run first, always
++git am --3way NNNN-name.patch
++rm -f NNNN-name.patch                          # delete it — it is not source
++
++npm ci && npm run verify
++git push -u origin feat/whatever-the-patch-does && gh pr create --fill
++```
++
++If `git apply --check` fails, stop. Do not force it. A patch that will not apply
++cleanly means the branch has moved underneath it, and the fix is a rebased patch,
++not a manual merge.
++
++---
++
++## The three things that have actually gone wrong
++
++Worth knowing, because each cost real time:
++
++1. **Uncommitted `package-lock.json`.** `npm install` added a dependency, the
++   lockfile updated, nobody committed it. `npm ci` — and therefore Vercel —
++   fails. *Fix: run `npm ci` before you push.*
++2. **A rename/delete merge conflict.** One branch renamed a file, the other
++   deleted it, and git correctly refused to guess. *Fix: don't do cleanup commits
++   directly on `main`; do them on the branch that is already changing the file.*
++3. **A merge that stopped at a conflict and was never finished**, so `main` never
++   got the work and the old site stayed live. *Fix: after any merge, check
++   `git log --oneline -1` and `git status` before assuming it worked.*
+diff --git a/lib/search-index.ts b/lib/search-index.ts
+index de29d49..3081ab7 100644
+--- a/lib/search-index.ts
++++ b/lib/search-index.ts
+@@ -20,6 +20,13 @@ export type SearchDoc = {
+   title: string;
+   description: string;
+   path: string;
++  /**
++   * The canonical name of the thing this document *is* — "Vaughan", "Hardwood
++   * Stairs", "White Oak". An exact match here outranks everything else, so
++   * typing a city name reaches that city's page rather than a project that
++   * happens to mention it in its title.
++   */
++  primary: string;
+   /** Extra terms that should match but do not need to be displayed. */
+   keywords: string[];
+ };
+@@ -29,6 +36,7 @@ const staticPages: SearchDoc[] = [
+     id: "page-stairs",
+     kind: "Page",
+     title: "Stair studio",
++    primary: "Stair studio",
+     description:
+       "Build a hardwood flight, price it, and run the Ontario Building Code checks before you call anyone.",
+     path: "/stairs",
+@@ -38,6 +46,7 @@ const staticPages: SearchDoc[] = [
+     id: "page-showroom",
+     kind: "Page",
+     title: "Species showroom",
++    primary: "Species showroom",
+     description:
+       "White oak, red oak, walnut, maple, hickory, engineered — grain, Janka, and rooms.",
+     path: "/showroom",
+@@ -47,6 +56,7 @@ const staticPages: SearchDoc[] = [
+     id: "page-estimate",
+     kind: "Page",
+     title: "2026 estimator",
++    primary: "2026 estimator",
+     description: "Price install, refinishing, stairs, railings, repairs, and decks for the GTA.",
+     path: "/estimate",
+     keywords: ["cost", "price", "quote", "calculator", "how much"],
+@@ -55,6 +65,7 @@ const staticPages: SearchDoc[] = [
+     id: "page-compare",
+     kind: "Page",
+     title: "Hardwood vs vinyl vs laminate",
++    primary: "Hardwood vs vinyl vs laminate",
+     description: "When oak is the only grown-up answer, and the few times it is not.",
+     path: "/compare",
+     keywords: ["lvp", "vinyl plank", "laminate", "engineered", "comparison"],
+@@ -63,6 +74,7 @@ const staticPages: SearchDoc[] = [
+     id: "page-process",
+     kind: "Page",
+     title: "How a hardwood job runs",
++    primary: "How a hardwood job runs",
+     description: "Site visit, moisture, acclimation, install, sanding, finish, cure.",
+     path: "/process",
+     keywords: ["timeline", "steps", "what to expect", "acclimation", "cure"],
+@@ -71,6 +83,7 @@ const staticPages: SearchDoc[] = [
+     id: "page-care",
+     kind: "Page",
+     title: "Hardwood floor care in Ontario",
++    primary: "Hardwood floor care in Ontario",
+     description: "Humidity, cleaners, felt pads, and the winter salt problem.",
+     path: "/care",
+     keywords: ["maintenance", "cleaning", "humidifier", "scratches", "salt"],
+@@ -79,6 +92,7 @@ const staticPages: SearchDoc[] = [
+     id: "page-emergency",
+     kind: "Page",
+     title: "Water-damaged hardwood",
++    primary: "Water-damaged hardwood",
+     description: "Cupping, crowning, and what insurance will actually close.",
+     path: "/emergency",
+     keywords: ["flood", "leak", "insurance", "cupping", "buckling", "emergency"],
+@@ -87,6 +101,7 @@ const staticPages: SearchDoc[] = [
+     id: "page-warranty",
+     kind: "Page",
+     title: "Workmanship warranty",
++    primary: "Workmanship warranty",
+     description: "What our three-year warranty covers, and what it does not.",
+     path: "/warranty",
+     keywords: ["guarantee", "warranty", "coverage", "callback"],
+@@ -95,6 +110,7 @@ const staticPages: SearchDoc[] = [
+     id: "page-trade",
+     kind: "Page",
+     title: "For builders, designers & realtors",
++    primary: "For builders, designers & realtors",
+     description: "Trade pricing, schedules, and spec support.",
+     path: "/trade",
+     keywords: ["contractor", "builder", "designer", "realtor", "trade", "wholesale"],
+@@ -103,6 +119,7 @@ const staticPages: SearchDoc[] = [
+     id: "page-portfolio",
+     kind: "Page",
+     title: "Work",
++    primary: "Work",
+     description: "Floors, stairs, and railings completed across the GTA.",
+     path: "/portfolio",
+     keywords: ["gallery", "projects", "before after", "photos"],
+@@ -111,6 +128,7 @@ const staticPages: SearchDoc[] = [
+     id: "page-about",
+     kind: "Page",
+     title: "About Franco Giacinto",
++    primary: "About Franco Giacinto",
+     description: "The founder, the shop, and how Green Hardwood works.",
+     path: "/about",
+     keywords: ["franco giacinto", "oller grimaldi", "founder", "team", "who we are"],
+@@ -119,6 +137,7 @@ const staticPages: SearchDoc[] = [
+     id: "page-contact",
+     kind: "Page",
+     title: "Contact",
++    primary: "Contact",
+     description: "Phone, email, the Sterling Road studio, and a site-visit request.",
+     path: "/contact",
+     keywords: ["phone", "email", "address", "hours", "book", "call"],
+@@ -127,6 +146,7 @@ const staticPages: SearchDoc[] = [
+     id: "page-faq",
+     kind: "Page",
+     title: "Hardwood FAQ",
++    primary: "Hardwood FAQ",
+     description: "The questions Toronto homeowners actually ask.",
+     path: "/faq",
+     keywords: ["questions", "answers", "help"],
+@@ -140,6 +160,7 @@ export const searchDocs: SearchDoc[] = [
+     title: s.name,
+     description: s.summary,
+     path: `/services/${s.slug}`,
++    primary: s.name,
+     keywords: [...s.keywords, s.shortName, s.eyebrow, s.priceFrom],
+   })),
+   ...cities.map<SearchDoc>((c) => ({
+@@ -148,6 +169,7 @@ export const searchDocs: SearchDoc[] = [
+     title: `Hardwood flooring in ${c.name}`,
+     description: c.blurb,
+     path: `/areas/${c.slug}`,
++    primary: c.name,
+     keywords: [c.name, c.region, ...c.jobs],
+   })),
+   ...guides.map<SearchDoc>((g) => ({
+@@ -156,6 +178,7 @@ export const searchDocs: SearchDoc[] = [
+     title: g.title,
+     description: g.description,
+     path: `/guides/${g.slug}`,
++    primary: g.title,
+     keywords: [g.kicker],
+   })),
+   ...projects.map<SearchDoc>((p) => ({
+@@ -164,6 +187,7 @@ export const searchDocs: SearchDoc[] = [
+     title: p.title,
+     description: p.summary,
+     path: "/portfolio",
++    primary: p.title,
+     keywords: [p.location, p.type, ...p.specs],
+   })),
+   ...species.map<SearchDoc>((sp) => ({
+@@ -172,6 +196,7 @@ export const searchDocs: SearchDoc[] = [
+     title: sp.name,
+     description: sp.bestFor,
+     path: "/showroom",
++    primary: sp.name,
+     keywords: [sp.hardness, sp.tone, ...sp.rooms],
+   })),
+   ...faqs.map<SearchDoc>((f, i) => ({
+@@ -180,6 +205,7 @@ export const searchDocs: SearchDoc[] = [
+     title: f.q,
+     description: f.a,
+     path: "/faq",
++    primary: f.q,
+     keywords: [],
+   })),
+   ...staticPages,
+@@ -189,7 +215,7 @@ export const searchDocs: SearchDoc[] = [
+ const haystacks = new Map(
+   searchDocs.map((d) => [
+     d.id,
+-    `${d.title} ${d.description} ${d.keywords.join(" ")}`.toLowerCase(),
++    `${d.primary} ${d.title} ${d.description} ${d.keywords.join(" ")}`.toLowerCase(),
+   ]),
+ );
+ 
+@@ -216,6 +242,7 @@ export function searchSite(query: string, limit = 8): SearchDoc[] {
+   for (const doc of searchDocs) {
+     const hay = haystacks.get(doc.id) ?? "";
+     const title = doc.title.toLowerCase();
++    const primary = doc.primary.toLowerCase();
+     let score = 0;
+     let matchedAll = true;
+ 
+@@ -224,7 +251,11 @@ export function searchSite(query: string, limit = 8): SearchDoc[] {
+         matchedAll = false;
+         break;
+       }
+-      if (title.startsWith(token)) score += 12;
++      // The name of the thing beats a mention of the thing. Typing "vaughan"
++      // should reach the Vaughan page, not a project that starts with the word.
++      if (primary === token) score += 40;
++      else if (primary.startsWith(token)) score += 24;
++      else if (title.startsWith(token)) score += 12;
+       else if (title.includes(token)) score += 8;
+       else score += 2;
+     }
+diff --git a/package-lock.json b/package-lock.json
+index fdc7273..3a5a2fd 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -30,6 +30,7 @@
+         "eslint-config-next": "^15.5.4",
+         "prettier": "^3.6.2",
+         "tailwindcss": "^4.1.13",
++        "tsx": "^4.23.12",
+         "typescript": "^5.9.2"
+       },
+       "engines": {
+@@ -82,6 +83,448 @@
+         "tslib": "^2.4.0"
+       }
+     },
++    "node_modules/@esbuild/aix-ppc64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/aix-ppc64/-/aix-ppc64-0.28.2.tgz",
++      "integrity": "sha512-XExcO+dvLKvVtNTibSTBej1NCAbaGhWn9Ww1ZPx80qsahhPFe/8jgWP0IchNe0F3HwkU7n8ejhH8bjonqht8mQ==",
++      "cpu": [
++        "ppc64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "aix"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/android-arm": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/android-arm/-/android-arm-0.28.2.tgz",
++      "integrity": "sha512-kXXoiPVVGQcnIYGOeaovwOURpniDBpSq4A03qkQ+BMQqtGG6HYap3xne9C1O1yo4TR3qxlCX5IqqmX6fFo2Lqg==",
++      "cpu": [
++        "arm"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "android"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/android-arm64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/android-arm64/-/android-arm64-0.28.2.tgz",
++      "integrity": "sha512-5YfKeeI8qWfBZIX+u2xZC3Zlb3Os/gLS2sbEKM+I4ZOcsWmHS2WLysCcQZDAFRslDUU5Oiq44gf6PYN1vGwG5A==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "android"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/android-x64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/android-x64/-/android-x64-0.28.2.tgz",
++      "integrity": "sha512-O387ite7SzUyCcy3JQX4P4bLtEA7bLLkx+esve5JHnyYfNTxcVpXZo9jhdB0lTKN44gztELTdU7nS8Nr16Fs1Q==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "android"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/darwin-arm64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/darwin-arm64/-/darwin-arm64-0.28.2.tgz",
++      "integrity": "sha512-n4KqkOQrraxHJcgjM1RvwbigfQKIKJVpM7xp+KsxiyUSrRdIXnt73VhrPAx0fV44hgfmIVKjxMN9J1t5jySVkw==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/darwin-x64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/darwin-x64/-/darwin-x64-0.28.2.tgz",
++      "integrity": "sha512-uq6suIWYP37qzGddBKPw5QEQPi6HiLGsO7UmkpfyaYNQ3D+rN6w6WfwH+nuqcGXWvawGwxOEroO4YGnFh95azw==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/freebsd-arm64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/freebsd-arm64/-/freebsd-arm64-0.28.2.tgz",
++      "integrity": "sha512-n+I0BTSRIoy+d6RPKnEVwql5UwBJolytvY4mAOIEJorKlqgPII8ix6slVVrfZ5Tnj7glIZvloylbB/EJPMWEXw==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "freebsd"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/freebsd-x64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/freebsd-x64/-/freebsd-x64-0.28.2.tgz",
++      "integrity": "sha512-78XJTJkvPs0kz2w61301PJjXl4g7q3JqiYMZ/M/yVI73EHBrCRTgkhu9oqG7vPqq+a/yadEW8aD+agKlk5xrmg==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "freebsd"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-arm": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-arm/-/linux-arm-0.28.2.tgz",
++      "integrity": "sha512-XlDnu2q5yoqems+xay6wSAcg9DDD7K9RLKZEBOMZm3ckNpJBvOX20tSfby8KfrrhINDyv9V2YVZKY/SpoGJI8w==",
++      "cpu": [
++        "arm"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-arm64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-arm64/-/linux-arm64-0.28.2.tgz",
++      "integrity": "sha512-pW4AC0P3it8c7do9MVM4p51FzHzdM/TZrerurgRcHJ2WTa1VQ1CIq18xncfpBJw4ojkiZZrKW2yIBWBP92j6Ug==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-ia32": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-ia32/-/linux-ia32-0.28.2.tgz",
++      "integrity": "sha512-CYbnj78HsIeA+DhgUKgFCfvNsTHFhMMrinUrMZpDXJXKN8T3XViTZ/+wtHeVxEWY8ewSzTFN+nRmSwO2tZaLUQ==",
++      "cpu": [
++        "ia32"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-loong64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-loong64/-/linux-loong64-0.28.2.tgz",
++      "integrity": "sha512-buwkd8nsph4R+ajRvw0qM5Hja/TXQow3ptzWO2EbG/cqcIkHloRrdlBtQlshyYGTNFvfkfJ5tpPLVkY4DtsPfQ==",
++      "cpu": [
++        "loong64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-mips64el": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-mips64el/-/linux-mips64el-0.28.2.tgz",
++      "integrity": "sha512-ZVykbDyk7519VwiNb9Lcj9m8XM6v5V9uKPvrEMkkEedVewf+0itkhahp4HDpgERXhwLRpWFypsGbG/J8s0QjJA==",
++      "cpu": [
++        "mips64el"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-ppc64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-ppc64/-/linux-ppc64-0.28.2.tgz",
++      "integrity": "sha512-CAXl+Dtd9UUuJd8pKKdwh6MLm3MUMiqMPmhZ3tTSXPqfyQ3vDl6R5hZdZ/kYojK4ofXtdfSv1tFq8XzWx3heNQ==",
++      "cpu": [
++        "ppc64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-riscv64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-riscv64/-/linux-riscv64-0.28.2.tgz",
++      "integrity": "sha512-GeXCej4IQtU1B+QlDV8W/RRvbzI3O/Stss+/bCXv4lZls5WGRtu2a+3JkA3i4qIUlMXpcHebWpF8AkJhATowuA==",
++      "cpu": [
++        "riscv64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-s390x": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-s390x/-/linux-s390x-0.28.2.tgz",
++      "integrity": "sha512-3H1weTYZPxt/WOhByszQZybS9w5lKzUn1FDMsgEChbHWQwHYQQRfBxgCcZvPhjHfKyJjIievvMmEUawJrdY9Dg==",
++      "cpu": [
++        "s390x"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/linux-x64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/linux-x64/-/linux-x64-0.28.2.tgz",
++      "integrity": "sha512-4xTZr1FUmSoQW4XIWmit3tzQrUTZM+N3P0XV8xROKYF50XfI7xeO90+1bZvNwxIufQ9hDQVRJH5YhgPVF8A/HQ==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "linux"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/netbsd-arm64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/netbsd-arm64/-/netbsd-arm64-0.28.2.tgz",
++      "integrity": "sha512-sSATRjPeDBg3pdgHoQfoYBob11Kk1FGa9lui5RIHZCoCkJa9QKlvl3/vKz2usCmYYjs7ymJR/2Nnsqe+Hjt5nw==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "netbsd"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/netbsd-x64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/netbsd-x64/-/netbsd-x64-0.28.2.tgz",
++      "integrity": "sha512-lqnzCV+mM0gIADaKihiCg6ifgfU2L3h5E33rNQBN1Y4MaVGnzryzmvvf7UHxprpQdE8hpqLolJ9Rl+SkIRDpyw==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "netbsd"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/openbsd-arm64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/openbsd-arm64/-/openbsd-arm64-0.28.2.tgz",
++      "integrity": "sha512-AL2qJILH7lNjrDmCQDvdxMfAUIv8KMNZOvrwAQ8i8//ntL9FflhOyMJ8OZSMBb8/AWXe3/5v5S20y3zCoZWKoQ==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "openbsd"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/openbsd-x64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/openbsd-x64/-/openbsd-x64-0.28.2.tgz",
++      "integrity": "sha512-QtiuPytchRyC4rwUKhexJdQKvDuZ6hWloi3igqPQNUJCS1/v9EiO3UTOXR6A3FoMo4fnAKbWJdqaIwhOzh8qEw==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "openbsd"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/openharmony-arm64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/openharmony-arm64/-/openharmony-arm64-0.28.2.tgz",
++      "integrity": "sha512-WkhYDmpTjLvGlScA1rwjRUmhl4k8oXR3cIbtqWmELgU/dFeHHlEllxDvdWcNJV9rbzCexB5vz8gtNewWLgCT7Q==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "openharmony"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/sunos-x64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/sunos-x64/-/sunos-x64-0.28.2.tgz",
++      "integrity": "sha512-GPMSkTOtMnv2U2F8gxe4Io6qmVs+YKyp832Etqqxr0hFngmXQ3rzwytelm3GIn7T4VviRUlf3sOgBOiTdvaf7g==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "sunos"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/win32-arm64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/win32-arm64/-/win32-arm64-0.28.2.tgz",
++      "integrity": "sha512-PIhhEkE9uPBleRBrQEJpUn7MBnibZzbGzYWPmY3x+YoVg/95zbjB4CxPPOQ8l5tYYM4mMaCthF8/1DIfBQQyWQ==",
++      "cpu": [
++        "arm64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/win32-ia32": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/win32-ia32/-/win32-ia32-0.28.2.tgz",
++      "integrity": "sha512-YmJbfTlvU7Sdn9BB+4PRES4oB6pxgS37MAONj+hBr/cpXS1aBPKXxNnDbu+QCWPj0o9dgyxeq79g6c5P8KeuYA==",
++      "cpu": [
++        "ia32"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
++    "node_modules/@esbuild/win32-x64": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/@esbuild/win32-x64/-/win32-x64-0.28.2.tgz",
++      "integrity": "sha512-5ebpxr3nWMzrL/rnUI755Jkuee0bHL/Gq0WTF9lvcpv73wAp5eu8MfBUgWK9bhWvZjj7yX8etf/8tI8Ney695g==",
++      "cpu": [
++        "x64"
++      ],
++      "dev": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "win32"
++      ],
++      "engines": {
++        "node": ">=18"
++      }
++    },
+     "node_modules/@eslint-community/eslint-utils": {
+       "version": "4.10.1",
+       "resolved": "https://registry.npmjs.org/@eslint-community/eslint-utils/-/eslint-utils-4.10.1.tgz",
+@@ -3375,6 +3818,48 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
++    "node_modules/esbuild": {
++      "version": "0.28.2",
++      "resolved": "https://registry.npmjs.org/esbuild/-/esbuild-0.28.2.tgz",
++      "integrity": "sha512-HKVLS8dvII+xoKW9kmqxbRKrnWEXfJJr/FZhhJmiqIB0e053QNYFqOBouTMO/k5sID4MvCiUCvv8b9M4h32wIA==",
++      "dev": true,
++      "hasInstallScript": true,
++      "license": "MIT",
++      "bin": {
++        "esbuild": "bin/esbuild"
++      },
++      "engines": {
++        "node": ">=18"
++      },
++      "optionalDependencies": {
++        "@esbuild/aix-ppc64": "0.28.2",
++        "@esbuild/android-arm": "0.28.2",
++        "@esbuild/android-arm64": "0.28.2",
++        "@esbuild/android-x64": "0.28.2",
++        "@esbuild/darwin-arm64": "0.28.2",
++        "@esbuild/darwin-x64": "0.28.2",
++        "@esbuild/freebsd-arm64": "0.28.2",
++        "@esbuild/freebsd-x64": "0.28.2",
++        "@esbuild/linux-arm": "0.28.2",
++        "@esbuild/linux-arm64": "0.28.2",
++        "@esbuild/linux-ia32": "0.28.2",
++        "@esbuild/linux-loong64": "0.28.2",
++        "@esbuild/linux-mips64el": "0.28.2",
++        "@esbuild/linux-ppc64": "0.28.2",
++        "@esbuild/linux-riscv64": "0.28.2",
++        "@esbuild/linux-s390x": "0.28.2",
++        "@esbuild/linux-x64": "0.28.2",
++        "@esbuild/netbsd-arm64": "0.28.2",
++        "@esbuild/netbsd-x64": "0.28.2",
++        "@esbuild/openbsd-arm64": "0.28.2",
++        "@esbuild/openbsd-x64": "0.28.2",
++        "@esbuild/openharmony-arm64": "0.28.2",
++        "@esbuild/sunos-x64": "0.28.2",
++        "@esbuild/win32-arm64": "0.28.2",
++        "@esbuild/win32-ia32": "0.28.2",
++        "@esbuild/win32-x64": "0.28.2"
++      }
++    },
+     "node_modules/escape-string-regexp": {
+       "version": "4.0.0",
+       "resolved": "https://registry.npmjs.org/escape-string-regexp/-/escape-string-regexp-4.0.0.tgz",
+@@ -3937,6 +4422,21 @@
+         "url": "https://github.com/sponsors/ljharb"
+       }
+     },
++    "node_modules/fsevents": {
++      "version": "2.3.3",
++      "resolved": "https://registry.npmjs.org/fsevents/-/fsevents-2.3.3.tgz",
++      "integrity": "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw==",
++      "dev": true,
++      "hasInstallScript": true,
++      "license": "MIT",
++      "optional": true,
++      "os": [
++        "darwin"
++      ],
++      "engines": {
++        "node": "^8.16.0 || ^10.6.0 || >=11.0.0"
++      }
++    },
+     "node_modules/function-bind": {
+       "version": "1.1.2",
+       "resolved": "https://registry.npmjs.org/function-bind/-/function-bind-1.1.2.tgz",
+@@ -6561,6 +7061,25 @@
+       "integrity": "sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==",
+       "license": "0BSD"
+     },
++    "node_modules/tsx": {
++      "version": "4.23.12",
++      "resolved": "https://registry.npmjs.org/tsx/-/tsx-4.23.12.tgz",
++      "integrity": "sha512-FDf4L4sYzKtzWYhU/Xm0AQFdTjdIxNo9ElTf2mxXM6k8YMHXzYUe4yODVaXP4V9uMFbVg8c0qyBccK2OOxb45Q==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "esbuild": "~0.28.0"
++      },
++      "bin": {
++        "tsx": "dist/cli.mjs"
++      },
++      "engines": {
++        "node": ">=18.0.0"
++      },
++      "optionalDependencies": {
++        "fsevents": "~2.3.3"
++      }
++    },
+     "node_modules/type-check": {
+       "version": "0.4.0",
+       "resolved": "https://registry.npmjs.org/type-check/-/type-check-0.4.0.tgz",
+diff --git a/package.json b/package.json
+index 088f557..676ff9b 100644
+--- a/package.json
++++ b/package.json
+@@ -9,9 +9,10 @@
+     "start": "next start",
+     "lint": "next lint",
+     "typecheck": "tsc --noEmit",
+-    "verify": "npm run typecheck && npm run build && npm run audit:site",
++    "verify": "npm run typecheck && npm run test && npm run build && npm run audit:site",
+     "indexnow": "node --experimental-strip-types scripts/indexnow.mjs",
+-    "audit:site": "node --experimental-strip-types scripts/audit-site.mjs"
++    "audit:site": "node --experimental-strip-types scripts/audit-site.mjs",
++    "test": "tsx --test tests/*.test.ts"
+   },
+   "dependencies": {
+     "@radix-ui/react-accordion": "^1.2.12",
+@@ -36,6 +37,7 @@
+     "eslint-config-next": "^15.5.4",
+     "prettier": "^3.6.2",
+     "tailwindcss": "^4.1.13",
++    "tsx": "^4.23.12",
+     "typescript": "^5.9.2"
+   },
+   "engines": {
+diff --git a/tests/leads.test.ts b/tests/leads.test.ts
+new file mode 100644
+index 0000000..f44bf91
+--- /dev/null
++++ b/tests/leads.test.ts
+@@ -0,0 +1,126 @@
++import { test, describe } from "node:test";
++import assert from "node:assert/strict";
++import { parseLead, cityLabel, serviceLabel } from "@/lib/leads";
++
++/**
++ * Lead validation is the last thing standing between a visitor and a lost
++ * enquiry. Every rule here corresponds to a way a real submission can fail.
++ */
++
++function form(overrides: Record<string, string> = {}) {
++  const fd = new FormData();
++  const base = {
++    name: "Franco Test",
++    phone: "(416) 847-3366",
++    email: "someone@example.com",
++    city: "vaughan",
++    service: "stairs",
++    sqft: "",
++    message: "Carpet stairs in a 2019 build, thirteen steps, want solid oak.",
++    ...overrides,
++  };
++  for (const [k, v] of Object.entries(base)) fd.set(k, v);
++  return fd;
++}
++
++describe("parseLead", () => {
++  test("accepts a well-formed request", () => {
++    const result = parseLead(form(), "/contact");
++    assert.equal(result.ok, true);
++    if (!result.ok) return;
++    assert.equal(result.lead.city, "vaughan");
++    assert.equal(result.lead.source, "/contact");
++    assert.equal(result.lead.sqft, null, "blank sq ft is null, not 0 or NaN");
++    assert.ok(Date.parse(result.lead.receivedAt), "receivedAt is a valid timestamp");
++  });
++
++  test("normalises email to lowercase so duplicates collapse", () => {
++    const result = parseLead(form({ email: "Someone@Example.COM" }), "x");
++    assert.equal(result.ok, true);
++    if (result.ok) assert.equal(result.lead.email, "someone@example.com");
++  });
++
++  test("accepts the phone formats people actually type", () => {
++    for (const phone of [
++      "(416) 847-3366",
++      "416-847-3366",
++      "4168473366",
++      "+1 416 847 3366",
++      "1-416-847-3366",
++    ]) {
++      const result = parseLead(form({ phone }), "x");
++      assert.equal(result.ok, true, `should accept ${phone}`);
++    }
++  });
++
++  test("rejects a phone number that cannot be dialled", () => {
++    for (const phone of ["", "12345", "call me"]) {
++      const result = parseLead(form({ phone }), "x");
++      assert.equal(result.ok, false, `should reject ${JSON.stringify(phone)}`);
++      if (!result.ok) assert.ok(result.errors.phone);
++    }
++  });
++
++  test("rejects an unreachable email", () => {
++    for (const email of ["", "franco", "franco@", "franco@localhost", "a b@c.com"]) {
++      const result = parseLead(form({ email }), "x");
++      assert.equal(result.ok, false, `should reject ${JSON.stringify(email)}`);
++    }
++  });
++
++  test("rejects a city or service that is not on the list", () => {
++    // Guards against a tampered <select> reaching the crew router.
++    assert.equal(parseLead(form({ city: "montreal" }), "x").ok, false);
++    assert.equal(parseLead(form({ service: "carpet" }), "x").ok, false);
++  });
++
++  test("parses sq ft written the way people write it", () => {
++    const result = parseLead(form({ sqft: "1,200 sq ft" }), "x");
++    assert.equal(result.ok, true);
++    if (result.ok) assert.equal(result.lead.sqft, 1200);
++  });
++
++  test("rejects an absurd sq ft rather than quoting it", () => {
++    assert.equal(parseLead(form({ sqft: "999999" }), "x").ok, false);
++  });
++
++  test("returns every error at once, not just the first", () => {
++    const result = parseLead(form({ name: "", phone: "1", email: "nope" }), "x");
++    assert.equal(result.ok, false);
++    if (result.ok) return;
++    assert.ok(result.errors.name);
++    assert.ok(result.errors.phone);
++    assert.ok(result.errors.email);
++  });
++
++  test("echoes values back so a failed round trip does not clear the form", () => {
++    const result = parseLead(form({ email: "bad", message: "Water damage in the kitchen." }), "x");
++    assert.equal(result.ok, false);
++    if (!result.ok) {
++      assert.equal(result.values.message, "Water damage in the kitchen.");
++      assert.equal(result.values.email, "bad");
++    }
++  });
++
++  test("trims whitespace instead of storing it", () => {
++    const result = parseLead(form({ name: "  Franco  " }), "x");
++    assert.equal(result.ok, true);
++    if (result.ok) assert.equal(result.lead.name, "Franco");
++  });
++
++  test("rejects a one-word message that tells the crew nothing", () => {
++    assert.equal(parseLead(form({ message: "hi" }), "x").ok, false);
++  });
++});
++
++describe("labels", () => {
++  test("resolve to human-readable names for the notification email", () => {
++    assert.equal(cityLabel("richmond-hill"), "Richmond Hill");
++    assert.equal(serviceLabel("stairs"), "Hardwood stairs");
++  });
++
++  test("fall back to the raw value rather than throwing", () => {
++    assert.equal(cityLabel("atlantis"), "atlantis");
++    assert.equal(serviceLabel("unknown"), "unknown");
++  });
++});
+diff --git a/tests/matrix.test.ts b/tests/matrix.test.ts
+new file mode 100644
+index 0000000..d715d53
+--- /dev/null
++++ b/tests/matrix.test.ts
+@@ -0,0 +1,118 @@
++import { test, describe } from "node:test";
++import assert from "node:assert/strict";
++import { cities } from "@/data/areas";
++import { matrixPages, matrixServices, getMatrixPage, MATRIX_COUNT } from "@/data/matrix";
++import { cityMult } from "@/data/estimate";
++
++/**
++ * The matrix is 84 generated pages. Generated pages are exactly where thin,
++ * duplicated, or nonsensical content creeps in without anyone noticing, so the
++ * properties that keep them legitimate are asserted rather than assumed.
++ */
++
++describe("matrix generation", () => {
++  test("builds exactly one page per service per city", () => {
++    assert.equal(matrixPages.length, MATRIX_COUNT);
++    assert.equal(matrixPages.length, matrixServices.length * cities.length);
++  });
++
++  test("every path is unique", () => {
++    const paths = new Set(matrixPages.map((p) => p.path));
++    assert.equal(paths.size, matrixPages.length);
++  });
++
++  test("every title is unique — no two pages compete for one query", () => {
++    const titles = new Set(matrixPages.map((p) => p.title));
++    assert.equal(titles.size, matrixPages.length);
++  });
++
++  test("every description is unique", () => {
++    const descriptions = new Set(matrixPages.map((p) => p.description));
++    assert.equal(descriptions.size, matrixPages.length);
++  });
++
++  test("titles and descriptions fit in a search result", () => {
++    for (const p of matrixPages) {
++      // " | Green Hardwood" is appended by the metadata template.
++      assert.ok(
++        p.title.length + " | Green Hardwood".length <= 70,
++        `${p.path} title too long: ${p.title}`,
++      );
++      assert.ok(p.description.length <= 165, `${p.path} description too long`);
++    }
++  });
++
++  test("custom-inlays is deliberately excluded from the matrix", () => {
++    assert.ok(
++      !matrixServices.includes("custom-inlays" as never),
++      "an inlay is specified per project, not per municipality",
++    );
++    assert.equal(getMatrixPage("custom-inlays", "toronto"), undefined);
++  });
++});
++
++describe("local price bands", () => {
++  test("low is always below high, and both are positive", () => {
++    for (const p of matrixPages) {
++      assert.ok(p.band.low > 0, `${p.path} has a non-positive low`);
++      assert.ok(p.band.high > p.band.low, `${p.path} band is inverted`);
++    }
++  });
++
++  test("the same job costs different amounts in different cities", () => {
++    // If this collapses to one value, the city multiplier has stopped applying
++    // and every city page is quoting the same number — the definition of thin.
++    const stairs = matrixPages.filter((p) => p.service.slug === "hardwood-stairs");
++    const distinct = new Set(stairs.map((p) => Math.round(p.band.low)));
++    assert.ok(
++      distinct.size > 1,
++      "all city stair prices are identical — cityMult is not being applied",
++    );
++  });
++
++  test("price ordering follows the city multiplier", () => {
++    const stairs = new Map(
++      matrixPages
++        .filter((p) => p.service.slug === "hardwood-stairs")
++        .map((p) => [p.city.slug, p.band.low]),
++    );
++    const toronto = stairs.get("toronto")!;
++    const brampton = stairs.get("brampton")!;
++    assert.ok(cityMult.toronto! > cityMult.brampton!);
++    assert.ok(toronto > brampton, "Toronto should price above Brampton, as cityMult says");
++  });
++
++  test("every city in areas.ts has a price multiplier", () => {
++    for (const c of cities) {
++      assert.ok(cityMult[c.slug], `${c.slug} has no cityMult entry — it would fall back silently`);
++    }
++  });
++});
++
++describe("page content", () => {
++  test("each page names its own city in the H1 and the angle", () => {
++    for (const p of matrixPages) {
++      assert.ok(p.h1.includes(p.city.name), `${p.path} H1 does not name the city`);
++      assert.ok(p.angle.includes(p.city.name), `${p.path} angle is not localised`);
++    }
++  });
++
++  test("each page carries local FAQs that quote its own numbers", () => {
++    for (const p of matrixPages) {
++      assert.ok(p.faqs.length >= 3, `${p.path} has too few FAQs to be useful`);
++      assert.ok(
++        p.faqs.every((f) => f.q.includes(p.city.name)),
++        `${p.path} has a FAQ that is not city-specific`,
++      );
++    }
++  });
++
++  test("keywords include the city name", () => {
++    for (const p of matrixPages) {
++      assert.ok(
++        p.keywords.some((k) => k.toLowerCase().includes(p.city.name.toLowerCase())),
++        `${p.path} has no city keyword`,
++      );
++    }
++  });
++});
+diff --git a/tests/obc.test.ts b/tests/obc.test.ts
+new file mode 100644
+index 0000000..73be761
+--- /dev/null
++++ b/tests/obc.test.ts
+@@ -0,0 +1,88 @@
++import { test, describe } from "node:test";
++import assert from "node:assert/strict";
++import { checkObc, defaultObc, OBC_LIMITS, obcRules } from "@/data/obc";
++
++/**
++ * The stair checker is the site's most load-bearing claim: it tells a homeowner
++ * whether a flight would pass inspection. A wrong threshold here is worse than
++ * no checker at all.
++ */
++
++describe("checkObc", () => {
++  test("the default flight passes", () => {
++    const { pass, checks } = checkObc(defaultObc());
++    assert.equal(pass, true);
++    assert.ok(checks.every((c) => c.ok));
++  });
++
++  test("a rise over the maximum fails", () => {
++    const result = checkObc({ ...defaultObc(), riseMm: OBC_LIMITS.maxRiseMm + 1 });
++    assert.equal(result.pass, false);
++    assert.equal(result.checks.find((c) => c.id === "rise")?.ok, false);
++  });
++
++  test("a rise exactly at the maximum passes — boundaries are inclusive", () => {
++    const result = checkObc({ ...defaultObc(), riseMm: OBC_LIMITS.maxRiseMm });
++    assert.equal(result.checks.find((c) => c.id === "rise")?.ok, true);
++  });
++
++  test("a run below the minimum fails", () => {
++    const result = checkObc({ ...defaultObc(), runMm: OBC_LIMITS.minRunMm - 1 });
++    assert.equal(result.checks.find((c) => c.id === "run")?.ok, false);
++  });
++
++  test("tread depth is run plus nosing, not run alone", () => {
++    const runOnly = OBC_LIMITS.minTreadMm - 10;
++    const result = checkObc({ ...defaultObc(), runMm: runOnly, nosingMm: 20 });
++    assert.equal(result.tread, runOnly + 20);
++    assert.equal(result.checks.find((c) => c.id === "tread")?.ok, true);
++  });
++
++  test("an over-projecting nosing fails — the classic retread mistake", () => {
++    const result = checkObc({ ...defaultObc(), nosingMm: OBC_LIMITS.maxNosingMm + 5 });
++    assert.equal(result.checks.find((c) => c.id === "nosing")?.ok, false);
++  });
++
++  test("a flat cap rail is not graspable", () => {
++    const result = checkObc({ ...defaultObc(), railDiameterMm: 140 });
++    assert.equal(result.checks.find((c) => c.id === "grasp")?.ok, false);
++  });
++
++  test("two risers do not trigger the handrail rule; three do", () => {
++    const noRail = { ...defaultObc(), handrailMm: 0 };
++    assert.equal(
++      checkObc({ ...noRail, risers: OBC_LIMITS.handrailRiserTrigger - 1 }).checks.find(
++        (c) => c.id === "handrail-req",
++      )?.ok,
++      true,
++    );
++    assert.equal(
++      checkObc({ ...noRail, risers: OBC_LIMITS.handrailRiserTrigger }).checks.find(
++        (c) => c.id === "handrail-req",
++      )?.ok,
++      false,
++    );
++  });
++
++  test("a short guard fails", () => {
++    const result = checkObc({ ...defaultObc(), guardMm: OBC_LIMITS.minGuardMm - 1 });
++    assert.equal(result.checks.find((c) => c.id === "guard")?.ok, false);
++  });
++
++  test("every check carries a detail a homeowner can act on", () => {
++    for (const c of checkObc(defaultObc()).checks) {
++      assert.ok(c.detail.length > 20, `${c.id} needs a real explanation`);
++      assert.ok(c.label.length > 0);
++    }
++  });
++});
++
++describe("obcRules", () => {
++  test("the prose quotes the same numbers the checker enforces", () => {
++    const byId = new Map(obcRules.map((r) => [r.id, r.rule]));
++    assert.match(byId.get("rise") ?? "", new RegExp(String(OBC_LIMITS.maxRiseMm)));
++    assert.match(byId.get("run") ?? "", new RegExp(String(OBC_LIMITS.minRunMm)));
++    assert.match(byId.get("tread") ?? "", new RegExp(String(OBC_LIMITS.minTreadMm)));
++    assert.match(byId.get("guard") ?? "", new RegExp(String(OBC_LIMITS.minGuardMm)));
++  });
++});
+diff --git a/tests/search.test.ts b/tests/search.test.ts
+new file mode 100644
+index 0000000..4a76ddb
+--- /dev/null
++++ b/tests/search.test.ts
+@@ -0,0 +1,64 @@
++import { test, describe } from "node:test";
++import assert from "node:assert/strict";
++import { searchSite, searchDocs } from "@/lib/search-index";
++
++describe("site search", () => {
++  test("an empty query returns nothing rather than everything", () => {
++    assert.deepEqual(searchSite(""), []);
++    assert.deepEqual(searchSite("   "), []);
++  });
++
++  test("a service name ranks its own page first", () => {
++    assert.equal(searchSite("hardwood stairs")[0]?.path, "/services/hardwood-stairs");
++  });
++
++  test("a city name finds its area page", () => {
++    const top = searchSite("vaughan")[0];
++    assert.equal(top?.path, "/areas/vaughan");
++  });
++
++  test("all tokens must match — 'stairs vaughan' does not return every stair page", () => {
++    const results = searchSite("stairs vaughan");
++    assert.ok(results.length > 0, "should find something");
++    for (const r of results) {
++      const hay = `${r.title} ${r.description} ${r.keywords.join(" ")}`.toLowerCase();
++      assert.ok(hay.includes("stair"), `${r.title} does not mention stairs`);
++      assert.ok(hay.includes("vaughan"), `${r.title} does not mention Vaughan`);
++    }
++  });
++
++  test("nonsense returns no results instead of noise", () => {
++    assert.deepEqual(searchSite("zzzzqqqq"), []);
++  });
++
++  test("is case-insensitive", () => {
++    assert.deepEqual(
++      searchSite("WHITE OAK").map((d) => d.id),
++      searchSite("white oak").map((d) => d.id),
++    );
++  });
++
++  test("respects the result limit", () => {
++    assert.ok(searchSite("hardwood", 3).length <= 3);
++  });
++
++  test("finds a term only present in keywords, not in visible text", () => {
++    // "lvp" appears only as a keyword on the compare page.
++    assert.ok(searchSite("lvp").some((d) => d.path === "/compare"));
++  });
++});
++
++describe("search index integrity", () => {
++  test("every document has a unique id", () => {
++    const ids = new Set(searchDocs.map((d) => d.id));
++    assert.equal(ids.size, searchDocs.length);
++  });
++
++  test("every document has a title, description and internal path", () => {
++    for (const d of searchDocs) {
++      assert.ok(d.title.length > 0, `${d.id} has no title`);
++      assert.ok(d.description.length > 0, `${d.id} has no description`);
++      assert.ok(d.path.startsWith("/"), `${d.id} path is not internal: ${d.path}`);
++    }
++  });
++});
+diff --git a/tests/seo.test.ts b/tests/seo.test.ts
+new file mode 100644
+index 0000000..79d6cd0
+--- /dev/null
++++ b/tests/seo.test.ts
+@@ -0,0 +1,63 @@
++import { test, describe } from "node:test";
++import assert from "node:assert/strict";
++import { clampDescription, breadcrumbLd, localBusinessLd, personLd } from "@/lib/seo";
++
++describe("clampDescription", () => {
++  test("leaves a short description alone", () => {
++    assert.equal(clampDescription("Short and fine."), "Short and fine.");
++  });
++
++  test("never exceeds the limit", () => {
++    const long = "Hardwood stairs in the Greater Toronto Area. ".repeat(20);
++    assert.ok(clampDescription(long).length <= 156);
++  });
++
++  test("prefers to cut on a sentence boundary", () => {
++    const text = `${"a".repeat(100)}. ${"b".repeat(100)}`;
++    const out = clampDescription(text);
++    assert.ok(out.endsWith("."), "should end on the sentence, not mid-word");
++  });
++
++  test("never cuts mid-word", () => {
++    const out = clampDescription("supercalifragilistic ".repeat(20));
++    assert.ok(!/[a-z]…$/.test(out.replace(/\s+…$/, "…")) || out.endsWith("…"));
++    assert.ok(!out.includes("  "));
++  });
++
++  test("collapses whitespace", () => {
++    assert.equal(clampDescription("a\n\n  b   c"), "a b c");
++  });
++});
++
++describe("structured data", () => {
++  test("breadcrumb positions are 1-indexed and sequential", () => {
++    const ld = breadcrumbLd([
++      { name: "Home", path: "/" },
++      { name: "Services", path: "/services" },
++      { name: "Stairs", path: "/services/hardwood-stairs" },
++    ]);
++    const items = ld.itemListElement;
++    assert.deepEqual(
++      items.map((i) => i.position),
++      [1, 2, 3],
++    );
++  });
++
++  test("the business node and the founder node reference each other", () => {
++    const business = localBusinessLd();
++    const person = personLd();
++    assert.equal(business.founder["@id"], person["@id"]);
++    assert.equal(person.worksFor["@id"], business["@id"]);
++  });
++
++  test("the business declares every service it sells", () => {
++    const offers = localBusinessLd().hasOfferCatalog.itemListElement;
++    assert.ok(offers.length >= 8, "offer catalogue is missing services");
++  });
++
++  test("opening hours exclude the day with no hours", () => {
++    const hours = localBusinessLd().openingHoursSpecification;
++    assert.ok(hours.every((h) => h.opens && h.closes));
++    assert.ok(!hours.some((h) => h.dayOfWeek === "Sunday"), "Sunday is by appointment, not a slot");
++  });
++});
+-- 
+2.43.0
+
