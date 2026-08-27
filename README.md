@@ -56,6 +56,21 @@ public/llms.txt ai.txt      canonical facts for answer engines
 
 `data/services.ts` feeds the service page, the header mega-menu, the footer, the homepage grid, `hasOfferCatalog` in LocalBusiness JSON-LD, and `sitemap.ts`. Adding a service is one object literal, and eight surfaces update together. This is the property that makes programmatic local SEO safe to scale.
 
+## Working on this site
+
+`docs/WORKFLOW.md` is the operating manual: branch, verify, PR, preview, merge.
+Read it before your first change. The short version:
+
+```bash
+git checkout -b feat/thing
+# ...change...
+npm ci && npm run verify     # typecheck, tests, build, site audit
+git push -u origin feat/thing && gh pr create --fill
+```
+
+Never commit to `main` — it deploys to production in about a minute with no
+review and no preview.
+
 ## Local development
 
 ```bash
@@ -63,9 +78,13 @@ npm install
 npm run dev          # http://localhost:3000
 npm run typecheck    # tsc --noEmit
 npm run build        # prerenders every route
-npm run verify       # typecheck + build + audit
+npm test             # 57 unit tests over the pure logic, ~2s
+npm run verify       # typecheck + tests + build + audit
 npm run audit:site   # post-build: links, titles, canonicals, alt text, JSON-LD
 ```
+
+CI (`.github/workflows/ci.yml`) runs the whole of `verify` on every pull request
+and every push to `main`.
 
 ### The audit gate
 

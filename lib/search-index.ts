@@ -20,6 +20,13 @@ export type SearchDoc = {
   title: string;
   description: string;
   path: string;
+  /**
+   * The canonical name of the thing this document *is* — "Vaughan", "Hardwood
+   * Stairs", "White Oak". An exact match here outranks everything else, so
+   * typing a city name reaches that city's page rather than a project that
+   * happens to mention it in its title.
+   */
+  primary: string;
   /** Extra terms that should match but do not need to be displayed. */
   keywords: string[];
 };
@@ -29,6 +36,7 @@ const staticPages: SearchDoc[] = [
     id: "page-stairs",
     kind: "Page",
     title: "Stair studio",
+    primary: "Stair studio",
     description:
       "Build a hardwood flight, price it, and run the Ontario Building Code checks before you call anyone.",
     path: "/stairs",
@@ -38,6 +46,7 @@ const staticPages: SearchDoc[] = [
     id: "page-showroom",
     kind: "Page",
     title: "Species showroom",
+    primary: "Species showroom",
     description:
       "White oak, red oak, walnut, maple, hickory, engineered — grain, Janka, and rooms.",
     path: "/showroom",
@@ -47,6 +56,7 @@ const staticPages: SearchDoc[] = [
     id: "page-estimate",
     kind: "Page",
     title: "2026 estimator",
+    primary: "2026 estimator",
     description: "Price install, refinishing, stairs, railings, repairs, and decks for the GTA.",
     path: "/estimate",
     keywords: ["cost", "price", "quote", "calculator", "how much"],
@@ -55,6 +65,7 @@ const staticPages: SearchDoc[] = [
     id: "page-compare",
     kind: "Page",
     title: "Hardwood vs vinyl vs laminate",
+    primary: "Hardwood vs vinyl vs laminate",
     description: "When oak is the only grown-up answer, and the few times it is not.",
     path: "/compare",
     keywords: ["lvp", "vinyl plank", "laminate", "engineered", "comparison"],
@@ -63,6 +74,7 @@ const staticPages: SearchDoc[] = [
     id: "page-process",
     kind: "Page",
     title: "How a hardwood job runs",
+    primary: "How a hardwood job runs",
     description: "Site visit, moisture, acclimation, install, sanding, finish, cure.",
     path: "/process",
     keywords: ["timeline", "steps", "what to expect", "acclimation", "cure"],
@@ -71,6 +83,7 @@ const staticPages: SearchDoc[] = [
     id: "page-care",
     kind: "Page",
     title: "Hardwood floor care in Ontario",
+    primary: "Hardwood floor care in Ontario",
     description: "Humidity, cleaners, felt pads, and the winter salt problem.",
     path: "/care",
     keywords: ["maintenance", "cleaning", "humidifier", "scratches", "salt"],
@@ -79,6 +92,7 @@ const staticPages: SearchDoc[] = [
     id: "page-emergency",
     kind: "Page",
     title: "Water-damaged hardwood",
+    primary: "Water-damaged hardwood",
     description: "Cupping, crowning, and what insurance will actually close.",
     path: "/emergency",
     keywords: ["flood", "leak", "insurance", "cupping", "buckling", "emergency"],
@@ -87,6 +101,7 @@ const staticPages: SearchDoc[] = [
     id: "page-warranty",
     kind: "Page",
     title: "Workmanship warranty",
+    primary: "Workmanship warranty",
     description: "What our three-year warranty covers, and what it does not.",
     path: "/warranty",
     keywords: ["guarantee", "warranty", "coverage", "callback"],
@@ -95,6 +110,7 @@ const staticPages: SearchDoc[] = [
     id: "page-trade",
     kind: "Page",
     title: "For builders, designers & realtors",
+    primary: "For builders, designers & realtors",
     description: "Trade pricing, schedules, and spec support.",
     path: "/trade",
     keywords: ["contractor", "builder", "designer", "realtor", "trade", "wholesale"],
@@ -103,6 +119,7 @@ const staticPages: SearchDoc[] = [
     id: "page-portfolio",
     kind: "Page",
     title: "Work",
+    primary: "Work",
     description: "Floors, stairs, and railings completed across the GTA.",
     path: "/portfolio",
     keywords: ["gallery", "projects", "before after", "photos"],
@@ -111,6 +128,7 @@ const staticPages: SearchDoc[] = [
     id: "page-about",
     kind: "Page",
     title: "About Franco Giacinto",
+    primary: "About Franco Giacinto",
     description: "The founder, the shop, and how Green Hardwood works.",
     path: "/about",
     keywords: ["franco giacinto", "oller grimaldi", "founder", "team", "who we are"],
@@ -119,6 +137,7 @@ const staticPages: SearchDoc[] = [
     id: "page-contact",
     kind: "Page",
     title: "Contact",
+    primary: "Contact",
     description: "Phone, email, the Sterling Road studio, and a site-visit request.",
     path: "/contact",
     keywords: ["phone", "email", "address", "hours", "book", "call"],
@@ -127,6 +146,7 @@ const staticPages: SearchDoc[] = [
     id: "page-faq",
     kind: "Page",
     title: "Hardwood FAQ",
+    primary: "Hardwood FAQ",
     description: "The questions Toronto homeowners actually ask.",
     path: "/faq",
     keywords: ["questions", "answers", "help"],
@@ -140,6 +160,7 @@ export const searchDocs: SearchDoc[] = [
     title: s.name,
     description: s.summary,
     path: `/services/${s.slug}`,
+    primary: s.name,
     keywords: [...s.keywords, s.shortName, s.eyebrow, s.priceFrom],
   })),
   ...cities.map<SearchDoc>((c) => ({
@@ -148,6 +169,7 @@ export const searchDocs: SearchDoc[] = [
     title: `Hardwood flooring in ${c.name}`,
     description: c.blurb,
     path: `/areas/${c.slug}`,
+    primary: c.name,
     keywords: [c.name, c.region, ...c.jobs],
   })),
   ...guides.map<SearchDoc>((g) => ({
@@ -156,6 +178,7 @@ export const searchDocs: SearchDoc[] = [
     title: g.title,
     description: g.description,
     path: `/guides/${g.slug}`,
+    primary: g.title,
     keywords: [g.kicker],
   })),
   ...projects.map<SearchDoc>((p) => ({
@@ -164,6 +187,7 @@ export const searchDocs: SearchDoc[] = [
     title: p.title,
     description: p.summary,
     path: "/portfolio",
+    primary: p.title,
     keywords: [p.location, p.type, ...p.specs],
   })),
   ...species.map<SearchDoc>((sp) => ({
@@ -172,6 +196,7 @@ export const searchDocs: SearchDoc[] = [
     title: sp.name,
     description: sp.bestFor,
     path: "/showroom",
+    primary: sp.name,
     keywords: [sp.hardness, sp.tone, ...sp.rooms],
   })),
   ...faqs.map<SearchDoc>((f, i) => ({
@@ -180,6 +205,7 @@ export const searchDocs: SearchDoc[] = [
     title: f.q,
     description: f.a,
     path: "/faq",
+    primary: f.q,
     keywords: [],
   })),
   ...staticPages,
@@ -189,7 +215,7 @@ export const searchDocs: SearchDoc[] = [
 const haystacks = new Map(
   searchDocs.map((d) => [
     d.id,
-    `${d.title} ${d.description} ${d.keywords.join(" ")}`.toLowerCase(),
+    `${d.primary} ${d.title} ${d.description} ${d.keywords.join(" ")}`.toLowerCase(),
   ]),
 );
 
@@ -216,6 +242,7 @@ export function searchSite(query: string, limit = 8): SearchDoc[] {
   for (const doc of searchDocs) {
     const hay = haystacks.get(doc.id) ?? "";
     const title = doc.title.toLowerCase();
+    const primary = doc.primary.toLowerCase();
     let score = 0;
     let matchedAll = true;
 
@@ -224,7 +251,11 @@ export function searchSite(query: string, limit = 8): SearchDoc[] {
         matchedAll = false;
         break;
       }
-      if (title.startsWith(token)) score += 12;
+      // The name of the thing beats a mention of the thing. Typing "vaughan"
+      // should reach the Vaughan page, not a project that starts with the word.
+      if (primary === token) score += 40;
+      else if (primary.startsWith(token)) score += 24;
+      else if (title.startsWith(token)) score += 12;
       else if (title.includes(token)) score += 8;
       else score += 2;
     }
