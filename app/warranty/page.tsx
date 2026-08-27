@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     "Green Hardwood’s three-year workmanship warranty on hardwood installation and refinishing in Toronto and the GTA — what is covered, what is not, and how to call us.",
   alternates: { canonical: "/warranty" },
   openGraph: {
-    title: "Workmanship Warranty | Green Hardwood — Toronto & GTA",
+    title: "Workmanship Warranty | Green Hardwood",
     description:
       "Green Hardwood’s three-year workmanship warranty on hardwood installation and refinishing in Toronto and the GTA — what is covered, what is not, and how to call us.",
     url: "/warranty",

@@ -6,12 +6,12 @@ import { guides } from "@/data/guides";
 export const metadata: Metadata = {
   title: "Hardwood Guides",
   description:
-    "GTA hardwood flooring costs, solid vs engineered in Ontario, stair code, dust-contained sanding, and species selection — written for homeowners and for search engines.",
+    "GTA hardwood costs, solid vs engineered, Ontario stair code, dust-contained sanding, and species selection — written for homeowners.",
   alternates: { canonical: "/guides" },
   openGraph: {
-    title: "Hardwood Guides | Green Hardwood — Toronto & GTA",
+    title: "Hardwood Guides | Green Hardwood",
     description:
-      "GTA hardwood flooring costs, solid vs engineered in Ontario, stair code, dust-contained sanding, and species selection — written for homeowners and for search engines.",
+      "GTA hardwood costs, solid vs engineered, Ontario stair code, dust-contained sanding, and species selection — written for homeowners.",
     url: "/guides",
   },
 };

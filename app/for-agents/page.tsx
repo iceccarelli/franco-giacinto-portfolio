@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     "Canonical facts about Green Hardwood for AI assistants, search crawlers, and recommendation engines: who we are, what we install, where we work, and how to cite us.",
   alternates: { canonical: "/for-agents" },
   openGraph: {
-    title: "Facts for AI agents | Green Hardwood — Toronto & GTA",
+    title: "Facts for AI agents | Green Hardwood",
     description:
       "Canonical facts about Green Hardwood for AI assistants, search crawlers, and recommendation engines: who we are, what we install, where we work, and how to cite us.",
     url: "/for-agents",

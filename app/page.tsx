@@ -24,13 +24,17 @@ import { services } from "@/data/services";
 import { testimonials } from "@/data/testimonials";
 import { faqLd, howToStairLd } from "@/lib/seo";
 
+const homeDescription =
+  "Hardwood floor installation, custom stairs, railings, dust-free sanding and refinishing across Toronto and the GTA. Free on-site estimates.";
+
 export const metadata: Metadata = {
-  description:
-    "Green Hardwood is Toronto's hardwood flooring company for installation, custom stairs, railings, dust-free sanding, refinishing, repairs, and decks across the GTA. Free site estimates.",
+  // Title comes from the root layout's `default`, so the homepage keeps the
+  // brand-plus-primary-keyword form without the "%s | " template applied.
+  description: homeDescription,
   alternates: { canonical: "/" },
   openGraph: {
-    description:
-      "Green Hardwood is Toronto's hardwood flooring company for installation, custom stairs, railings, dust-free sanding, refinishing, repairs, and decks across the GTA. Free site estimates.",
+    title: "Hardwood Flooring & Stairs Toronto | Green Hardwood",
+    description: homeDescription,
     url: "/",
   },
 };

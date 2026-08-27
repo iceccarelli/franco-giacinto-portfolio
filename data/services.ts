@@ -1,6 +1,13 @@
 export type Service = {
   slug: string;
+  /** Display name, used in headings and body copy. */
   name: string;
+  /**
+   * Keyword-first short form for <title> tags and service x city pages, where
+   * the full display name would overflow the ~60 character SERP limit.
+   * Defaults to `name` via `seoNameOf()`.
+   */
+  seoName?: string;
   shortName: string;
   navLabel: string;
   eyebrow: string;
@@ -147,6 +154,7 @@ export const services: Service[] = [
   {
     slug: "sanding-refinishing",
     name: "Hardwood Sanding, Finishing & Refinishing",
+    seoName: "Hardwood Refinishing",
     shortName: "Sanding & Refinishing",
     navLabel: "Refinishing",
     eyebrow: "Dust-contained sanding · Stain · Bona / Loba finish",
@@ -189,6 +197,7 @@ export const services: Service[] = [
   {
     slug: "hardwood-repairs",
     name: "Hardwood Repairs & Restoration",
+    seoName: "Hardwood Floor Repair",
     shortName: "Repairs",
     navLabel: "Repairs",
     eyebrow: "Water · Pets · Gaps · Board replacement",
@@ -261,6 +270,7 @@ export const services: Service[] = [
   {
     slug: "custom-inlays",
     name: "Custom Inlays & Patterns",
+    seoName: "Hardwood Inlays",
     shortName: "Inlays",
     navLabel: "Inlays",
     eyebrow: "Medallions · Herringbone · Borders · Crests",
@@ -322,4 +332,9 @@ export const services: Service[] = [
 
 export function getService(slug: string) {
   return services.find((s) => s.slug === slug);
+}
+
+/** The name to use in a <title>. Falls back to the display name. */
+export function seoNameOf(service: Service) {
+  return service.seoName ?? service.name;
 }

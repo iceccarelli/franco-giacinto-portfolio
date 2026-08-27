@@ -6,12 +6,12 @@ import { cities } from "@/data/areas";
 export const metadata: Metadata = {
   title: "Hardwood Flooring Service Areas",
   description:
-    "Green Hardwood installs hardwood floors, stairs, and railings across Toronto, Mississauga, Oakville, Vaughan, Markham, and the GTA.",
+    "Hardwood floors, stairs, and railings across Toronto, Mississauga, Oakville, Vaughan, Markham, and the rest of the GTA.",
   alternates: { canonical: "/areas" },
   openGraph: {
-    title: "Hardwood Flooring Service Areas | Green Hardwood — Toronto & GTA",
+    title: "Hardwood Flooring Service Areas | Green Hardwood",
     description:
-      "Green Hardwood installs hardwood floors, stairs, and railings across Toronto, Mississauga, Oakville, Vaughan, Markham, and the GTA.",
+      "Hardwood floors, stairs, and railings across Toronto, Mississauga, Oakville, Vaughan, Markham, and the rest of the GTA.",
     url: "/areas",
   },
 };

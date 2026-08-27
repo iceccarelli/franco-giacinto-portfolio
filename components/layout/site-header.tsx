@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Menu, Phone } from "lucide-react";
 import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { SiteSearch } from "@/components/search/site-search";
 import { company } from "@/data/company";
 import { services } from "@/data/services";
 
@@ -62,6 +64,11 @@ const mobile: { label: string; href: string }[] = [
 
 export function SiteHeader() {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+
+  /** Marks the section you are in, for both sighted users and screen readers. */
+  const isActive = (href: string) =>
+    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/80 bg-bg/90 backdrop-blur-md">
@@ -72,7 +79,10 @@ export function SiteHeader() {
           <div className="group relative">
             <Link
               href="/services"
-              className="inline-flex h-11 items-center rounded-md px-3 text-sm font-medium text-fg/80 transition-colors hover:bg-bg-warm hover:text-fg"
+              aria-current={isActive("/services") ? "page" : undefined}
+              className={`inline-flex h-11 items-center rounded-md px-3 text-sm font-medium transition-colors hover:bg-bg-warm hover:text-fg ${
+                isActive("/services") ? "bg-bg-warm text-fg" : "text-fg/80"
+              }`}
             >
               Services
             </Link>
@@ -103,7 +113,10 @@ export function SiteHeader() {
             <Link
               key={item.href}
               href={item.href}
-              className="rounded-md px-3 py-2 text-sm font-medium text-fg/80 transition-colors hover:bg-bg-warm hover:text-fg"
+              aria-current={isActive(item.href) ? "page" : undefined}
+              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-bg-warm hover:text-fg ${
+                isActive(item.href) ? "bg-bg-warm text-fg" : "text-fg/80"
+              }`}
             >
               {item.label}
             </Link>
@@ -111,6 +124,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden items-center gap-2 md:flex">
+          <SiteSearch />
           <a
             href={`tel:${company.phone}`}
             className="inline-flex h-11 items-center gap-2 px-2 text-sm font-medium text-primary"
@@ -122,6 +136,8 @@ export function SiteHeader() {
             <Link href="/estimate">Free estimate</Link>
           </Button>
         </div>
+
+        <SiteSearch className="inline-flex size-11 items-center justify-center rounded-md border border-border bg-surface text-muted transition-colors hover:bg-bg-warm hover:text-fg focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none md:hidden" />
 
         <Sheet open={open} onOpenChange={setOpen}>
           <SheetTrigger asChild>
@@ -137,7 +153,10 @@ export function SiteHeader() {
                   key={item.href}
                   href={item.href}
                   onClick={() => setOpen(false)}
-                  className="rounded-md px-3 py-3 text-base font-medium hover:bg-bg-warm"
+                  aria-current={isActive(item.href) ? "page" : undefined}
+                  className={`rounded-md px-3 py-3 text-base font-medium hover:bg-bg-warm ${
+                    isActive(item.href) ? "bg-bg-warm" : ""
+                  }`}
                 >
                   {item.label}
                 </Link>

@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     "Green Hardwood’s four-phase process for GTA hardwood floors, stairs, and railings: measure, specify, install as millwork, hand over a floor you can live on.",
   alternates: { canonical: "/process" },
   openGraph: {
-    title: "How a Hardwood Job Runs | Green Hardwood — Toronto & GTA",
+    title: "How a Hardwood Job Runs | Green Hardwood",
     description:
       "Green Hardwood’s four-phase process for GTA hardwood floors, stairs, and railings: measure, specify, install as millwork, hand over a floor you can live on.",
     url: "/process",

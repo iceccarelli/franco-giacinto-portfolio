@@ -7,12 +7,12 @@ import { projects } from "@/data/projects";
 import { breadcrumbLd } from "@/lib/seo";
 
 export const metadata: Metadata = {
-  title: "Stair Studio — Design Hardwood Stairs & Check Ontario Code",
+  title: "Hardwood Stair Studio & Ontario Code Checker",
   description:
-    "Custom hardwood stairs in Toronto and the GTA: oak treads over carpet, box stairs, walnut feature flights, and railings that pass Ontario Building Code. Build a flight in the stair studio.",
+    "Design a hardwood flight, price it, and check it against Ontario stair code. Oak treads over carpet, box stairs, and walnut features across the GTA.",
   alternates: { canonical: "/stairs" },
   openGraph: {
-    title: "Stair Studio — Design Hardwood Stairs & Check Ontario Code | Green Hardwood",
+    title: "Hardwood Stair Studio & Ontario Code Checker | Green Hardwood",
     description:
       "Custom hardwood stairs in Toronto and the GTA: oak treads over carpet, box stairs, walnut feature flights, and railings that pass Ontario Building Code. Build a flight in the stair studio.",
     url: "/stairs",

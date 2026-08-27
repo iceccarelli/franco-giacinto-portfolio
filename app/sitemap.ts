@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { cities } from "@/data/areas";
 import { company } from "@/data/company";
 import { guides } from "@/data/guides";
+import { matrixPages } from "@/data/matrix";
 import { services } from "@/data/services";
 
 const BASE = company.website;
@@ -34,6 +35,7 @@ const staticRoutes: {
   { path: "/about", priority: 0.6, changeFrequency: "yearly" },
   { path: "/contact", priority: 0.7, changeFrequency: "yearly" },
   { path: "/for-agents", priority: 0.5, changeFrequency: "monthly" },
+  { path: "/llms-full.txt", priority: 0.4, changeFrequency: "weekly" },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -64,6 +66,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified,
       changeFrequency: "monthly" as const,
       priority: 0.65,
+    })),
+    // Service × city. These sit just below their parent service page: they are
+    // the long-tail capture layer, not the canonical description of the service.
+    ...matrixPages.map((p) => ({
+      url: `${BASE}${p.path}`,
+      lastModified,
+      changeFrequency: "monthly" as const,
+      priority: p.service.slug === "hardwood-stairs" ? 0.8 : 0.7,
+      images: [`${BASE}${p.service.image}`],
     })),
   ];
 }

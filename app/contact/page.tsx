@@ -6,9 +6,13 @@ import { company } from "@/data/company";
 
 export const metadata: Metadata = {
   title: "Contact",
+  description:
+    "Call Green Hardwood at (416) 847-3366 or book a free hardwood, stair, or railing site visit. Sterling Road studio, Toronto. Serving the whole GTA.",
   alternates: { canonical: "/contact" },
   openGraph: {
-    title: "Contact | Green Hardwood — Toronto & GTA",
+    title: "Contact | Green Hardwood",
+    description:
+      "Call Green Hardwood at (416) 847-3366 or book a free hardwood, stair, or railing site visit in the Greater Toronto Area.",
     url: "/contact",
   },
 };

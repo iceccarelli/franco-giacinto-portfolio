@@ -8,12 +8,12 @@ import { breadcrumbLd } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "Hardwood Species Showroom",
   description:
-    "Interactive hardwood showroom for Toronto and the GTA: white oak, red oak, walnut, maple, hickory, and engineered oak — grain, Janka hardness, pattern, and finish.",
+    "White oak, red oak, walnut, maple, hickory, and engineered oak — grain, Janka hardness, pattern, and finish, for GTA homes.",
   alternates: { canonical: "/showroom" },
   openGraph: {
-    title: "Hardwood Species Showroom | Green Hardwood — Toronto & GTA",
+    title: "Hardwood Species Showroom | Green Hardwood",
     description:
-      "Interactive hardwood showroom for Toronto and the GTA: white oak, red oak, walnut, maple, hickory, and engineered oak — grain, Janka hardness, pattern, and finish.",
+      "White oak, red oak, walnut, maple, hickory, and engineered oak — grain, Janka hardness, pattern, and finish, for GTA homes.",
     url: "/showroom",
   },
 };

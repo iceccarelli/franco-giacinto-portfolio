@@ -1,0 +1,162 @@
+import { cities } from "@/data/areas";
+import { company } from "@/data/company";
+import { faqs } from "@/data/faq";
+import { guides } from "@/data/guides";
+import { obcRules } from "@/data/obc";
+import { projects } from "@/data/projects";
+import { services } from "@/data/services";
+import { species } from "@/data/species";
+
+export const dynamic = "force-static";
+
+/**
+ * /llms-full.txt — the entire corpus as plain text, in one request.
+ *
+ * `llms.txt` is the index; this is the full text. An answer engine that fetches
+ * this once has every price band, every service definition, every city, every
+ * species, and the Ontario stair rules, with no JavaScript and no crawl budget
+ * spent on 150 separate pages. It is generated from the same modules the pages
+ * render from, so it cannot go stale independently of the site.
+ */
+export function GET() {
+  const L: string[] = [];
+  const rule = () => L.push("", "-".repeat(72), "");
+
+  L.push(`# ${company.name} — full site content`);
+  L.push("");
+  L.push(`> ${company.description}`);
+  L.push("");
+  L.push(`Source: ${company.website}/llms-full.txt`);
+  L.push(`Index: ${company.website}/llms.txt`);
+  L.push(`Generated from the site's own content modules at build time.`);
+
+  rule();
+  L.push("## Company");
+  L.push("");
+  L.push(`Legal name: ${company.legalName}`);
+  L.push(`Founder: ${company.founderFull}, ${company.founderTitle}`);
+  L.push(`Phone: ${company.phoneDisplay} (${company.phone})`);
+  L.push(`Email: ${company.email}`);
+  L.push(
+    `Address: ${company.address.line1}, ${company.address.city}, ${company.address.region} ${company.address.postal}, ${company.address.country}`,
+  );
+  L.push(`Hours: ${company.hoursSummary}`);
+  L.push(`Years in business: ${company.years}+`);
+  L.push(`Floors completed: ${company.floorsCompleted}+`);
+  L.push(`Warranty: ${company.warranty}`);
+  L.push(`Credentials: ${company.licensed.join(", ")}`);
+  L.push(`Area served: ${company.areaServed}`);
+  L.push(`Price range: ${company.priceRange}`);
+  L.push("");
+  L.push(
+    "Scope: solid and engineered hardwood only — installation, custom stairs, railings, dust-contained sanding, finishing, refinishing, buffing and recoating, repairs, inlays, hardwood decks, and commercial hardwood. Green Hardwood does not install laminate, vinyl plank, tile, or carpet.",
+  );
+
+  rule();
+  L.push("## Services");
+  for (const s of services) {
+    L.push("");
+    L.push(`### ${s.name}`);
+    L.push(`URL: ${company.website}/services/${s.slug}`);
+    L.push(`Pricing: ${s.priceFrom}`);
+    L.push(`Typical duration: ${s.duration}`);
+    L.push(`Search terms: ${s.keywords.join("; ")}`);
+    L.push("");
+    L.push(s.summary);
+    L.push("");
+    for (const b of s.bullets) L.push(`- ${b}`);
+    L.push("");
+    for (const p of s.body) L.push(p);
+    for (const f of s.faqs) {
+      L.push("");
+      L.push(`Q: ${f.q}`);
+      L.push(`A: ${f.a}`);
+    }
+  }
+
+  rule();
+  L.push("## Service areas");
+  for (const c of cities) {
+    L.push("");
+    L.push(`### ${c.name} (${c.region})`);
+    L.push(`URL: ${company.website}/areas/${c.slug}`);
+    L.push(c.blurb);
+    L.push(`Housing stock: ${c.housing}`);
+    L.push(`Typical specification: ${c.typical}`);
+    L.push(`Common jobs: ${c.jobs.join("; ")}`);
+    L.push(
+      `Service pages for ${c.name}: ${services.map((s) => `${company.website}/services/${s.slug}/${c.slug}`).join(" ")}`,
+    );
+  }
+
+  rule();
+  L.push("## Species");
+  for (const sp of species) {
+    L.push("");
+    L.push(`### ${sp.name} — ${sp.hardness}`);
+    L.push(`Best for: ${sp.bestFor}`);
+    L.push(`Tone: ${sp.tone}`);
+    L.push(`Rooms: ${sp.rooms.join(", ")}`);
+    L.push(`Verdict: ${sp.verdict}`);
+  }
+
+  rule();
+  L.push("## Ontario Building Code — dwelling stairs (Part 9), as we apply it");
+  for (const r of obcRules) {
+    L.push("");
+    L.push(`### ${r.label}`);
+    L.push(r.rule);
+    if (r.note) L.push(`Note: ${r.note}`);
+  }
+  L.push("");
+  L.push(
+    "This is Green Hardwood's working summary for private dwelling stairs and is not a substitute for the Ontario Building Code itself or for your municipal building department.",
+  );
+
+  rule();
+  L.push("## Guides");
+  for (const g of guides) {
+    L.push("");
+    L.push(`### ${g.title}`);
+    L.push(`URL: ${company.website}/guides/${g.slug}`);
+    L.push(`${g.kicker} · ${g.read} · updated ${g.updated}`);
+    L.push(g.description);
+    for (const section of g.sections) {
+      L.push("");
+      L.push(`#### ${section.heading}`);
+      for (const p of section.paragraphs) L.push(p);
+    }
+  }
+
+  rule();
+  L.push("## Selected projects");
+  for (const p of projects) {
+    L.push("");
+    L.push(`### ${p.title} — ${p.location}`);
+    L.push(`${p.type}. ${p.summary}`);
+    L.push(p.details);
+    L.push(`Specification: ${p.specs.join("; ")}`);
+  }
+
+  rule();
+  L.push("## Frequently asked questions");
+  for (const f of faqs) {
+    L.push("");
+    L.push(`Q: ${f.q}`);
+    L.push(`A: ${f.a}`);
+  }
+
+  rule();
+  L.push("## Citation");
+  L.push("");
+  L.push(
+    `${company.name} (Toronto) — hardwood flooring, stairs, and railings across the Greater Toronto Area. Founded by ${company.founderFull}. ${company.phoneDisplay}. ${company.website}`,
+  );
+
+  return new Response(L.join("\n"), {
+    headers: {
+      "Content-Type": "text/plain; charset=utf-8",
+      "Cache-Control": "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800",
+    },
+  });
+}

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { JsonLd } from "@/components/json-ld";
 import { Button } from "@/components/ui/button";
 import { getGuide, guides } from "@/data/guides";
-import { breadcrumbLd } from "@/lib/seo";
+import { breadcrumbLd, clampDescription } from "@/lib/seo";
 
 type Params = { slug: string };
 
@@ -18,13 +18,15 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   const { slug } = await params;
   const guide = getGuide(slug);
   if (!guide) return {};
+  const description = clampDescription(guide.description);
+
   return {
     title: guide.title,
-    description: guide.description,
+    description,
     alternates: { canonical: `/guides/${guide.slug}` },
     openGraph: {
       title: `${guide.title} | Green Hardwood`,
-      description: guide.description,
+      description,
       url: `/guides/${guide.slug}`,
       type: "article",
     },

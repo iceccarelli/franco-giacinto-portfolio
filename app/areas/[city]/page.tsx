@@ -12,8 +12,9 @@ import {
 } from "@/components/ui/accordion";
 import { cities, getCity } from "@/data/areas";
 import { projects } from "@/data/projects";
-import { services } from "@/data/services";
-import { breadcrumbLd, faqLd } from "@/lib/seo";
+import { breadcrumbLd, clampDescription, faqLd, webPageLd } from "@/lib/seo";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { matrixForCity } from "@/data/matrix";
 
 type Params = { city: string };
 
@@ -28,7 +29,9 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   const city = getCity(slug);
   if (!city) return {};
   const title = `Hardwood Flooring, Stairs & Railings in ${city.name}`;
-  const description = `Green Hardwood installs and refinishes hardwood floors, custom stairs, and railings in ${city.name}. ${city.blurb}`;
+  const description = clampDescription(
+    `Hardwood floors, custom stairs, and railings in ${city.name}. ${city.blurb}`,
+  );
   return {
     title,
     description,
@@ -53,6 +56,12 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
   const city = getCity(slug);
   if (!city) notFound();
   const localProjects = projects.filter((p) => p.citySlug === city.slug);
+  const servicePages = matrixForCity(city.slug);
+  const crumbs = [
+    { name: "Home", path: "/" },
+    { name: "Areas", path: "/areas" },
+    { name: city.name, path: `/areas/${city.slug}` },
+  ];
   const cityFaqs = [
     {
       q: `How much does hardwood flooring cost in ${city.name}?`,
@@ -70,12 +79,13 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
 
   return (
     <>
+      <JsonLd data={breadcrumbLd(crumbs)} />
       <JsonLd
-        data={breadcrumbLd([
-          { name: "Home", path: "/" },
-          { name: "Areas", path: "/areas" },
-          { name: city.name, path: `/areas/${city.slug}` },
-        ])}
+        data={webPageLd({
+          name: `Hardwood Flooring, Stairs & Railings in ${city.name}`,
+          description: city.blurb,
+          path: `/areas/${city.slug}`,
+        })}
       />
       <JsonLd
         data={{
@@ -89,7 +99,10 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
       />
       <JsonLd data={faqLd(cityFaqs)} />
       <section className="border-b border-border bg-bg-warm">
-        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <Breadcrumbs items={crumbs} className="pt-4" />
+        </div>
+        <div className="mx-auto max-w-6xl px-4 pb-12 sm:px-6">
           <p className="text-xs tracking-[0.18em] text-accent uppercase">
             {city.region} · Green Hardwood
           </p>
@@ -116,10 +129,10 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
           </ul>
           <h2 className="font-display text-3xl">Services in {city.name}</h2>
           <ul className="grid gap-2 sm:grid-cols-2">
-            {services.slice(0, 6).map((s) => (
-              <li key={s.slug}>
-                <Link href={`/services/${s.slug}`} className="text-primary hover:underline">
-                  {s.name} in {city.name}
+            {servicePages.map((p) => (
+              <li key={p.path}>
+                <Link href={p.path} className="text-primary hover:underline">
+                  {p.service.name} in {city.name}
                 </Link>
               </li>
             ))}

@@ -4,6 +4,24 @@ import { faqs } from "@/data/faq";
 import { services } from "@/data/services";
 import { testimonials } from "@/data/testimonials";
 
+/**
+ * Trims a description to a length search engines will actually display, cutting
+ * on a sentence or word boundary rather than mid-word. Applied wherever a
+ * description is composed from data, so generated pages cannot drift past the
+ * limit as content is edited.
+ */
+export function clampDescription(text: string, max = 155) {
+  const clean = text.replace(/\s+/g, " ").trim();
+  if (clean.length <= max) return clean;
+
+  const window = clean.slice(0, max + 1);
+  const sentenceEnd = Math.max(window.lastIndexOf(". "), window.lastIndexOf("? "));
+  if (sentenceEnd > max * 0.6) return clean.slice(0, sentenceEnd + 1);
+
+  const wordEnd = window.lastIndexOf(" ");
+  return `${clean.slice(0, wordEnd > 0 ? wordEnd : max).replace(/[,;:—-]$/, "")}…`;
+}
+
 export function pageTitle(title?: string) {
   return title
     ? `${title} | Green Hardwood — Toronto & GTA`
@@ -14,6 +32,7 @@ export function websiteLd() {
   return {
     "@context": "https://schema.org",
     "@type": "WebSite",
+    "@id": `${company.website}/#website`,
     name: company.name,
     url: company.website,
     inLanguage: "en-CA",
@@ -72,17 +91,25 @@ export function localBusinessLd() {
     name: company.name,
     legalName: company.legalName,
     url: company.website,
-    image: `${company.website}/og.jpg`,
-    logo: `${company.website}/favicon.svg`,
+    image: {
+      "@type": "ImageObject",
+      url: `${company.website}/og.jpg`,
+      width: 1200,
+      height: 630,
+      caption:
+        "Green Hardwood — hardwood flooring, stairs, and railings in the Greater Toronto Area",
+    },
+    logo: {
+      "@type": "ImageObject",
+      url: `${company.website}/favicon.svg`,
+      caption: "Green Hardwood",
+    },
     telephone: company.phone,
     email: company.email,
     priceRange: company.priceRange,
     foundingDate: "2011",
-    founder: {
-      "@type": "Person",
-      name: company.founderFull,
-      jobTitle: company.founderTitle,
-    },
+    founder: { "@id": `${company.website}/about#franco` },
+    employee: { "@id": `${company.website}/about#franco` },
     address: {
       "@type": "PostalAddress",
       streetAddress: company.address.line1,
@@ -197,5 +224,113 @@ export function serviceLd(service: { name: string; summary: string; slug: string
       name: "Greater Toronto Area",
     },
     serviceType: service.name,
+  };
+}
+
+/* ---------------------------------------------------------------------------
+   Entity and page-level graph nodes.
+
+   Search and answer engines resolve a business by cross-referencing entities,
+   not by reading marketing copy. Every node below is addressable by @id so the
+   graph is connected rather than a pile of disconnected snippets.
+--------------------------------------------------------------------------- */
+
+export function personLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "@id": `${company.website}/about#franco`,
+    name: company.founderFull,
+    alternateName: company.founder,
+    jobTitle: company.founderTitle,
+    description: `Master hardwood craftsman and founder of ${company.name}. ${company.years}+ years installing, sanding, finishing, and rebuilding hardwood floors, stairs, and railings across Toronto and the Greater Toronto Area.`,
+    image: {
+      "@type": "ImageObject",
+      url: `${company.website}/images/franco-giacinto-oller-grimaldi.jpg`,
+      width: 800,
+      height: 1000,
+      caption: `${company.founderFull}, ${company.founderTitle} at ${company.name}`,
+    },
+    worksFor: { "@id": `${company.website}/#business` },
+    founderOf: { "@id": `${company.website}/#business` },
+    knowsAbout: [
+      "Hardwood floor installation",
+      "Custom hardwood stairs",
+      "Hardwood railings and handrails",
+      "Dust-contained sanding",
+      "Hardwood finishing and refinishing",
+      "Ontario Building Code Part 9 stairs",
+      "NWFA installation guidelines",
+      "Wood moisture and acclimation",
+    ],
+    hasCredential: company.licensed.map((c) => ({
+      "@type": "EducationalOccupationalCredential",
+      name: c,
+    })),
+    areaServed: company.areaServed,
+    url: `${company.website}/about`,
+  };
+}
+
+export function webPageLd(page: {
+  name: string;
+  description: string;
+  path: string;
+  type?: "WebPage" | "AboutPage" | "ContactPage" | "CollectionPage" | "FAQPage";
+  primaryImage?: string;
+}) {
+  return {
+    "@context": "https://schema.org",
+    "@type": page.type ?? "WebPage",
+    "@id": `${company.website}${page.path}#webpage`,
+    url: `${company.website}${page.path}`,
+    name: page.name,
+    description: page.description,
+    inLanguage: "en-CA",
+    isPartOf: { "@id": `${company.website}/#website` },
+    about: { "@id": `${company.website}/#business` },
+    provider: { "@id": `${company.website}/#business` },
+    ...(page.primaryImage
+      ? {
+          primaryImageOfPage: {
+            "@type": "ImageObject",
+            url: `${company.website}${page.primaryImage}`,
+          },
+        }
+      : {}),
+  };
+}
+
+export function videoObjectLd() {
+  return {
+    "@context": "https://schema.org",
+    "@type": "VideoObject",
+    name: "Custom white oak staircase, Greater Toronto Area",
+    description:
+      "A Green Hardwood box stair in white oak with iron balusters and a graspable oak handrail, matched to the adjacent hardwood floor.",
+    thumbnailUrl: [`${company.website}/images/stair-studio.jpg`],
+    contentUrl: `${company.website}/videos/stairs-hero.mp4`,
+    uploadDate: "2026-01-15T09:00:00-05:00",
+    duration: "PT8S",
+    publisher: { "@id": `${company.website}/#business` },
+  };
+}
+
+export function itemListLd(
+  items: { name: string; path: string; description?: string }[],
+  name: string,
+) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name,
+    numberOfItems: items.length,
+    itemListElement: items.map((item, i) => ({
+      "@type": "ListItem",
+      position: i + 1,
+      name: item.name,
+      url: `${company.website}${item.path}`,
+      ...(item.description ? { description: item.description } : {}),
+    })),
   };
 }

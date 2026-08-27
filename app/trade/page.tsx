@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     "Green Hardwood trade program for GTA builders, interior designers, and realtors: samples, drawings, stair packages, and a crew that shows up to the schedule.",
   alternates: { canonical: "/trade" },
   openGraph: {
-    title: "For Builders, Designers & Realtors | Green Hardwood — Toronto & GTA",
+    title: "For Builders, Designers & Realtors | Green Hardwood",
     description:
       "Green Hardwood trade program for GTA builders, interior designers, and realtors: samples, drawings, stair packages, and a crew that shows up to the schedule.",
     url: "/trade",

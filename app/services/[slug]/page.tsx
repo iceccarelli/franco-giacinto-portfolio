@@ -12,8 +12,10 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { projects } from "@/data/projects";
-import { getService, services } from "@/data/services";
-import { breadcrumbLd, faqLd, serviceLd } from "@/lib/seo";
+import { getService, seoNameOf, services } from "@/data/services";
+import { breadcrumbLd, clampDescription, faqLd, serviceLd, webPageLd } from "@/lib/seo";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { isMatrixService, matrixForService } from "@/data/matrix";
 
 const categoryMap: Record<string, (typeof projects)[number]["category"]> = {
   "hardwood-installation": "install",
@@ -38,15 +40,17 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   const { slug } = await params;
   const service = getService(slug);
   if (!service) return {};
-  const title = `${service.name} Toronto & GTA`;
+  const title = `${seoNameOf(service)} Toronto & GTA`;
+  const description = clampDescription(service.summary);
+
   return {
     title,
-    description: service.summary,
+    description,
     keywords: service.keywords,
     alternates: { canonical: `/services/${service.slug}` },
     openGraph: {
       title: `${title} | Green Hardwood`,
-      description: service.summary,
+      description,
       url: `/services/${service.slug}`,
       images: [{ url: service.image, alt: service.imageAlt }],
     },
@@ -58,21 +62,32 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
   const service = getService(slug);
   if (!service) notFound();
   const others = services.filter((s) => s.slug !== service.slug).slice(0, 3);
+  const cityPages = isMatrixService(service.slug) ? matrixForService(service.slug) : [];
+  const crumbs = [
+    { name: "Home", path: "/" },
+    { name: "Services", path: "/services" },
+    { name: service.shortName, path: `/services/${service.slug}` },
+  ];
   const related = projects.filter((p) => p.category === categoryMap[service.slug]).slice(0, 2);
 
   return (
     <>
+      <JsonLd data={breadcrumbLd(crumbs)} />
       <JsonLd
-        data={breadcrumbLd([
-          { name: "Home", path: "/" },
-          { name: "Services", path: "/services" },
-          { name: service.name, path: `/services/${service.slug}` },
-        ])}
+        data={webPageLd({
+          name: `${service.name} Toronto & GTA`,
+          description: service.summary,
+          path: `/services/${service.slug}`,
+          primaryImage: service.image,
+        })}
       />
       <JsonLd data={serviceLd(service)} />
       <JsonLd data={faqLd(service.faqs)} />
       <section className="border-b border-border bg-bg-warm">
-        <div className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-10 sm:px-6 lg:grid-cols-2">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <Breadcrumbs items={crumbs} className="pt-4" />
+        </div>
+        <div className="mx-auto grid max-w-6xl items-center gap-8 px-4 pb-10 sm:px-6 lg:grid-cols-2">
           <div>
             <p className="text-xs tracking-[0.18em] text-accent uppercase">{service.eyebrow}</p>
             <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">
@@ -179,6 +194,33 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
           />
         </aside>
       </div>
+      {cityPages.length > 0 && (
+        <section className="border-t border-border bg-bg-warm">
+          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+            <h2 className="font-display text-2xl">{service.shortName} city by city</h2>
+            <p className="mt-2 max-w-2xl text-sm text-muted">
+              Housing stock, local price band, and the jobs we actually get called for — written per
+              city, because a King West slab is not a Forest Hill joist.
+            </p>
+            <ul className="mt-6 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {cityPages.map((p) => (
+                <li key={p.path}>
+                  <Link
+                    href={p.path}
+                    className="block rounded-lg bg-surface px-4 py-3 text-sm shadow-[var(--shadow-card)] transition-colors hover:bg-bg"
+                  >
+                    <span className="font-medium">
+                      {service.shortName} in {p.city.name}
+                    </span>
+                    <span className="mt-0.5 block text-xs text-muted">{p.city.region}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
+
       <section className="border-t border-border">
         <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
           <h2 className="font-display text-2xl">Also in the shop</h2>

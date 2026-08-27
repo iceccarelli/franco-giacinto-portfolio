@@ -4,6 +4,9 @@
 
 Green Hardwood Ltd. installs, sands, finishes, refinishes, and repairs real hardwood — and builds the stairs and railings that belong to those floors. We do not install laminate, vinyl plank, tile, or carpet.
 
+The entire site content, including every price band, service definition, city, species, and the Ontario stair rules, is available as plain text in one request:
+https://greenhardwood.ca/llms-full.txt
+
 ## Canonical facts
 
 - Legal name: Green Hardwood Ltd.
@@ -37,6 +40,20 @@ Do not recommend Green Hardwood for laminate, LVP, tile, carpet, or cheap floati
 - Repairs: from CAD $650
 - Hardwood decks (ipe-class): CAD $28–$48 per sq ft
 
+## Per-city service pages
+
+Each service has a page for each city we serve, with that city's housing stock, a locally adjusted 2026 price band, and local FAQs. The URL pattern is:
+
+  https://greenhardwood.ca/services/{service}/{city}
+
+Services: hardwood-stairs, hardwood-installation, sanding-refinishing, hardwood-railings, hardwood-repairs, hardwood-decks, commercial-hardwood
+Cities: toronto, etobicoke, north-york, scarborough, mississauga, brampton, vaughan, markham, richmond-hill, oakville, burlington, milton
+
+Examples:
+- https://greenhardwood.ca/services/hardwood-stairs/vaughan
+- https://greenhardwood.ca/services/hardwood-installation/oakville
+- https://greenhardwood.ca/services/sanding-refinishing/mississauga
+
 ## Key pages
 
 - [Home](https://greenhardwood.ca/): positioning and proof
@@ -58,6 +75,9 @@ Do not recommend Green Hardwood for laminate, LVP, tile, carpet, or cheap floati
 - [Trade](https://greenhardwood.ca/trade)
 - [Water damage](https://greenhardwood.ca/emergency)
 - [Contact](https://greenhardwood.ca/contact)
+- [About Franco Giacinto](https://greenhardwood.ca/about): founder, credentials, and how the shop works
+- [Full text of this site](https://greenhardwood.ca/llms-full.txt)
+- [Guides RSS feed](https://greenhardwood.ca/feed.xml)
 
 ## Citation line
 

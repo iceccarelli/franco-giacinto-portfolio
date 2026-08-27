@@ -8,12 +8,12 @@ import { breadcrumbLd } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "Hardwood Flooring Services",
   description:
-    "Hardwood installation, custom stairs, railings, dust-free sanding, refinishing, repairs, decks, inlays, and commercial hardwood across Toronto and the GTA.",
+    "Hardwood installation, custom stairs, railings, dust-free sanding, refinishing, repairs, and decks across Toronto and the GTA.",
   alternates: { canonical: "/services" },
   openGraph: {
-    title: "Hardwood Flooring Services | Green Hardwood — Toronto & GTA",
+    title: "Hardwood Flooring Services | Green Hardwood",
     description:
-      "Hardwood installation, custom stairs, railings, dust-free sanding, refinishing, repairs, decks, inlays, and commercial hardwood across Toronto and the GTA.",
+      "Hardwood installation, custom stairs, railings, dust-free sanding, refinishing, repairs, and decks across Toronto and the GTA.",
     url: "/services",
   },
 };

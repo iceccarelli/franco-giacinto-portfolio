@@ -11,7 +11,7 @@ export const metadata: Metadata = {
     "Honest comparison of hardwood, vinyl plank, and laminate for Toronto homes — resale, stairs, water, dogs, and 20-year cost. Green Hardwood installs hardwood only.",
   alternates: { canonical: "/compare" },
   openGraph: {
-    title: "Hardwood vs Vinyl vs Laminate in the GTA | Green Hardwood — Toronto & GTA",
+    title: "Hardwood vs Vinyl vs Laminate in the GTA | Green Hardwood",
     description:
       "Honest comparison of hardwood, vinyl plank, and laminate for Toronto homes — resale, stairs, water, dogs, and 20-year cost. Green Hardwood installs hardwood only.",
     url: "/compare",

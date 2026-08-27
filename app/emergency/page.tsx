@@ -8,12 +8,12 @@ import { breadcrumbLd } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "Water-Damaged Hardwood",
   description:
-    "Emergency hardwood floor repair in Toronto and the GTA after floods, dishwasher leaks, and ice-maker lines. Moisture readings first. Board replacement and blend refinish.",
+    "Emergency hardwood repair in Toronto and the GTA after floods, dishwasher leaks, and burst lines. Moisture readings first, then board replacement.",
   alternates: { canonical: "/emergency" },
   openGraph: {
-    title: "Water-Damaged Hardwood | Green Hardwood — Toronto & GTA",
+    title: "Water-Damaged Hardwood | Green Hardwood",
     description:
-      "Emergency hardwood floor repair in Toronto and the GTA after floods, dishwasher leaks, and ice-maker lines. Moisture readings first. Board replacement and blend refinish.",
+      "Emergency hardwood repair in Toronto and the GTA after floods, dishwasher leaks, and burst lines. Moisture readings first, then board replacement.",
     url: "/emergency",
   },
 };

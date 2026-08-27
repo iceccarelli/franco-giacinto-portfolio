@@ -9,12 +9,12 @@ import { breadcrumbLd } from "@/lib/seo";
 export const metadata: Metadata = {
   title: "Hardwood Portfolio",
   description:
-    "Hardwood installation, refinishing, custom stairs, railings, repairs, and decks completed across Toronto and the Greater Toronto Area.",
+    "Hardwood installation, refinishing, custom stairs, railings, and repairs completed across Toronto and the GTA.",
   alternates: { canonical: "/portfolio" },
   openGraph: {
-    title: "Hardwood Portfolio | Green Hardwood — Toronto & GTA",
+    title: "Hardwood Portfolio | Green Hardwood",
     description:
-      "Hardwood installation, refinishing, custom stairs, railings, repairs, and decks completed across Toronto and the Greater Toronto Area.",
+      "Hardwood installation, refinishing, custom stairs, railings, and repairs completed across Toronto and the GTA.",
     url: "/portfolio",
   },
 };

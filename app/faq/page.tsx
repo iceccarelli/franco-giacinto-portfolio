@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     "FAQ on hardwood flooring cost in Toronto, solid vs engineered, dust-free sanding, hardwood stairs over carpet, warranties, and GTA service areas.",
   alternates: { canonical: "/faq" },
   openGraph: {
-    title: "Hardwood FAQ | Green Hardwood — Toronto & GTA",
+    title: "Hardwood FAQ | Green Hardwood",
     description:
       "FAQ on hardwood flooring cost in Toronto, solid vs engineered, dust-free sanding, hardwood stairs over carpet, warranties, and GTA service areas.",
     url: "/faq",

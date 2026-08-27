@@ -6,6 +6,8 @@ import { services } from "@/data/services";
 
 export const metadata: Metadata = {
   title: "Page not found",
+  description:
+    "That page is not here. Jump to hardwood services, the stair studio, or a free estimate.",
   robots: { index: false, follow: true },
 };
 

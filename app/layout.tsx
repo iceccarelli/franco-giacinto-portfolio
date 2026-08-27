@@ -23,11 +23,11 @@ const fraunces = Fraunces({
 export const metadata: Metadata = {
   metadataBase: new URL(company.website),
   title: {
-    default: "Green Hardwood | Hardwood Flooring, Stairs & Railings in Toronto & the GTA",
-    template: "%s | Green Hardwood — Toronto & GTA",
+    default: "Hardwood Flooring & Stairs Toronto | Green Hardwood",
+    template: "%s | Green Hardwood",
   },
   description:
-    "Green Hardwood installs, sands, finishes, and restores hardwood floors, custom hardwood stairs, and hardwood railings across Toronto and the GTA. Free on-site estimates.",
+    "Hardwood floor installation, custom hardwood stairs, railings, sanding and refinishing across Toronto and the GTA. Free on-site estimates.",
   applicationName: company.name,
   authors: [{ name: company.legalName, url: company.website }],
   creator: company.legalName,
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
     locale: "en_CA",
     url: company.website,
     siteName: company.name,
-    title: "Green Hardwood — Hardwood Floors, Stairs & Railings | Toronto & GTA",
+    title: "Hardwood Flooring, Stairs & Railings in Toronto | Green Hardwood",
     description: company.description,
     images: [
       {

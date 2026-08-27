@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     "How to maintain hardwood floors and stairs in Ontario: humidity 35–55%, cleaning, recoat schedules, and when to call Green Hardwood for a screen-and-recoat.",
   alternates: { canonical: "/care" },
   openGraph: {
-    title: "Hardwood Floor Care in Ontario | Green Hardwood — Toronto & GTA",
+    title: "Hardwood Floor Care in Ontario | Green Hardwood",
     description:
       "How to maintain hardwood floors and stairs in Ontario: humidity 35–55%, cleaning, recoat schedules, and when to call Green Hardwood for a screen-and-recoat.",
     url: "/care",

@@ -7,12 +7,12 @@ import { company } from "@/data/company";
 export const metadata: Metadata = {
   title: "Hardwood Estimate",
   description:
-    "Get a 2026 GTA hardwood flooring, stair, railing, refinishing, or deck estimate — then book a free on-site measure with Green Hardwood.",
+    "Price a 2026 GTA hardwood floor, stair, railing, refinish, or deck — then book a free on-site measure with Green Hardwood.",
   alternates: { canonical: "/estimate" },
   openGraph: {
-    title: "Hardwood Estimate | Green Hardwood — Toronto & GTA",
+    title: "Hardwood Estimate | Green Hardwood",
     description:
-      "Get a 2026 GTA hardwood flooring, stair, railing, refinishing, or deck estimate — then book a free on-site measure with Green Hardwood.",
+      "Price a 2026 GTA hardwood floor, stair, railing, refinish, or deck — then book a free on-site measure with Green Hardwood.",
     url: "/estimate",
   },
 };
