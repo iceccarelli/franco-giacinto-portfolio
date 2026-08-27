@@ -1,0 +1,12 @@
+/* TEAM */
+Founder: Franco Giacinto Oller Grimaldi
+Role: Master hardwood craftsman
+Location: Toronto, Ontario, Canada
+Contact: hello@greenhardwood.ca
+Phone: +1 416-847-3366
+
+/* SITE */
+Name: Green Hardwood
+Standards: HTML, CSS, Schema.org LocalBusiness, FAQPage, HowTo
+Language: en-CA
+Niche: Hardwood flooring, hardwood stairs, hardwood railings — Greater Toronto Area

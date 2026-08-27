@@ -1,0 +1,70 @@
+export const company = {
+  name: "Green Hardwood",
+  legalName: "Green Hardwood Ltd.",
+  shortName: "Green Hardwood",
+  tagline: "Hardwood floors, stairs, and railings — one shop, one warranty.",
+  description:
+    "Green Hardwood is a Toronto hardwood flooring company specializing in hardwood installation, custom hardwood stairs, hardwood railings, dust-free sanding, finishing, refinishing, repairs, and hardwood decks across the Greater Toronto Area and Southern Ontario.",
+  founder: "Franco Giacinto",
+  founderFull: "Franco Giacinto Oller Grimaldi",
+  founderTitle: "Founder & Master Hardwood Craftsman",
+  phoneDisplay: "(416) 847-3366",
+  phone: "+14168473366",
+  email: "hello@greenhardwood.ca",
+  instagram: "https://www.instagram.com/greenhardwood",
+  website: "https://greenhardwood.ca",
+  address: {
+    line1: "88 Sterling Road, Unit 6",
+    city: "Toronto",
+    region: "ON",
+    postal: "M6R 2B2",
+    country: "Canada",
+    countryCode: "CA",
+  },
+  geo: { latitude: 43.6394, longitude: -79.4421 },
+  hours: [
+    { day: "Monday", open: "08:00", close: "18:00" },
+    { day: "Tuesday", open: "08:00", close: "18:00" },
+    { day: "Wednesday", open: "08:00", close: "18:00" },
+    { day: "Thursday", open: "08:00", close: "18:00" },
+    { day: "Friday", open: "08:00", close: "18:00" },
+    { day: "Saturday", open: "09:00", close: "16:00" },
+    { day: "Sunday", open: null, close: null, note: "By appointment" },
+  ] as const,
+  hoursSummary: "Mon–Fri 8–6 · Sat 9–4 · Sun by appointment",
+  years: 15,
+  floorsCompleted: 1200,
+  callbackRate: "under 1%",
+  warranty: "3-year workmanship warranty on installation and refinishing",
+  licensed: ["WSIB coverage", "Liability insured", "Bona Certified Craftsman", "NWFA guidelines"],
+  priceRange: "$$-$$$",
+  areaServed: "Greater Toronto Area and Southern Ontario",
+} as const;
+
+export const nav = [
+  {
+    label: "Services",
+    href: "/services",
+    children: [
+      { label: "Hardwood Installation", href: "/services/hardwood-installation" },
+      { label: "Hardwood Stairs", href: "/services/hardwood-stairs" },
+      { label: "Hardwood Railings", href: "/services/hardwood-railings" },
+      { label: "Sanding & Refinishing", href: "/services/sanding-refinishing" },
+      { label: "Repairs & Restoration", href: "/services/hardwood-repairs" },
+      { label: "Hardwood Decks", href: "/services/hardwood-decks" },
+    ],
+  },
+  { label: "Stairs", href: "/services/hardwood-stairs" },
+  { label: "Railings", href: "/services/hardwood-railings" },
+  { label: "Work", href: "/portfolio" },
+  { label: "Areas", href: "/areas" },
+  { label: "Guides", href: "/guides" },
+  { label: "About", href: "/about" },
+] as const;
+
+export const stats = [
+  { value: "1,200+", label: "Floors installed or refinished" },
+  { value: "15+", label: "Years in the GTA" },
+  { value: "12", label: "GTA cities with a local page" },
+  { value: "3-year", label: "Workmanship warranty" },
+] as const;

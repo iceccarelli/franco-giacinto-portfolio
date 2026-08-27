@@ -1,0 +1,21 @@
+import { cn } from "@/lib/utils";
+
+export function Stars({ rating = 5, className }: { rating?: number; className?: string }) {
+  return (
+    <span
+      className={cn("inline-flex gap-0.5 text-accent", className)}
+      aria-label={`${rating} out of 5`}
+    >
+      {Array.from({ length: 5 }).map((_, i) => (
+        <svg key={i} viewBox="0 0 20 20" className="size-3.5" aria-hidden="true">
+          <path
+            d="M10 1.6 12.4 7l5.8.5-4.4 3.8 1.4 5.7L10 13.8 4.8 17l1.4-5.7L1.8 7.5 7.6 7 10 1.6Z"
+            fill={i < rating ? "currentColor" : "none"}
+            stroke="currentColor"
+            strokeWidth="1.2"
+          />
+        </svg>
+      ))}
+    </span>
+  );
+}
