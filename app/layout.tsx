@@ -5,6 +5,7 @@ import { SiteShell } from "@/components/layout/site-shell";
 import { JsonLd } from "@/components/json-ld";
 import { company } from "@/data/company";
 import { localBusinessLd, websiteLd } from "@/lib/seo";
+import { IS_PREVIEW, SITE_URL } from "@/lib/site-url";
 
 const figtree = Figtree({
   subsets: ["latin"],
@@ -21,7 +22,7 @@ const fraunces = Fraunces({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(company.website),
+  metadataBase: new URL(SITE_URL),
   title: {
     default: "Hardwood Flooring & Stairs Toronto | Green Hardwood",
     template: "%s | Green Hardwood",
@@ -29,7 +30,7 @@ export const metadata: Metadata = {
   description:
     "Hardwood floor installation, custom hardwood stairs, railings, sanding and refinishing across Toronto and the GTA. Free on-site estimates.",
   applicationName: company.name,
-  authors: [{ name: company.legalName, url: company.website }],
+  authors: [{ name: company.legalName, url: SITE_URL }],
   creator: company.legalName,
   publisher: company.legalName,
   keywords: [
@@ -51,7 +52,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     locale: "en_CA",
-    url: company.website,
+    url: SITE_URL,
     siteName: company.name,
     title: "Hardwood Flooring, Stairs & Railings in Toronto | Green Hardwood",
     description: company.description,
@@ -71,11 +72,12 @@ export const metadata: Metadata = {
     images: ["/og.jpg"],
   },
   robots: {
-    index: true,
-    follow: true,
+    // Preview deployments are a full copy of the site; keep them out of the index.
+    index: !IS_PREVIEW,
+    follow: !IS_PREVIEW,
     googleBot: {
-      index: true,
-      follow: true,
+      index: !IS_PREVIEW,
+      follow: !IS_PREVIEW,
       "max-image-preview": "large",
       "max-snippet": -1,
       "max-video-preview": -1,
@@ -103,7 +105,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <head>
+        <link
+          rel="alternate"
+          type="application/rss+xml"
+          href="/feed.xml"
+          title="Green Hardwood — Hardwood Guides"
+        />
         <link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt" />
+        <link rel="alternate" type="text/plain" href="/llms-full.txt" title="llms-full.txt" />
+        <link rel="alternate" type="text/plain" href="/ai.txt" title="ai.txt" />
         <link rel="author" href="/humans.txt" />
       </head>
       <body>

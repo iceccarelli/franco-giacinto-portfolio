@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { PageHero } from "@/components/page-hero";
 import { JsonLd } from "@/components/json-ld";
 import { ProjectGrid } from "@/components/portfolio/project-grid";
-import { company } from "@/data/company";
+import { SITE_URL } from "@/lib/site-url";
 import { projects } from "@/data/projects";
 import { breadcrumbLd } from "@/lib/seo";
 
@@ -38,7 +38,7 @@ export default function PortfolioPage() {
             position: i + 1,
             name: p.title,
             description: p.summary,
-            image: `${company.website}${p.image}`,
+            image: `${SITE_URL}${p.image}`,
           })),
         }}
       />

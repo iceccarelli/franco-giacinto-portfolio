@@ -13,6 +13,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { company } from "@/data/company";
+import { SITE_URL } from "@/lib/site-url";
 import {
   formatCad,
   getMatrixPage,
@@ -98,8 +99,8 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
           name: page.title,
           serviceType: service.name,
           description: page.description,
-          url: `${company.website}${page.path}`,
-          provider: { "@id": `${company.website}/#business` },
+          url: `${SITE_URL}${page.path}`,
+          provider: { "@id": `${SITE_URL}/#business` },
           areaServed: {
             "@type": "City",
             name: city.name,

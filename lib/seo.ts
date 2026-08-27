@@ -1,4 +1,5 @@
 import { company } from "@/data/company";
+import { SITE_URL } from "@/lib/site-url";
 import { cities } from "@/data/areas";
 import { faqs } from "@/data/faq";
 import { services } from "@/data/services";
@@ -32,18 +33,18 @@ export function websiteLd() {
   return {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    "@id": `${company.website}/#website`,
+    "@id": `${SITE_URL}/#website`,
     name: company.name,
-    url: company.website,
+    url: SITE_URL,
     inLanguage: "en-CA",
-    publisher: { "@id": `${company.website}/#business` },
+    publisher: { "@id": `${SITE_URL}/#business` },
     speakable: {
       "@type": "SpeakableSpecification",
       cssSelector: ["h1", "h2"],
     },
     potentialAction: {
       "@type": "SearchAction",
-      target: `${company.website}/guides/{search_term_string}`,
+      target: `${SITE_URL}/guides/{search_term_string}`,
       "query-input": "required name=search_term_string",
     },
   };
@@ -87,13 +88,13 @@ export function localBusinessLd() {
   return {
     "@context": "https://schema.org",
     "@type": ["HomeAndConstructionBusiness", "FlooringContractor"],
-    "@id": `${company.website}/#business`,
+    "@id": `${SITE_URL}/#business`,
     name: company.name,
     legalName: company.legalName,
-    url: company.website,
+    url: SITE_URL,
     image: {
       "@type": "ImageObject",
-      url: `${company.website}/og.jpg`,
+      url: `${SITE_URL}/og.jpg`,
       width: 1200,
       height: 630,
       caption:
@@ -101,15 +102,15 @@ export function localBusinessLd() {
     },
     logo: {
       "@type": "ImageObject",
-      url: `${company.website}/favicon.svg`,
+      url: `${SITE_URL}/favicon.svg`,
       caption: "Green Hardwood",
     },
     telephone: company.phone,
     email: company.email,
     priceRange: company.priceRange,
     foundingDate: "2011",
-    founder: { "@id": `${company.website}/about#franco` },
-    employee: { "@id": `${company.website}/about#franco` },
+    founder: { "@id": `${SITE_URL}/about#franco` },
+    employee: { "@id": `${SITE_URL}/about#franco` },
     address: {
       "@type": "PostalAddress",
       streetAddress: company.address.line1,
@@ -170,9 +171,9 @@ export function localBusinessLd() {
           "@type": "Service",
           name: s.name,
           description: s.summary,
-          url: `${company.website}/services/${s.slug}`,
+          url: `${SITE_URL}/services/${s.slug}`,
           areaServed: "Greater Toronto Area",
-          provider: { "@id": `${company.website}/#business` },
+          provider: { "@id": `${SITE_URL}/#business` },
         },
       })),
     },
@@ -206,7 +207,7 @@ export function breadcrumbLd(items: { name: string; path: string }[]) {
       "@type": "ListItem",
       position: i + 1,
       name: item.name,
-      item: `${company.website}${item.path}`,
+      item: `${SITE_URL}${item.path}`,
     })),
   };
 }
@@ -217,8 +218,8 @@ export function serviceLd(service: { name: string; summary: string; slug: string
     "@type": "Service",
     name: service.name,
     description: service.summary,
-    url: `${company.website}/services/${service.slug}`,
-    provider: { "@id": `${company.website}/#business` },
+    url: `${SITE_URL}/services/${service.slug}`,
+    provider: { "@id": `${SITE_URL}/#business` },
     areaServed: {
       "@type": "AdministrativeArea",
       name: "Greater Toronto Area",
@@ -239,20 +240,20 @@ export function personLd() {
   return {
     "@context": "https://schema.org",
     "@type": "Person",
-    "@id": `${company.website}/about#franco`,
+    "@id": `${SITE_URL}/about#franco`,
     name: company.founderFull,
     alternateName: company.founder,
     jobTitle: company.founderTitle,
     description: `Master hardwood craftsman and founder of ${company.name}. ${company.years}+ years installing, sanding, finishing, and rebuilding hardwood floors, stairs, and railings across Toronto and the Greater Toronto Area.`,
     image: {
       "@type": "ImageObject",
-      url: `${company.website}/images/franco-giacinto-oller-grimaldi.jpg`,
+      url: `${SITE_URL}/images/franco-giacinto-oller-grimaldi.jpg`,
       width: 800,
       height: 1000,
       caption: `${company.founderFull}, ${company.founderTitle} at ${company.name}`,
     },
-    worksFor: { "@id": `${company.website}/#business` },
-    founderOf: { "@id": `${company.website}/#business` },
+    worksFor: { "@id": `${SITE_URL}/#business` },
+    founderOf: { "@id": `${SITE_URL}/#business` },
     knowsAbout: [
       "Hardwood floor installation",
       "Custom hardwood stairs",
@@ -268,7 +269,7 @@ export function personLd() {
       name: c,
     })),
     areaServed: company.areaServed,
-    url: `${company.website}/about`,
+    url: `${SITE_URL}/about`,
   };
 }
 
@@ -282,19 +283,19 @@ export function webPageLd(page: {
   return {
     "@context": "https://schema.org",
     "@type": page.type ?? "WebPage",
-    "@id": `${company.website}${page.path}#webpage`,
-    url: `${company.website}${page.path}`,
+    "@id": `${SITE_URL}${page.path}#webpage`,
+    url: `${SITE_URL}${page.path}`,
     name: page.name,
     description: page.description,
     inLanguage: "en-CA",
-    isPartOf: { "@id": `${company.website}/#website` },
-    about: { "@id": `${company.website}/#business` },
-    provider: { "@id": `${company.website}/#business` },
+    isPartOf: { "@id": `${SITE_URL}/#website` },
+    about: { "@id": `${SITE_URL}/#business` },
+    provider: { "@id": `${SITE_URL}/#business` },
     ...(page.primaryImage
       ? {
           primaryImageOfPage: {
             "@type": "ImageObject",
-            url: `${company.website}${page.primaryImage}`,
+            url: `${SITE_URL}${page.primaryImage}`,
           },
         }
       : {}),
@@ -308,11 +309,11 @@ export function videoObjectLd() {
     name: "Custom white oak staircase, Greater Toronto Area",
     description:
       "A Green Hardwood box stair in white oak with iron balusters and a graspable oak handrail, matched to the adjacent hardwood floor.",
-    thumbnailUrl: [`${company.website}/images/stair-studio.jpg`],
-    contentUrl: `${company.website}/videos/stairs-hero.mp4`,
+    thumbnailUrl: [`${SITE_URL}/images/stair-studio.jpg`],
+    contentUrl: `${SITE_URL}/videos/stairs-hero.mp4`,
     uploadDate: "2026-01-15T09:00:00-05:00",
     duration: "PT8S",
-    publisher: { "@id": `${company.website}/#business` },
+    publisher: { "@id": `${SITE_URL}/#business` },
   };
 }
 
@@ -329,7 +330,7 @@ export function itemListLd(
       "@type": "ListItem",
       position: i + 1,
       name: item.name,
-      url: `${company.website}${item.path}`,
+      url: `${SITE_URL}${item.path}`,
       ...(item.description ? { description: item.description } : {}),
     })),
   };

@@ -120,7 +120,9 @@ const generatedRoutes = new Set([
   "/robots.txt",
   "/manifest.webmanifest",
   "/feed.xml",
+  "/llms.txt",
   "/llms-full.txt",
+  "/ai.txt",
   "/opengraph-image",
 ]);
 

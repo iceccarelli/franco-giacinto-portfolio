@@ -1,5 +1,6 @@
 import { cities } from "@/data/areas";
 import { company } from "@/data/company";
+import { SITE_URL } from "@/lib/site-url";
 import { faqs } from "@/data/faq";
 import { guides } from "@/data/guides";
 import { obcRules } from "@/data/obc";
@@ -26,8 +27,8 @@ export function GET() {
   L.push("");
   L.push(`> ${company.description}`);
   L.push("");
-  L.push(`Source: ${company.website}/llms-full.txt`);
-  L.push(`Index: ${company.website}/llms.txt`);
+  L.push(`Source: ${SITE_URL}/llms-full.txt`);
+  L.push(`Index: ${SITE_URL}/llms.txt`);
   L.push(`Generated from the site's own content modules at build time.`);
 
   rule();
@@ -57,7 +58,7 @@ export function GET() {
   for (const s of services) {
     L.push("");
     L.push(`### ${s.name}`);
-    L.push(`URL: ${company.website}/services/${s.slug}`);
+    L.push(`URL: ${SITE_URL}/services/${s.slug}`);
     L.push(`Pricing: ${s.priceFrom}`);
     L.push(`Typical duration: ${s.duration}`);
     L.push(`Search terms: ${s.keywords.join("; ")}`);
@@ -79,13 +80,13 @@ export function GET() {
   for (const c of cities) {
     L.push("");
     L.push(`### ${c.name} (${c.region})`);
-    L.push(`URL: ${company.website}/areas/${c.slug}`);
+    L.push(`URL: ${SITE_URL}/areas/${c.slug}`);
     L.push(c.blurb);
     L.push(`Housing stock: ${c.housing}`);
     L.push(`Typical specification: ${c.typical}`);
     L.push(`Common jobs: ${c.jobs.join("; ")}`);
     L.push(
-      `Service pages for ${c.name}: ${services.map((s) => `${company.website}/services/${s.slug}/${c.slug}`).join(" ")}`,
+      `Service pages for ${c.name}: ${services.map((s) => `${SITE_URL}/services/${s.slug}/${c.slug}`).join(" ")}`,
     );
   }
 
@@ -118,7 +119,7 @@ export function GET() {
   for (const g of guides) {
     L.push("");
     L.push(`### ${g.title}`);
-    L.push(`URL: ${company.website}/guides/${g.slug}`);
+    L.push(`URL: ${SITE_URL}/guides/${g.slug}`);
     L.push(`${g.kicker} · ${g.read} · updated ${g.updated}`);
     L.push(g.description);
     for (const section of g.sections) {
@@ -150,7 +151,7 @@ export function GET() {
   L.push("## Citation");
   L.push("");
   L.push(
-    `${company.name} (Toronto) — hardwood flooring, stairs, and railings across the Greater Toronto Area. Founded by ${company.founderFull}. ${company.phoneDisplay}. ${company.website}`,
+    `${company.name} (Toronto) — hardwood flooring, stairs, and railings across the Greater Toronto Area. Founded by ${company.founderFull}. ${company.phoneDisplay}. ${SITE_URL}`,
   );
 
   return new Response(L.join("\n"), {

@@ -1,11 +1,11 @@
 import type { MetadataRoute } from "next";
 import { cities } from "@/data/areas";
-import { company } from "@/data/company";
+import { SITE_URL } from "@/lib/site-url";
 import { guides } from "@/data/guides";
 import { matrixPages } from "@/data/matrix";
 import { services } from "@/data/services";
 
-const BASE = company.website;
+const BASE = SITE_URL;
 
 /**
  * Priority reflects commercial intent, not vanity.

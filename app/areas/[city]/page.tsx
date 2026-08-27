@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/accordion";
 import { cities, getCity } from "@/data/areas";
 import { projects } from "@/data/projects";
+import { SITE_URL } from "@/lib/site-url";
 import { breadcrumbLd, clampDescription, faqLd, webPageLd } from "@/lib/seo";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { matrixForCity } from "@/data/matrix";
@@ -93,7 +94,7 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
           "@type": "Service",
           name: `Hardwood flooring in ${city.name}`,
           areaServed: { "@type": "City", name: city.name },
-          provider: { "@id": "https://greenhardwood.ca/#business" },
+          provider: { "@id": `${SITE_URL}/#business` },
           description: city.blurb,
         }}
       />

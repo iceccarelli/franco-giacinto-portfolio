@@ -1,7 +1,13 @@
 import type { MetadataRoute } from "next";
-import { company } from "@/data/company";
+import { IS_PREVIEW, SITE_URL } from "@/lib/site-url";
 
 export default function robots(): MetadataRoute.Robots {
+  // A preview deployment is a full, publicly-reachable copy of the site. Let it
+  // be indexed and it competes with production for its own queries.
+  if (IS_PREVIEW) {
+    return { rules: [{ userAgent: "*", disallow: "/" }] };
+  }
+
   return {
     rules: [
       { userAgent: "*", allow: "/" },
@@ -27,7 +33,7 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: "Timpibot", allow: "/" },
       { userAgent: "omgili", allow: "/" },
     ],
-    sitemap: `${company.website}/sitemap.xml`,
-    host: company.website,
+    sitemap: `${SITE_URL}/sitemap.xml`,
+    host: SITE_URL,
   };
 }

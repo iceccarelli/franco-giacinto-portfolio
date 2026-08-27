@@ -83,6 +83,34 @@ merge; it is the reason the site currently has 132 pages and 132 unique titles.
 
 `npm run build` fetches and self-hosts Google Fonts, so the build machine needs network access.
 
+## Where the site thinks it lives
+
+`lib/site-url.ts` resolves one value, `SITE_URL`, and every canonical tag,
+JSON-LD `@id`, `metadataBase`, sitemap entry, RSS link, and `llms.txt` URL is
+built from it. Resolution order:
+
+1. `NEXT_PUBLIC_SITE_URL` — explicit override
+2. `VERCEL_PROJECT_PRODUCTION_URL` — Vercel's production domain, which becomes
+   the custom domain automatically the moment one is assigned
+3. `http://localhost:3000` in `next dev`
+4. `company.website` — the intended final domain, for any other CI
+
+There is deliberately no hard-coded URL anywhere else. `company.website` stays
+in `data/company.ts` as a *business fact*; `SITE_URL` is an *infrastructure
+fact*. They converge once the domain is live.
+
+Preview deployments (`VERCEL_ENV=preview`) are served `noindex, nofollow` and a
+`Disallow: /` robots.txt, so a preview never competes with production for its
+own queries.
+
+## The AI-facing surface
+
+`/llms.txt`, `/ai.txt`, and `/llms-full.txt` are generated routes, not static
+files, so their URLs follow the deployment and their content is built from the
+same modules the pages render from. `/llms-full.txt` is the whole corpus —
+every service, city, species, guide, price band, and the Ontario stair rules —
+in a single ~51 KB plain-text request.
+
 ## Lead delivery
 
 `components/estimate/quote-form.tsx` posts to the `submitLead` Server Action,

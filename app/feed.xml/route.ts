@@ -1,4 +1,5 @@
 import { company } from "@/data/company";
+import { SITE_URL } from "@/lib/site-url";
 import { guides } from "@/data/guides";
 
 export const dynamic = "force-static";
@@ -20,8 +21,8 @@ export function GET() {
     .map(
       (g) => `    <item>
       <title>${esc(g.title)}</title>
-      <link>${company.website}/guides/${g.slug}</link>
-      <guid isPermaLink="true">${company.website}/guides/${g.slug}</guid>
+      <link>${SITE_URL}/guides/${g.slug}</link>
+      <guid isPermaLink="true">${SITE_URL}/guides/${g.slug}</guid>
       <description>${esc(g.description)}</description>
       <category>${esc(g.kicker)}</category>
     </item>`,
@@ -32,8 +33,8 @@ export function GET() {
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
   <channel>
     <title>${esc(company.name)} — Hardwood Guides</title>
-    <link>${company.website}/guides</link>
-    <atom:link href="${company.website}/feed.xml" rel="self" type="application/rss+xml" />
+    <link>${SITE_URL}/guides</link>
+    <atom:link href="${SITE_URL}/feed.xml" rel="self" type="application/rss+xml" />
     <description>Hardwood flooring, stairs, and railings guidance for Toronto and the GTA.</description>
     <language>en-ca</language>
     <copyright>${esc(company.legalName)}</copyright>
