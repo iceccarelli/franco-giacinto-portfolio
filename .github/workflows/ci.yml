@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A newer push to the same branch cancels the older run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck, test, build, audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      # Pin the host so the audit's canonical checks are deterministic and do
+      # not depend on which environment the build ran in.
+      NEXT_PUBLIC_SITE_URL: https://greenhardwood.ca
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` is what Vercel runs. It fails hard if package.json and
+      # package-lock.json have drifted, which is the single most common way a
+      # deploy dies at the install step before it ever reaches the build.
+      - name: Install (fails on lockfile drift)
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      # Reads the prerendered HTML: dead internal links, duplicate titles or
+      # descriptions, missing canonicals, missing h1 or alt text, unparseable
+      # JSON-LD, missing media. Exits non-zero on any of them.
+      - name: Site audit
+        run: npm run audit:site

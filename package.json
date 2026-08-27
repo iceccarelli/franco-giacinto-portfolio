@@ -9,9 +9,10 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run typecheck && npm run build && npm run audit:site",
+    "verify": "npm run typecheck && npm run test && npm run build && npm run audit:site",
     "indexnow": "node --experimental-strip-types scripts/indexnow.mjs",
-    "audit:site": "node --experimental-strip-types scripts/audit-site.mjs"
+    "audit:site": "node --experimental-strip-types scripts/audit-site.mjs",
+    "test": "tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
@@ -36,6 +37,7 @@
     "eslint-config-next": "^15.5.4",
     "prettier": "^3.6.2",
     "tailwindcss": "^4.1.13",
+    "tsx": "^4.23.12",
     "typescript": "^5.9.2"
   },
   "engines": {
