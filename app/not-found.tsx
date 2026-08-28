@@ -15,7 +15,7 @@ export default function NotFound() {
   return (
     <section className="mx-auto max-w-3xl px-4 py-24 sm:px-6">
       <p className="text-xs tracking-[0.18em] text-accent uppercase">404</p>
-      <h1 className="mt-3 font-display text-4xl sm:text-5xl">That page was sanded off.</h1>
+      <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">That page was sanded off.</h1>
       <p className="mt-4 text-lg text-muted">
         The floor, the stair, and the rail are all still here. Pick a direction, or call{" "}
         <a className="text-primary hover:underline" href={`tel:${company.phone}`}>

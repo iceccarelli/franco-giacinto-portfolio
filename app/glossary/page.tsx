@@ -96,7 +96,7 @@ export default function GlossaryPage() {
         <Breadcrumbs items={crumbs} />
       </div>
 
-      <div className="mx-auto max-w-4xl px-4 pb-16 sm:px-6">
+      <div className="mx-auto max-w-3xl px-4 pb-16 sm:px-6">
         {/* Jump list — an on-page index doubles as a crawlable link graph. */}
         <nav
           aria-label="Jump to a term"

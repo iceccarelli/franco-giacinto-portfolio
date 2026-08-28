@@ -26,9 +26,9 @@ export default function TradePage() {
         ])}
       />
       <section className="border-b border-border bg-bg-warm">
-        <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+        <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16 sm:px-6">
           <p className="text-xs tracking-[0.18em] text-accent uppercase">Trade</p>
-          <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">
+          <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
             Builders, designers, realtors — one shop for the floor and the stair.
           </h1>
           <p className="mt-4 text-lg text-muted">
@@ -37,7 +37,7 @@ export default function TradePage() {
           </p>
         </div>
       </section>
-      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-2">
+      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-2">
         <div className="space-y-6">
           <section>
             <h2 className="font-display text-2xl">What you get</h2>

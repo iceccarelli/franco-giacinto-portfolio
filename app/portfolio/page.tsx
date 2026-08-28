@@ -47,7 +47,7 @@ export default function PortfolioPage() {
         title="Floors, stairs, and railings you can inspect in person."
         lede="A working selection from Forest Hill restorations, Vaughan new builds, Oakville estates, and occupied GTA condos."
       />
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:py-14 sm:px-6">
         <ProjectGrid />
       </div>
     </>

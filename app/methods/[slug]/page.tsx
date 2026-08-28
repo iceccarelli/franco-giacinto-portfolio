@@ -109,7 +109,7 @@ export default async function MethodPage({ params }: { params: Promise<Params> }
             <p className="text-xs tracking-[0.18em] text-accent uppercase">
               Method · {method.cluster}
             </p>
-            <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">{method.name}</h1>
+            <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">{method.name}</h1>
             <p className="mt-4 text-lg text-muted">{method.headline}</p>
             <p className="mt-3 text-muted">{method.summary}</p>
             <div className="mt-6 flex flex-wrap gap-3">
@@ -129,11 +129,12 @@ export default async function MethodPage({ params }: { params: Promise<Params> }
             width={1600}
             height={900}
             className="aspect-[16/10] w-full rounded-xl object-cover shadow-[var(--shadow-card)]"
+           fetchPriority="high" decoding="async"
           />
         </div>
       </section>
 
-      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-[1.3fr_0.7fr]">
+      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-[1.3fr_0.7fr]">
         <article>
           <h2 className="font-display text-3xl">How it is done</h2>
           <ol className="mt-6 space-y-6">

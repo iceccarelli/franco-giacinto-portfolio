@@ -25,7 +25,7 @@ export default function EstimatePage() {
         title="A real range, then a site visit."
         lede="Calibrated to 2026 Greater Toronto labour and mill pricing. We do not lock a number until we have read the moisture in your subfloor."
       />
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
         <QuoteEstimator />
         <div className="mt-14 grid gap-10 lg:grid-cols-2">
           <div>
@@ -42,6 +42,7 @@ export default function EstimatePage() {
             src="/images/workshop.jpg"
             alt="Green Hardwood workshop with racks of oak, walnut, and maple planks and stain sample boards."
             className="h-fit w-full rounded-xl object-cover shadow-[var(--shadow-card)]"
+           loading="lazy" decoding="async"
           />
         </div>
       </div>

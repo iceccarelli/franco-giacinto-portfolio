@@ -4,15 +4,19 @@ import { QuoteForm } from "@/components/estimate/quote-form";
 import { PageHero } from "@/components/page-hero";
 import { company } from "@/data/company";
 
+// The phone number and address come from data/company.ts. They were typed by
+// hand here, so a number change would have left the search snippet stale.
+const CONTACT_DESCRIPTION =
+  `Call Green Hardwood at ${company.phoneDisplay} or book a free hardwood, stair, or railing ` +
+  `site visit. ${company.address.line1}, ${company.address.city}. Serving the whole GTA.`;
+
 export const metadata: Metadata = {
   title: "Contact",
-  description:
-    "Call Green Hardwood at (416) 847-3366 or book a free hardwood, stair, or railing site visit. Sterling Road studio, Toronto. Serving the whole GTA.",
+  description: CONTACT_DESCRIPTION,
   alternates: { canonical: "/contact" },
   openGraph: {
     title: "Contact | Green Hardwood",
-    description:
-      "Call Green Hardwood at (416) 847-3366 or book a free hardwood, stair, or railing site visit in the Greater Toronto Area.",
+    description: CONTACT_DESCRIPTION,
     url: "/contact",
   },
 };
@@ -29,7 +33,7 @@ export default function ContactPage() {
         title="Call the shop. Or send the job and we will call you."
         lede="Sterling Road studio, Toronto. We measure across the GTA. Sunday is by appointment because stairs do not respect weekends, but crews do."
       />
-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-2">
+      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-2">
         <div>
           <dl className="space-y-5">
             <Item label="Phone">
@@ -63,6 +67,7 @@ export default function ContactPage() {
             src="/images/service-install.jpg"
             alt="Hardwood installation in progress with white oak planks and a pneumatic nailer."
             className="mt-8 aspect-[16/10] w-full rounded-xl object-cover"
+           loading="lazy" decoding="async"
           />
         </div>
         <div className="rounded-xl bg-surface p-6 shadow-[var(--shadow-card)] sm:p-8">

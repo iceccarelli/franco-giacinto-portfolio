@@ -28,9 +28,9 @@ export default function ComparePage() {
         ])}
       />
       <section className="border-b border-border bg-bg-warm">
-        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
           <p className="text-xs tracking-[0.18em] text-accent uppercase">The decision</p>
-          <h1 className="mt-3 max-w-3xl font-display text-4xl leading-[1.08] sm:text-5xl">
+          <h1 className="mt-3 max-w-3xl font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
             Hardwood vs vinyl vs laminate — without the showroom lighting.
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-muted">
@@ -39,7 +39,7 @@ export default function ComparePage() {
           </p>
         </div>
       </section>
-      <div className="mx-auto max-w-6xl overflow-x-auto px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-6xl overflow-x-auto px-4 py-12 sm:py-16 sm:px-6">
         <table className="w-full min-w-[52rem] border-collapse text-sm">
           <thead>
             <tr className="text-left">

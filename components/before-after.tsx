@@ -18,11 +18,19 @@ export function BeforeAfter({
   return (
     <div className="relative overflow-hidden rounded-xl bg-bg-warm shadow-[var(--shadow-card)]">
       <div className="relative aspect-[4/3] w-full select-none">
-        <img src={after} alt={afterAlt} className="absolute inset-0 h-full w-full object-cover" />
+        <img
+          src={after}
+          alt={afterAlt}
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
         <div className="absolute inset-0 overflow-hidden" style={{ width: `${pos}%` }}>
           <img
             src={before}
             alt={beforeAlt}
+            loading="lazy"
+            decoding="async"
             className="absolute inset-0 h-full max-w-none object-cover"
             style={{ width: `${10000 / pos}%` }}
           />

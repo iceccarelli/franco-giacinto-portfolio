@@ -70,7 +70,7 @@ export default function Home() {
 
       <WhyUs />
 
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:py-24 sm:px-6">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="max-w-2xl">
             <p className="text-xs font-medium tracking-[0.18em] text-accent uppercase">The work</p>
@@ -95,7 +95,8 @@ export default function Home() {
                 src={s.image}
                 alt={s.imageAlt}
                 className="aspect-[16/10] w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-              />
+           loading="lazy" decoding="async"
+          />
               <div className="p-5">
                 <p className="text-xs text-accent">{s.priceFrom}</p>
                 <h3 className="mt-1 font-display text-2xl">{s.shortName}</h3>
@@ -107,7 +108,7 @@ export default function Home() {
       </section>
 
       <section className="bg-primary text-primary-fg">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-20">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:py-24 sm:px-6 lg:grid-cols-2 lg:py-20">
           <div>
             <p className="text-xs tracking-[0.18em] text-primary-fg/55 uppercase">
               Niche we intend to own
@@ -137,6 +138,7 @@ export default function Home() {
             src="/images/stair-studio.jpg"
             alt="Custom white oak staircase with black metal balusters in a Greater Toronto home."
             className="aspect-[3/2] w-full rounded-xl object-cover"
+           loading="lazy" decoding="async"
           />
         </div>
       </section>
@@ -144,7 +146,7 @@ export default function Home() {
       <ToolsRow />
 
       <section className="border-y border-border bg-bg-warm">
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2">
+        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 sm:py-24 sm:px-6 lg:grid-cols-2">
           <div>
             <p className="text-xs tracking-[0.18em] text-accent uppercase">Proof</p>
             <h2 className="mt-2 font-display text-3xl sm:text-4xl">
@@ -167,7 +169,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:py-24 sm:px-6">
         <div className="flex items-end justify-between gap-4">
           <h2 className="font-display text-3xl sm:text-4xl">Selected GTA projects</h2>
           <Link href="/portfolio" className="text-sm font-medium text-primary">
@@ -180,7 +182,7 @@ export default function Home() {
               key={p.slug}
               className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
             >
-              <img src={p.image} alt={p.imageAlt} className="aspect-[4/3] w-full object-cover" />
+              <img src={p.image} alt={p.imageAlt} className="aspect-[4/3] w-full object-cover" loading="lazy" decoding="async"/>
               <div className="p-5">
                 <Badge>{p.location}</Badge>
                 <h3 className="mt-3 font-display text-xl">{p.title}</h3>
@@ -192,7 +194,7 @@ export default function Home() {
       </section>
 
       <section className="bg-surface">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:py-24 sm:px-6">
           <h2 className="font-display text-3xl sm:text-4xl">Price the job before you call</h2>
           <p className="mt-3 max-w-2xl text-muted">
             2026 GTA ranges for install, refinish, stairs, railings, repairs, and decks. Then we
@@ -205,7 +207,7 @@ export default function Home() {
       </section>
 
       <section className="border-y border-border bg-bg-warm">
-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:py-24 sm:px-6">
           <div className="flex items-center gap-2 text-accent">
             <MapPin className="size-4" />
             <p className="text-xs tracking-[0.18em] uppercase">Service area</p>
@@ -234,7 +236,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:py-24 sm:px-6">
         <h2 className="font-display text-3xl">What clients actually say</h2>
         <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {testimonials.map((t) => (
@@ -256,7 +258,7 @@ export default function Home() {
       </section>
 
       <section className="bg-surface">
-        <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
+        <div className="mx-auto max-w-3xl px-4 py-16 sm:py-24 sm:px-6">
           <h2 className="font-display text-3xl">
             Questions we get from Toronto homeowners — and from AI crawlers
           </h2>
@@ -280,7 +282,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
+      <section className="mx-auto max-w-6xl px-4 py-16 sm:py-24 sm:px-6">
         <div className="rounded-xl bg-primary px-6 py-12 text-primary-fg sm:px-12">
           <h2 className="font-display text-3xl sm:text-4xl">
             If the stair is an afterthought, you have the wrong flooring company.

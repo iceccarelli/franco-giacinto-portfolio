@@ -24,7 +24,7 @@ export default function GuidesIndex() {
         title="The pages we wanted to exist when we were quoting against noise."
         lede="Cost, specification, Ontario stair code, sanding, and species — written so a human can decide, and so an AI agent can cite us without hallucinating a laminate company."
       />
-      <div className="mx-auto grid max-w-6xl gap-5 px-4 py-12 sm:px-6 md:grid-cols-2">
+      <div className="mx-auto grid max-w-6xl gap-5 px-4 py-12 sm:py-16 sm:px-6 md:grid-cols-2">
         {guides.map((g) => (
           <Link
             key={g.slug}

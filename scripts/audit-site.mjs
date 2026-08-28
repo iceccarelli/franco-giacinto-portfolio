@@ -114,8 +114,11 @@ const staticFileRoutes = new Set(
         .map((f) => `/${f}`)
     : [],
 );
-// Route handlers and metadata routes produce no .html file.
+// Route handlers, metadata routes, and on-demand pages produce no .html file,
+// so they are absent from `routes` even though they are perfectly real. /search
+// is the on-demand one: it reads a query string, so it cannot be prerendered.
 const generatedRoutes = new Set([
+  "/search",
   "/sitemap.xml",
   "/robots.txt",
   "/manifest.webmanifest",
@@ -185,7 +188,71 @@ for (const { route, html } of pages) {
   if (!/application\/ld\+json/.test(html)) warn(`${route} — no structured data`);
 }
 
-/* --------------------------------------------------------- 6. the report */
+/* ------------------------------------------------- 6. the layout system */
+
+/**
+ * These three checks read the SOURCE, not the build output, because they are
+ * about the rules the codebase holds itself to rather than about what a
+ * crawler sees. Each one exists because the rule had already been broken:
+ *
+ *   - a third container width had appeared on exactly two pages, so
+ *     /problems/[slug] sat at a different measure than its own siblings;
+ *   - the h1 scale had forked into two `leading` values;
+ *   - every raw <img> loaded eagerly, which on a phone means eight images
+ *     before the fold on /services.
+ *
+ * A convention that is not enforced is a convention that lasts two patches.
+ */
+
+const SOURCE_DIRS = ["app", "components"];
+const ALLOWED_WIDTHS = new Set(["max-w-3xl", "max-w-6xl"]);
+
+function walkSource(dir, out = []) {
+  if (!existsSync(dir)) return out;
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) walkSource(full, out);
+    else if (entry.name.endsWith(".tsx")) out.push(full);
+  }
+  return out;
+}
+
+const sourceFiles = SOURCE_DIRS.flatMap((d) => walkSource(d));
+
+for (const file of sourceFiles) {
+  const src = readFileSync(file, "utf8");
+
+  // 6a. Page rails use one of two widths. `mx-auto` marks a page rail; a
+  //     `max-w-*` on an inline element (a heading, a paragraph) is fine.
+  for (const m of src.matchAll(/className="([^"]*\bmx-auto\b[^"]*\bpx-4\b[^"]*)"/g)) {
+    for (const cls of m[1].split(/\s+/)) {
+      if (!/^max-w-(\d|s|m|l|x|f|p|n)/.test(cls)) continue;
+      if (cls.startsWith("max-w-[")) continue; // a deliberate one-off measure
+      if (!ALLOWED_WIDTHS.has(cls)) {
+        fail(`${file} — page rail uses ${cls}; only max-w-6xl (wide) and max-w-3xl (prose) are allowed`);
+      }
+    }
+  }
+
+  // 6b. One h1 scale across the site.
+  for (const m of src.matchAll(/<h1\b[^>]*className="([^"]*)"/g)) {
+    const cls = m[1];
+    if (!/\btext-4xl\b/.test(cls)) continue;
+    if (!/leading-\[1\.08\]/.test(cls)) {
+      fail(`${file} — <h1> does not use the site h1 scale (leading-[1.08] font-medium sm:text-5xl)`);
+    }
+  }
+
+  // 6c. Every raw <img> declares how it loads.
+  for (const m of src.matchAll(/<img\b[\s\S]*?\/>/g)) {
+    if (!/\bloading=|\bfetchPriority=/.test(m[0])) {
+      const line = src.slice(0, m.index).split("\n").length;
+      fail(`${file}:${line} — <img> with no loading or fetchPriority hint`);
+    }
+  }
+}
+
+/* --------------------------------------------------------- 7. the report */
 
 const line = "─".repeat(64);
 console.log(line);

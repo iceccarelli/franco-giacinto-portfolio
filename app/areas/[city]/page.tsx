@@ -10,6 +10,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { priceBandOf } from "@/data/services";
 import { cities, getCity, tierNote, titleNameOf } from "@/data/areas";
 import { projects } from "@/data/projects";
 import { SITE_URL } from "@/lib/site-url";
@@ -66,7 +67,13 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
   const cityFaqs = [
     {
       q: `How much does hardwood flooring cost in ${city.name}?`,
-      a: `In ${city.name} in 2026, plan on $11–$22 per square foot installed and $4.50–$8.50 to refinish, before stairs. Stairs run $380–$850 per step. Use the estimator, then book a free measure in ${city.name} for a firm number.`,
+      // Bands come from data/services.ts. They used to be retyped here, which
+      // put the number on 32 city pages one edit away from the service pages.
+      a: `In ${city.name}, plan on ${priceBandOf("hardwood-installation")} and ${priceBandOf(
+        "sanding-refinishing",
+      )} to refinish, before stairs. Stairs run ${priceBandOf(
+        "hardwood-stairs",
+      )}. Use the estimator, then book a free measure in ${city.name} for a firm number.`,
     },
     {
       q: `Do you install hardwood stairs in ${city.name}?`,
@@ -107,7 +114,7 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
           <p className="text-xs tracking-[0.18em] text-accent uppercase">
             {city.region} · Green Hardwood
           </p>
-          <h1 className="mt-3 max-w-3xl font-display text-4xl leading-[1.08] sm:text-5xl">
+          <h1 className="mt-3 max-w-3xl font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
             Hardwood flooring, stairs, and railings in {city.name}
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-muted">{city.blurb}</p>
@@ -116,7 +123,7 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
           </Button>
         </div>
       </section>
-      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-[1.2fr_0.8fr]">
+      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-[1.2fr_0.8fr]">
         <article className="space-y-5">
           <h2 className="font-display text-3xl">The housing stock we walk into</h2>
           <p className="text-muted">{city.housing}</p>
@@ -151,7 +158,8 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
                       src={p.image}
                       alt={p.imageAlt}
                       className="aspect-[16/8] w-full object-cover"
-                    />
+           loading="lazy" decoding="async"
+          />
                     <div className="p-4">
                       <h3 className="font-display text-xl">{p.title}</h3>
                       <p className="mt-1 text-sm text-muted">{p.summary}</p>

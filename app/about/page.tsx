@@ -114,7 +114,7 @@ export default function AboutPage() {
       </div>
 
       {/* Founder ---------------------------------------------------------- */}
-      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
         <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,22rem)_1fr]">
           <figure className="mx-auto w-full max-w-sm lg:mx-0">
             <Image
@@ -200,7 +200,7 @@ export default function AboutPage() {
       </section>
 
       {/* Principles ------------------------------------------------------- */}
-      <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
         <h2 className="font-display text-3xl sm:text-4xl">How we actually work</h2>
         <div className="mt-8 grid gap-5 md:grid-cols-3">
           {principles.map(({ icon: Icon, title, body }) => (
@@ -215,7 +215,7 @@ export default function AboutPage() {
 
       {/* Shop ------------------------------------------------------------- */}
       <section className="border-y border-border bg-bg-warm">
-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 sm:px-6 lg:grid-cols-2">
+        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-2">
           <Image
             src="/images/workshop.jpg"
             alt="Green Hardwood workshop with species racks, stain sample boards, and professional sanding equipment."
@@ -246,7 +246,7 @@ export default function AboutPage() {
       </section>
 
       {/* Timeline --------------------------------------------------------- */}
-      <section className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+      <section className="mx-auto max-w-3xl px-4 py-12 sm:py-16 sm:px-6">
         <h2 className="font-display text-3xl">How we got here</h2>
         <ol className="mt-8 space-y-8">
           {timeline.map((item) => (

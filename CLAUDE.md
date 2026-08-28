@@ -6,7 +6,7 @@ changing anything. Human process is in `docs/WORKFLOW.md`.
 ## The short version
 
 ```bash
-npm ci && npm run verify    # typecheck → 92 tests → build → site audit
+npm ci && npm run verify    # typecheck → 122 tests → build → site audit
 ```
 
 - Never commit to `main`. Branch → PR → CI green → merge.
@@ -17,6 +17,9 @@ npm ci && npm run verify    # typecheck → 92 tests → build → site audit
 - A new URL earns its place only if it answers a query no existing URL answers
   better. `docs/QUERY-INVENTORY.md` is the map.
 - Fix a bug, add the test that would have caught it, same PR.
+- Navigation lives in `data/navigation.ts`. A link added straight into a header
+  or footer component fails `tests/navigation.test.ts`, on purpose: web and
+  mobile render the same array, and that is what keeps them identical.
 
 ## Where things are
 
@@ -24,10 +27,12 @@ npm ci && npm run verify    # typecheck → 92 tests → build → site audit
 | ------------------------ | -------------------------------- |
 | Any content              | `data/`                          |
 | Structured data          | `lib/seo.ts`                     |
-| The 84 city pages        | `data/matrix.ts`                 |
+| The 224 city pages       | `data/matrix.ts`                 |
 | Ontario stair thresholds | `OBC_LIMITS` in `data/obc.ts`    |
 | The assistant            | `lib/assistant/`, `app/api/ask/` |
 | The quality gate         | `scripts/audit-site.mjs`         |
+| Navigation (all of it)   | `data/navigation.ts`             |
+| The layout contract      | `docs/DESIGN-SYSTEM.md`          |
 | Honest current limits    | `docs/HONEST-LIMITS.md`          |
 
 ## Things that will waste your time if you do not know them

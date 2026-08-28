@@ -28,9 +28,9 @@ export default function EmergencyPage() {
         ])}
       />
       <section className="border-b border-border bg-primary text-primary-fg">
-        <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+        <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16 sm:px-6">
           <p className="text-xs tracking-[0.18em] text-primary-fg/60 uppercase">Water damage</p>
-          <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">
+          <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
             Stop the water. Then call us. Do not rent a drum sander tonight.
           </h1>
           <p className="mt-4 text-lg text-primary-fg/75">
@@ -53,7 +53,7 @@ export default function EmergencyPage() {
           </div>
         </div>
       </section>
-      <article className="mx-auto max-w-3xl space-y-6 px-4 py-12 sm:px-6">
+      <article className="mx-auto max-w-3xl space-y-6 px-4 py-12 sm:py-16 sm:px-6">
         <h2 className="font-display text-2xl">Do this now</h2>
         <ol className="list-decimal space-y-2 pl-5 text-muted">
           <li>Stop the source. Shut the valve. Call a plumber if you do not know which valve.</li>

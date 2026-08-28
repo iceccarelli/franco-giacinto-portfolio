@@ -103,10 +103,10 @@ export function AskGreenHardwood() {
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
-        className="fixed right-4 bottom-24 z-40 inline-flex h-14 items-center gap-2.5 rounded-full bg-primary px-5 text-sm font-medium text-primary-fg shadow-[0_8px_28px_-8px_rgb(28_22_18/0.55)] transition-transform hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:outline-none md:bottom-6"
+        aria-label="Ask Green Hardwood"
+        className="fixed right-4 bottom-24 z-40 inline-flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-fg shadow-[0_8px_28px_-8px_rgb(28_22_18/0.55)] transition-transform hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:outline-none md:bottom-6"
       >
-        <MessageSquare className="size-5" aria-hidden="true" />
-        Ask Green Hardwood
+        <MessageSquare className="size-6" aria-hidden="true" />
       </button>
     );
   }
@@ -121,8 +121,14 @@ export function AskGreenHardwood() {
     >
       <header className="flex items-start justify-between gap-3 bg-primary px-4 py-3 text-primary-fg">
         <div>
-          <h2 id={`${uid}-title`} className="font-display text-lg leading-tight">
+          <h2
+            id={`${uid}-title`}
+            className="flex items-center gap-2 font-display text-lg leading-tight"
+          >
             Ask Green Hardwood
+            <span className="rounded bg-primary-fg/15 px-1.5 py-0.5 text-[0.625rem] font-sans font-semibold tracking-wide text-primary-fg/80 uppercase">
+              Grounded
+            </span>
           </h2>
           <p className="text-xs text-primary-fg/70">
             Answers drawn from this site. Not a substitute for a site visit.
@@ -141,17 +147,17 @@ export function AskGreenHardwood() {
       <div ref={logRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4" aria-live="polite">
         {turns.length === 0 && (
           <div>
-            <p className="text-sm text-muted">
-              Hardwood stairs, installation, refinishing, local pricing, Ontario stair code. Ask
-              anything — or start here:
+            <p className="text-sm font-medium text-fg">Want help getting started?</p>
+            <p className="mt-0.5 text-sm text-muted">
+              Tell us a little about what you are looking for.
             </p>
-            <div className="mt-3 flex flex-col gap-2">
+            <div className="mt-3 flex flex-col items-start gap-2">
               {OPENERS.map((q) => (
                 <button
                   key={q}
                   type="button"
                   onClick={() => void ask(q)}
-                  className="rounded-lg border border-border bg-bg px-3 py-2 text-left text-sm transition-colors hover:bg-bg-warm"
+                  className="rounded-md border border-accent/40 bg-bg px-3 py-2 text-left text-sm text-fg transition-colors hover:border-accent hover:bg-bg-warm"
                 >
                   {q}
                 </button>
@@ -268,6 +274,15 @@ export function AskGreenHardwood() {
           <ArrowUp className="size-4" aria-hidden="true" />
         </button>
       </form>
+
+      {/* AWS puts a disclaimer under its widget. Ours states the one thing that
+          actually matters for a contractor: an estimate is not a quote. */}
+      <p className="border-t border-border bg-bg-warm/60 px-4 py-2 text-center text-[0.6875rem] text-muted">
+        Prices shown are estimate bands.{" "}
+        <Link href="/estimate" onClick={() => setOpen(false)} className="underline">
+          A firm quote follows the measure.
+        </Link>
+      </p>
     </div>
   );
 }

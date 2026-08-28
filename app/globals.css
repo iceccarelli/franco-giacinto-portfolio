@@ -86,6 +86,46 @@
   }
 }
 
+/* ---------------------------------------------------------------------------
+   Footer columns: one markup, two presentations.
+
+   Below lg each column is a <details> disclosure — the "Help +" pattern
+   aws.amazon.com uses in its mobile footer, and the reason a phone does not
+   get a three-thousand-pixel wall of links.
+
+   At lg and above the summaries are hidden and the content is forced open, so
+   the same elements render as a plain column grid. Doing it in CSS rather than
+   with a client component means the footer stays a server component and the
+   links exist exactly once in the DOM — which is what stops the mobile footer
+   and the desktop footer from drifting apart, as they had.
+
+   Two rules are needed because browsers hide <details> content two different
+   ways. Older engines skip the unslotted children, so `display: block` on them
+   is enough. Chrome 131+, Safari 18.4+ and Firefox 139+ use `::details-content`
+   with `content-visibility: hidden`, which needs the second rule. A browser
+   that does not know `::details-content` simply drops that block.
+--------------------------------------------------------------------------- */
+
+@media (min-width: 64rem) {
+  details[data-footer-column] > summary {
+    display: none;
+  }
+
+  details[data-footer-column] > * {
+    display: block;
+  }
+
+  details[data-footer-column]::details-content {
+    content-visibility: visible;
+    block-size: auto;
+  }
+}
+
+/* The `+` becomes a `−` when the disclosure is open. */
+details[data-footer-column][open] > summary > span::after {
+  transform: translateX(-50%) scaleY(0);
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

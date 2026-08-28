@@ -92,7 +92,7 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
         <div className="mx-auto grid max-w-6xl items-center gap-8 px-4 pb-10 sm:px-6 lg:grid-cols-2">
           <div>
             <p className="text-xs tracking-[0.18em] text-accent uppercase">{service.eyebrow}</p>
-            <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">
+            <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
               {service.headline}
             </h1>
             <p className="mt-4 text-lg text-muted">{service.summary}</p>
@@ -117,10 +117,11 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
             src={service.image}
             alt={service.imageAlt}
             className="aspect-[4/3] w-full rounded-xl object-cover shadow-[var(--shadow-card)]"
+           fetchPriority="high" decoding="async"
           />
         </div>
       </section>
-      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-[1.3fr_0.7fr]">
+      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-[1.3fr_0.7fr]">
         <article>
           <ul className="space-y-3">
             {service.bullets.map((b) => (
@@ -148,7 +149,8 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
                       src={p.image}
                       alt={p.imageAlt}
                       className="aspect-[16/10] w-full object-cover"
-                    />
+           loading="lazy" decoding="async"
+          />
                     <div className="p-4">
                       <h3 className="font-display text-lg">{p.title}</h3>
                       <p className="mt-1 text-sm text-muted">{p.summary}</p>
@@ -219,7 +221,7 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
       </div>
       {cityPages.length > 0 && (
         <section className="border-t border-border bg-bg-warm">
-          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+          <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
             <h2 className="font-display text-2xl">{service.shortName} city by city</h2>
             <p className="mt-2 max-w-2xl text-sm text-muted">
               Housing stock, local price band, and the jobs we actually get called for — written per
@@ -245,7 +247,7 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
       )}
 
       <section className="border-t border-border">
-        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
           <h2 className="font-display text-2xl">Also in the shop</h2>
           <div className="mt-6 grid gap-4 md:grid-cols-3">
             {others.map((s) => (
