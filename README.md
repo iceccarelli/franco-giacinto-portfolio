@@ -24,8 +24,8 @@ A statically prerendered Next.js 15 App Router site built around one commercial 
 ```
 app/                        route segments; every page exports metadata + JSON-LD
   services/[slug]/          8 services, prerendered from data/services.ts
-  services/[slug]/[city]/   84 service x city pages — the long-tail capture layer
-  areas/[city]/             12 GTA cities, prerendered from data/areas.ts
+  services/[slug]/[city]/   224 service x city pages — the long-tail capture layer
+  areas/[city]/             32 cities (20 core, 12 travel), from data/areas.ts
   guides/[slug]/            9 long-form guides, prerendered from data/guides.ts
   actions/lead.ts           Server Action: validate, throttle, deliver
   search/                   crawlable results page for the client-side index
@@ -63,12 +63,12 @@ own content and nothing else — every reply is either verbatim from `data/` or 
 template whose variables come from `data/`, and every reply cites the internal
 pages it came from.
 
-| Question | What it does |
-| --- | --- |
-| "How much are stairs in Vaughan?" | Returns *that city's* computed band from `data/matrix.ts` |
+| Question                          | What it does                                                 |
+| --------------------------------- | ------------------------------------------------------------ |
+| "How much are stairs in Vaughan?" | Returns _that city's_ computed band from `data/matrix.ts`    |
 | "Will my stairs pass inspection?" | Quotes `OBC_LIMITS` and says the building department decides |
-| "Do you install vinyl?" | Declines plainly, as the brand does |
-| Anything undocumented | Says so and gives the phone number |
+| "Do you install vinyl?"           | Declines plainly, as the brand does                          |
+| Anything undocumented             | Says so and gives the phone number                           |
 
 Setting `ANTHROPIC_API_KEY` adds a phrasing layer over the same retrieved
 passages. It cannot introduce new facts, cannot cite a page retrieval did not

@@ -10,7 +10,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { cities, getCity } from "@/data/areas";
+import { cities, getCity, tierNote, titleNameOf } from "@/data/areas";
 import { projects } from "@/data/projects";
 import { SITE_URL } from "@/lib/site-url";
 import { breadcrumbLd, clampDescription, faqLd, webPageLd } from "@/lib/seo";
@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
   const { city: slug } = await params;
   const city = getCity(slug);
   if (!city) return {};
-  const title = `Hardwood Flooring, Stairs & Railings in ${city.name}`;
+  const title = `Hardwood Flooring & Stairs in ${titleNameOf(city)}`;
   const description = clampDescription(
     `Hardwood floors, custom stairs, and railings in ${city.name}. ${city.blurb}`,
   );
@@ -175,9 +175,7 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
         </article>
         <aside className="h-fit rounded-xl bg-surface p-6 shadow-[var(--shadow-card)]">
           <h2 className="font-display text-2xl">On-site in {city.name}</h2>
-          <p className="mt-2 mb-4 text-sm text-muted">
-            Free measure for qualified hardwood, stair, and railing work.
-          </p>
+          <p className="mt-2 mb-4 text-sm text-muted">{tierNote(city)}</p>
           <QuoteForm />
         </aside>
       </div>

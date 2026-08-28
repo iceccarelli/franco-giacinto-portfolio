@@ -32,6 +32,12 @@ export const finishOptions = [
   { id: "oil", label: "Hardwax oil", add: 4.1, labourMult: 1.04 },
 ] as const;
 
+/**
+ * Local cost multiplier: labour rates, parking and access, and — for the
+ * extended-tier towns — the drive. A crew that loses ninety minutes a day to
+ * travel costs more per square foot, and pretending otherwise just means
+ * quoting a number we cannot hold.
+ */
 export const cityMult: Record<string, number> = {
   toronto: 1.08,
   etobicoke: 1.05,
@@ -45,6 +51,36 @@ export const cityMult: Record<string, number> = {
   oakville: 1.07,
   burlington: 1.04,
   milton: 0.99,
+  "east-york": 1.06,
+
+  // Durham
+  pickering: 1.01,
+  ajax: 1.0,
+  whitby: 1.01,
+  oshawa: 1.02,
+  clarington: 1.05,
+
+  // York
+  aurora: 1.04,
+  newmarket: 1.02,
+  king: 1.07,
+  "whitchurch-stouffville": 1.03,
+
+  // Peel / Halton, outer
+  caledon: 1.06,
+  "halton-hills": 1.04,
+
+  // Hamilton
+  hamilton: 1.05,
+  ancaster: 1.06,
+  dundas: 1.07,
+
+  // Simcoe, Dufferin, Wellington — travel is the dominant term here
+  "bradford-west-gwillimbury": 1.06,
+  barrie: 1.1,
+  innisfil: 1.09,
+  orangeville: 1.08,
+  guelph: 1.07,
 };
 
 export type EstimateInput = {

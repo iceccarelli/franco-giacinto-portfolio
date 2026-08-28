@@ -65,6 +65,6 @@ export const nav = [
 export const stats = [
   { value: "1,200+", label: "Floors installed or refinished" },
   { value: "15+", label: "Years in the GTA" },
-  { value: "12", label: "GTA cities with a local page" },
+  { value: "32", label: "Cities and towns served" },
   { value: "3-year", label: "Workmanship warranty" },
 ] as const;

@@ -25,14 +25,14 @@ Every satellite page points `rel=canonical` at the matching URL on the main site
 
 ## Allowed properties
 
-| Property | Purpose | Canonical target |
-|---|---|---|
-| `greenhardwood.ca` | System of record | itself |
-| `stairs.greenhardwood.ca` | Stair-only narrative + studio CTA | `/services/hardwood-stairs` |
-| `install.greenhardwood.ca` | Installation-only narrative | `/services/hardwood-installation` |
-| `ai.greenhardwood.ca` | Machine-readable citation card | `/llms.txt` |
-| Google Business Profile | Local pack | website field = `greenhardwood.ca` |
-| Instagram / YouTube | Proof | link in bio = `greenhardwood.ca` |
+| Property                   | Purpose                           | Canonical target                   |
+| -------------------------- | --------------------------------- | ---------------------------------- |
+| `greenhardwood.ca`         | System of record                  | itself                             |
+| `stairs.greenhardwood.ca`  | Stair-only narrative + studio CTA | `/services/hardwood-stairs`        |
+| `install.greenhardwood.ca` | Installation-only narrative       | `/services/hardwood-installation`  |
+| `ai.greenhardwood.ca`      | Machine-readable citation card    | `/llms.txt`                        |
+| Google Business Profile    | Local pack                        | website field = `greenhardwood.ca` |
+| Instagram / YouTube        | Proof                             | link in bio = `greenhardwood.ca`   |
 
 ## Forbidden
 

@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { cities } from "@/data/areas";
+import { cities, coreCities, extendedCities, tierNote } from "@/data/areas";
 import { matrixPages, matrixServices, getMatrixPage, MATRIX_COUNT } from "@/data/matrix";
 import { cityMult } from "@/data/estimate";
 
@@ -113,6 +113,51 @@ describe("page content", () => {
         p.keywords.some((k) => k.toLowerCase().includes(p.city.name.toLowerCase())),
         `${p.path} has no city keyword`,
       );
+    }
+  });
+});
+
+describe("service tiers", () => {
+  test("every city declares a tier", () => {
+    for (const c of cities) {
+      assert.ok(c.tier === "core" || c.tier === "extended", `${c.slug} has no valid tier`);
+    }
+  });
+
+  test("core and extended partition the city list", () => {
+    assert.equal(coreCities.length + extendedCities.length, cities.length);
+    assert.ok(coreCities.length > 0 && extendedCities.length > 0);
+  });
+
+  test("the tier note tells a visitor what to expect before they call", () => {
+    for (const c of cities) {
+      const note = tierNote(c);
+      assert.ok(note.length > 40, `${c.slug} tier note is too vague`);
+      if (c.tier === "extended") {
+        assert.match(note, /not a single-room repair/i, "extended areas must state the limit");
+      }
+    }
+  });
+
+  test("travel is priced into the extended tier", () => {
+    // A crew losing 90 minutes a day to travel costs more per square foot.
+    // If this ever inverts, we are quoting numbers we cannot hold.
+    const avg = (list: typeof cities) =>
+      list.reduce((sum, c) => sum + (cityMult[c.slug] ?? 1), 0) / list.length;
+    assert.ok(
+      avg(extendedCities) > avg(coreCities),
+      "extended-tier towns should price above the core average",
+    );
+  });
+
+  test("titleName is only used where the full name would overflow a SERP", () => {
+    for (const c of cities) {
+      if (!c.titleName) continue;
+      assert.ok(
+        c.titleName.length < c.name.length,
+        `${c.slug} titleName is not shorter than its name`,
+      );
+      assert.ok(c.name.includes(c.titleName), `${c.slug} titleName is not part of its full name`);
     }
   });
 });

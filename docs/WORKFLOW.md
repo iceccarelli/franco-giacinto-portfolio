@@ -30,7 +30,7 @@ prices, or new cities, `chore/` for tooling.
 
 ### 2. Change one thing
 
-A branch that adds three cities *and* redesigns the header is a branch nobody can
+A branch that adds three cities _and_ redesigns the header is a branch nobody can
 review and nobody can revert cleanly. One intent per branch.
 
 ### 3. Verify locally
@@ -73,12 +73,12 @@ Merge from the GitHub UI once CI is green. Vercel deploys `main` automatically.
 
 `.github/workflows/ci.yml` runs on every PR and every push to `main`.
 
-| Step | Catches |
-| --- | --- |
-| `npm ci` | Lockfile drift — the thing that kills a Vercel deploy at install |
-| `npm run typecheck` | Type errors, including `noUncheckedIndexedAccess` violations |
-| `npm test` | Broken lead validation, wrong stair-code thresholds, a matrix that has gone thin, search that stopped ranking |
-| `npm run build` | Anything that fails to prerender |
+| Step                 | Catches                                                                                                                              |
+| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm ci`             | Lockfile drift — the thing that kills a Vercel deploy at install                                                                     |
+| `npm run typecheck`  | Type errors, including `noUncheckedIndexedAccess` violations                                                                         |
+| `npm test`           | Broken lead validation, wrong stair-code thresholds, a matrix that has gone thin, search that stopped ranking                        |
+| `npm run build`      | Anything that fails to prerender                                                                                                     |
 | `npm run audit:site` | Dead internal links, duplicate titles or descriptions, missing canonicals, missing `h1` or `alt`, unparseable JSON-LD, missing media |
 
 The audit is the one that repays itself. It has already caught a title collision
@@ -113,7 +113,7 @@ It covers the pure logic where a silent bug is expensive:
   boundaries, and a check that the prose in `obcRules` quotes the same numbers
   `checkObc` enforces.
 - **`tests/matrix.test.ts`** — 84 unique paths, titles, and descriptions; titles
-  that fit a SERP; and, critically, that the same job prices *differently* in
+  that fit a SERP; and, critically, that the same job prices _differently_ in
   different cities. If that assertion ever fails, the city multiplier has stopped
   applying and all 84 pages have become the same page.
 - **`tests/search.test.ts`** — all query tokens must match; a city name reaches
@@ -130,15 +130,15 @@ When you fix a bug, add the test that would have caught it, in the same PR.
 Most work on this site is content, not code. It still goes through a branch and a
 PR, because content is what ranks.
 
-| Change | File | Watch out for |
-| --- | --- | --- |
-| Edit a service | `data/services.ts` | Feeds 8 surfaces at once: service page, matrix pages, header, footer, homepage, JSON-LD offer catalogue, sitemap, `llms.txt` |
-| Add a city | `data/areas.ts` | Also add a `cityMult` entry in `data/estimate.ts`, or the price silently falls back. `tests/matrix.test.ts` enforces this |
-| Publish a guide | `data/guides.ts` | Appears in the sitemap and RSS automatically |
-| Change price bands | `data/estimate.ts` | Updates the estimator, all 84 matrix bands, and `llms.txt` together |
-| NAP, hours, warranty | `data/company.ts` | Must match the Google Business Profile **character for character** |
-| Add or drop a matrix service | `matrixServices` in `data/matrix.ts` | Read a generated page before shipping. If it reads like a mad-lib, write a `localAngle` for it |
-| Ontario stair thresholds | `OBC_LIMITS` in `data/obc.ts` | One constant drives the checker, the pages, and `llms-full.txt` |
+| Change                       | File                                 | Watch out for                                                                                                                |
+| ---------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| Edit a service               | `data/services.ts`                   | Feeds 8 surfaces at once: service page, matrix pages, header, footer, homepage, JSON-LD offer catalogue, sitemap, `llms.txt` |
+| Add a city                   | `data/areas.ts`                      | Also add a `cityMult` entry in `data/estimate.ts`, or the price silently falls back. `tests/matrix.test.ts` enforces this    |
+| Publish a guide              | `data/guides.ts`                     | Appears in the sitemap and RSS automatically                                                                                 |
+| Change price bands           | `data/estimate.ts`                   | Updates the estimator, all 84 matrix bands, and `llms.txt` together                                                          |
+| NAP, hours, warranty         | `data/company.ts`                    | Must match the Google Business Profile **character for character**                                                           |
+| Add or drop a matrix service | `matrixServices` in `data/matrix.ts` | Read a generated page before shipping. If it reads like a mad-lib, write a `localAngle` for it                               |
+| Ontario stair thresholds     | `OBC_LIMITS` in `data/obc.ts`        | One constant drives the checker, the pages, and `llms-full.txt`                                                              |
 
 Content lives in `data/` so that a page, its structured data, its sitemap entry,
 and its plain-text version for AI crawlers cannot drift apart. Editing copy
@@ -152,7 +152,7 @@ directly into a `page.tsx` breaks that guarantee — do it in `data/`.
 `Generating static pages (173/173)`.
 
 **Rolling back is instant and does not need a commit.** Vercel → Deployments →
-find the last good one → ⋯ → *Promote to Production*. Do that first, then fix the
+find the last good one → ⋯ → _Promote to Production_. Do that first, then fix the
 cause on a branch. Never debug production by pushing to `main`.
 
 ---
@@ -161,13 +161,13 @@ cause on a branch. Never debug production by pushing to `main`.
 
 Set in Vercel → Settings → Environment Variables. Nothing secret goes in the repo.
 
-| Variable | Purpose | Set? |
-| --- | --- | --- |
-| `RESEND_API_KEY` | Emails the lead. Without it, leads are captured in the server log only | ❌ pending |
-| `LEAD_TO_EMAIL` | Where leads land | ❌ |
-| `LEAD_FROM_EMAIL` | Must be a Resend-verified domain | ❌ |
-| `INDEXNOW_KEY` | Announces URL changes to Bing, Yandex, Naver | ❌ |
-| `NEXT_PUBLIC_SITE_URL` | Only to override Vercel's own production domain | not needed |
+| Variable               | Purpose                                                                | Set?       |
+| ---------------------- | ---------------------------------------------------------------------- | ---------- |
+| `RESEND_API_KEY`       | Emails the lead. Without it, leads are captured in the server log only | ❌ pending |
+| `LEAD_TO_EMAIL`        | Where leads land                                                       | ❌         |
+| `LEAD_FROM_EMAIL`      | Must be a Resend-verified domain                                       | ❌         |
+| `INDEXNOW_KEY`         | Announces URL changes to Bing, Yandex, Naver                           | ❌         |
+| `NEXT_PUBLIC_SITE_URL` | Only to override Vercel's own production domain                        | not needed |
 
 `SITE_URL` resolves automatically from Vercel's production domain, so attaching
 `greenhardwood.ca` requires **no code change** — every canonical, JSON-LD `@id`,
@@ -210,8 +210,7 @@ branch**:
 - `gh pr create` says "could not find any commits between origin/main and ..."
 
 It looks like it worked. It did not. This happened three times before the script
-existed. The tell was always the test count: `main` had 75 tests, the patch had
-94.
+existed. The tell was always the test count: `main` had 75 tests, the patch had 94.
 
 If `git apply --check` fails, stop. Do not force it. A patch that will not apply
 cleanly means the branch has moved underneath it, and the fix is a rebased patch,
@@ -225,17 +224,17 @@ Worth knowing, because each cost real time:
 
 1. **Uncommitted `package-lock.json`.** `npm install` added a dependency, the
    lockfile updated, nobody committed it. `npm ci` — and therefore Vercel —
-   fails. *Fix: run `npm ci` before you push.*
+   fails. _Fix: run `npm ci` before you push._
 2. **A rename/delete merge conflict.** One branch renamed a file, the other
-   deleted it, and git correctly refused to guess. *Fix: don't do cleanup commits
-   directly on `main`; do them on the branch that is already changing the file.*
+   deleted it, and git correctly refused to guess. _Fix: don't do cleanup commits
+   directly on `main`; do them on the branch that is already changing the file._
 3. **A merge that stopped at a conflict and was never finished**, so `main` never
-   got the work and the old site stayed live. *Fix: after any merge, check
-   `git log --oneline -1` and `git status` before assuming it worked.*
+   got the work and the old site stayed live. _Fix: after any merge, check
+   `git log --oneline -1` and `git status` before assuming it worked._
 4. **A patch that silently did not apply** because the uploaded filename had been
    rewritten, so every later command operated on the unchanged branch and
-   appeared to succeed. *Fix: `scripts/apply-patch.sh`, which checks that commits
-   were actually added.*
+   appeared to succeed. _Fix: `scripts/apply-patch.sh`, which checks that commits
+   were actually added._
 
 The pattern in all four: **a command failed, the shell carried on, and a later
 green checkmark was mistaken for proof.** When something in a sequence errors,
