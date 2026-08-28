@@ -1,7 +1,9 @@
 import type { MetadataRoute } from "next";
+import { answers } from "@/data/answers";
 import { cities } from "@/data/areas";
 import { SITE_URL } from "@/lib/site-url";
 import { guides } from "@/data/guides";
+import { methods } from "@/data/methods";
 import { matrixPages } from "@/data/matrix";
 import { services } from "@/data/services";
 
@@ -25,6 +27,9 @@ const staticRoutes: {
   { path: "/showroom", priority: 0.8, changeFrequency: "monthly" },
   { path: "/areas", priority: 0.8, changeFrequency: "monthly" },
   { path: "/guides", priority: 0.75, changeFrequency: "weekly" },
+  { path: "/methods", priority: 0.85, changeFrequency: "monthly" },
+  { path: "/answers", priority: 0.8, changeFrequency: "weekly" },
+  { path: "/glossary", priority: 0.7, changeFrequency: "monthly" },
   { path: "/compare", priority: 0.7, changeFrequency: "monthly" },
   { path: "/process", priority: 0.7, changeFrequency: "monthly" },
   { path: "/emergency", priority: 0.7, changeFrequency: "monthly" },
@@ -66,6 +71,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified,
       changeFrequency: "monthly" as const,
       priority: 0.65,
+    })),
+    ...methods.map((m) => ({
+      url: `${BASE}/methods/${m.slug}`,
+      lastModified,
+      changeFrequency: "monthly" as const,
+      priority: m.cluster === "stairs" || m.cluster === "installation" ? 0.8 : 0.7,
+      images: [`${BASE}${m.image}`],
+    })),
+    ...answers.map((a) => ({
+      url: `${BASE}/answers/${a.slug}`,
+      lastModified,
+      changeFrequency: "monthly" as const,
+      priority: a.featured ? 0.7 : 0.6,
     })),
     // Service × city. These sit just below their parent service page: they are
     // the long-tail capture layer, not the canonical description of the service.

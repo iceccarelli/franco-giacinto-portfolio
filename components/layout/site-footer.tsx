@@ -114,6 +114,21 @@ export function SiteFooter() {
               </Link>
             </li>
             <li>
+              <Link href="/methods" className="text-primary-fg/80 hover:text-primary-fg">
+                Methods
+              </Link>
+            </li>
+            <li>
+              <Link href="/answers" className="text-primary-fg/80 hover:text-primary-fg">
+                Answers
+              </Link>
+            </li>
+            <li>
+              <Link href="/glossary" className="text-primary-fg/80 hover:text-primary-fg">
+                Glossary
+              </Link>
+            </li>
+            <li>
               <Link href="/faq" className="text-primary-fg/80 hover:text-primary-fg">
                 FAQ
               </Link>

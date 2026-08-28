@@ -35,15 +35,15 @@ const mega: { heading: string; items: { label: string; href: string }[] }[] = [
     items: [
       { label: "Showroom", href: "/showroom" },
       { label: "Estimator", href: "/estimate" },
-      { label: "Hardwood vs vinyl", href: "/compare" },
-      { label: "Our process", href: "/process" },
+      { label: "Methods", href: "/methods" },
+      { label: "Answers", href: "/answers" },
     ],
   },
 ];
 
 const primary: { label: string; href: string }[] = [
   { label: "Stairs", href: "/stairs" },
-  { label: "Railings", href: "/services/hardwood-railings" },
+  { label: "Methods", href: "/methods" },
   { label: "Showroom", href: "/showroom" },
   { label: "Work", href: "/portfolio" },
   { label: "Areas", href: "/areas" },
@@ -57,6 +57,9 @@ const mobile: { label: string; href: string }[] = [
   { label: "Work", href: "/portfolio" },
   { label: "Areas", href: "/areas" },
   { label: "Guides", href: "/guides" },
+  { label: "Methods", href: "/methods" },
+  { label: "Answers", href: "/answers" },
+  { label: "Glossary", href: "/glossary" },
   { label: "About", href: "/about" },
   { label: "Trade", href: "/trade" },
   { label: "Contact", href: "/contact" },

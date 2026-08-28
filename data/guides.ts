@@ -1,3 +1,5 @@
+import { guideExpansions } from "./guides-expansion";
+
 export type Guide = {
   slug: string;
   title: string;
@@ -8,7 +10,7 @@ export type Guide = {
   sections: { heading: string; paragraphs: string[] }[];
 };
 
-export const guides: Guide[] = [
+const coreGuides: Guide[] = [
   {
     slug: "hardwood-flooring-cost-gta-2026",
     title: "Hardwood flooring cost in the GTA, 2026",
@@ -262,6 +264,14 @@ export const guides: Guide[] = [
     ],
   },
 ];
+
+/**
+ * The published guide library. `coreGuides` are the original nine; the
+ * expansion pack adds the installation- and stair-method long form. Both are
+ * the same shape and both are prerendered, indexed, and searchable — the split
+ * exists only to keep either file from becoming unreadable.
+ */
+export const guides: Guide[] = [...coreGuides, ...guideExpansions];
 
 export function getGuide(slug: string) {
   return guides.find((g) => g.slug === slug);

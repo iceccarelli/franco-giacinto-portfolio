@@ -16,6 +16,7 @@ import { getService, seoNameOf, services } from "@/data/services";
 import { breadcrumbLd, clampDescription, faqLd, serviceLd, webPageLd } from "@/lib/seo";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { isMatrixService, matrixForService } from "@/data/matrix";
+import { methods } from "@/data/methods";
 
 const categoryMap: Record<string, (typeof projects)[number]["category"]> = {
   "hardwood-installation": "install",
@@ -63,6 +64,7 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
   if (!service) notFound();
   const others = services.filter((s) => s.slug !== service.slug).slice(0, 3);
   const cityPages = isMatrixService(service.slug) ? matrixForService(service.slug) : [];
+  const serviceMethods = methods.filter((m) => m.relatedService === service.slug);
   const crumbs = [
     { name: "Home", path: "/" },
     { name: "Services", path: "/services" },
@@ -154,6 +156,27 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
                   </article>
                 ))}
               </div>
+            </div>
+          )}
+          {serviceMethods.length > 0 && (
+            <div className="mt-10">
+              <h2 className="font-display text-2xl">How we do it</h2>
+              <p className="mt-2 text-sm text-muted">
+                The assemblies behind this service, documented step by step.
+              </p>
+              <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+                {serviceMethods.map((m) => (
+                  <li key={m.slug}>
+                    <Link
+                      href={`/methods/${m.slug}`}
+                      className="block rounded-xl bg-surface p-4 shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
+                    >
+                      <p className="font-medium">{m.name}</p>
+                      <p className="mt-1 text-sm text-muted">{m.headline}</p>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
           {service.faqs.length > 0 && (

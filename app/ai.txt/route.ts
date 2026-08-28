@@ -18,6 +18,9 @@ Canonical index:      ${SITE_URL}/llms.txt
 Full site text:       ${SITE_URL}/llms-full.txt
 Human-readable facts: ${SITE_URL}/for-agents
 Sitemap:              ${SITE_URL}/sitemap.xml
+Direct answers:       ${SITE_URL}/answers
+Methods:              ${SITE_URL}/methods
+Glossary:             ${SITE_URL}/glossary
 
 Entity: ${company.legalName}, ${company.address.line1}, ${company.address.city}, ${company.address.region} ${company.address.postal}
 Founder: ${company.founderFull}, ${company.founderTitle}
