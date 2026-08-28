@@ -1,4 +1,4 @@
-import { cities, type City } from "@/data/areas";
+import { cities, titleNameOf, type City } from "@/data/areas";
 import { calculateEstimate, type ServiceKind } from "@/data/estimate";
 import { getService, seoNameOf, type Service } from "@/data/services";
 import { clampDescription } from "@/lib/seo";
@@ -159,7 +159,7 @@ function buildPages(): MatrixPage[] {
 
     for (const city of cities) {
       const b = band(slug, city);
-      const title = `${seoNameOf(service)} in ${city.name}`;
+      const title = `${seoNameOf(service)} in ${titleNameOf(city)}`;
 
       pages.push({
         service,

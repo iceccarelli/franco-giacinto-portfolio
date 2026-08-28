@@ -12,6 +12,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { tierNote } from "@/data/areas";
 import { company } from "@/data/company";
 import { SITE_URL } from "@/lib/site-url";
 import {
@@ -176,7 +177,9 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
               <p className="text-xs tracking-[0.16em] uppercase">Coverage</p>
             </div>
             <p className="mt-2 font-display text-2xl text-primary">{city.name}</p>
-            <p className="mt-1 text-sm text-muted">Free site measure · {company.warranty}</p>
+            <p className="mt-1 text-sm text-muted">
+              {city.tier === "core" ? "Free site measure" : "Travel area"} · {company.warranty}
+            </p>
           </div>
         </div>
       </section>
@@ -269,10 +272,7 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
 
         <aside className="h-fit rounded-xl bg-surface p-6 shadow-[var(--shadow-card)]">
           <h2 className="font-display text-2xl">Book a {city.name} site visit</h2>
-          <p className="mt-2 mb-4 text-sm text-muted">
-            Free for qualified {service.shortName.toLowerCase()} work in {city.name}. We bring a
-            moisture meter, not a brochure.
-          </p>
+          <p className="mt-2 mb-4 text-sm text-muted">{tierNote(city)}</p>
           <QuoteForm
             defaultService={leadService(service.slug)}
             defaultCity={city.slug}

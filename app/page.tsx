@@ -17,7 +17,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { company, stats } from "@/data/company";
-import { cities } from "@/data/areas";
+import { coreCities } from "@/data/areas";
 import { faqs } from "@/data/faq";
 import { projects } from "@/data/projects";
 import { services } from "@/data/services";
@@ -211,10 +211,10 @@ export default function Home() {
             <p className="text-xs tracking-[0.18em] uppercase">Service area</p>
           </div>
           <h2 className="mt-2 font-display text-3xl">
-            Every serious hardwood job from Burlington to Markham
+            Thirty-two cities and towns, from Burlington to Barrie
           </h2>
           <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-            {cities.map((c) => (
+            {coreCities.slice(0, 12).map((c) => (
               <Link
                 key={c.slug}
                 href={`/areas/${c.slug}`}
@@ -225,6 +225,12 @@ export default function Home() {
               </Link>
             ))}
           </div>
+          <p className="mt-6 text-sm">
+            <Link href="/areas" className="font-medium text-primary hover:underline">
+              All 32 service areas
+            </Link>{" "}
+            — twenty inside our core radius, twelve we travel to for larger work.
+          </p>
         </div>
       </section>
 

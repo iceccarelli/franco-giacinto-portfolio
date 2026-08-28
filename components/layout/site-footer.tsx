@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { company } from "@/data/company";
-import { cities } from "@/data/areas";
+import { coreCities } from "@/data/areas";
 import { services } from "@/data/services";
 
 export function SiteFooter() {
@@ -51,7 +51,7 @@ export function SiteFooter() {
             Service areas
           </h2>
           <ul className="mt-4 columns-2 space-y-2 text-sm">
-            {cities.map((c) => (
+            {coreCities.map((c) => (
               <li key={c.slug} className="break-inside-avoid">
                 <Link
                   href={`/areas/${c.slug}`}
@@ -62,6 +62,11 @@ export function SiteFooter() {
               </li>
             ))}
           </ul>
+          <p className="mt-3 text-xs">
+            <Link href="/areas" className="text-primary-fg/70 hover:text-primary-fg">
+              All 32 areas →
+            </Link>
+          </p>
         </div>
         <div>
           <h2 className="font-display text-sm tracking-wide text-primary-fg/60 uppercase">
