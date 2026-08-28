@@ -94,7 +94,7 @@ export default async function AnswerPage({ params }: { params: Promise<Params> }
         <p className="text-xs tracking-[0.18em] text-accent uppercase">
           {intentLabel[item.intent] ?? item.intent}
         </p>
-        <h1 className="mt-3 font-display text-4xl leading-[1.1] sm:text-5xl">{item.q}</h1>
+        <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">{item.q}</h1>
 
         {/* The answer itself, first, in full, above everything else. An answer
             engine quoting this page should be able to lift one paragraph. */}

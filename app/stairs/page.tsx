@@ -68,12 +68,12 @@ export default function StairsHub() {
         }}
       />
       <section className="border-b border-border bg-bg-warm">
-        <div className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-10 sm:px-6 lg:grid-cols-2">
+        <div className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-10 sm:py-14 sm:px-6 lg:grid-cols-2">
           <div>
             <p className="text-xs tracking-[0.18em] text-accent uppercase">
               Hardwood stairs · Toronto & GTA
             </p>
-            <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">
+            <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
               The stair is the product. The floor is the field it sits in.
             </h1>
             <p className="mt-4 text-lg text-muted">
@@ -94,11 +94,12 @@ export default function StairsHub() {
             src="/images/stair-studio.jpg"
             alt="Custom white oak staircase with black steel balusters and a graspable oak handrail in a Toronto home."
             className="aspect-[3/2] w-full rounded-xl object-cover shadow-[var(--shadow-card)]"
+           fetchPriority="high" decoding="async"
           />
         </div>
       </section>
 
-      <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+      <section className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
         <h2 className="font-display text-3xl sm:text-4xl">
           Build the flight. Read the code. Get a range.
         </h2>
@@ -112,7 +113,7 @@ export default function StairsHub() {
       </section>
 
       <section className="border-y border-border bg-surface">
-        <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
           <h2 className="font-display text-3xl">Jobs we keep getting called for</h2>
           <div className="mt-8 grid gap-6 md:grid-cols-3">
             {[
@@ -142,7 +143,7 @@ export default function StairsHub() {
       </section>
 
       {stairJobs.length > 0 && (
-        <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+        <section className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
           <h2 className="font-display text-3xl">Stairs you can inspect</h2>
           <div className="mt-8 grid gap-5 md:grid-cols-2">
             {stairJobs.map((p) => (
@@ -154,7 +155,8 @@ export default function StairsHub() {
                   src={p.image}
                   alt={p.imageAlt}
                   className="aspect-[16/10] w-full object-cover"
-                />
+           loading="lazy" decoding="async"
+          />
                 <div className="p-5">
                   <h3 className="font-display text-xl">{p.title}</h3>
                   <p className="mt-1 text-sm text-muted">{p.summary}</p>

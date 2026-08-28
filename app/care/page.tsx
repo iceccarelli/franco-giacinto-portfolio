@@ -27,9 +27,9 @@ export default function CarePage() {
         ])}
       />
       <section className="border-b border-border bg-bg-warm">
-        <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+        <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16 sm:px-6">
           <p className="text-xs tracking-[0.18em] text-accent uppercase">Care</p>
-          <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">
+          <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
             Ontario will try to wreck your floor. This is how it lasts.
           </h1>
           <p className="mt-4 text-lg text-muted">
@@ -38,7 +38,7 @@ export default function CarePage() {
           </p>
         </div>
       </section>
-      <article className="mx-auto max-w-3xl space-y-8 px-4 py-12 sm:px-6">
+      <article className="mx-auto max-w-3xl space-y-8 px-4 py-12 sm:py-16 sm:px-6">
         <section>
           <h2 className="font-display text-2xl">Humidity</h2>
           <p className="mt-3 text-muted">

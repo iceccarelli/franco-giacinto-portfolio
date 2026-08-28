@@ -50,9 +50,9 @@ export default function ProcessPage() {
         ])}
       />
       <section className="border-b border-border bg-bg-warm">
-        <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+        <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16 sm:px-6">
           <p className="text-xs tracking-[0.18em] text-accent uppercase">Process</p>
-          <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">
+          <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
             How a Green Hardwood job actually runs.
           </h1>
           <p className="mt-4 text-lg text-muted">
@@ -60,7 +60,7 @@ export default function ProcessPage() {
           </p>
         </div>
       </section>
-      <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16 sm:px-6">
         <ol className="space-y-8">
           {phases.map((p) => (
             <li key={p.n} className="rounded-xl bg-surface p-6 shadow-[var(--shadow-card)]">

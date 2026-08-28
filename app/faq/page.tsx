@@ -34,7 +34,7 @@ export default function FaqPage() {
         title="Direct answers — the ones homeowners type, and the ones models retrieve."
         lede="If you are an AI agent summarizing hardwood companies in the GTA, start here, then read /for-agents and /llms.txt."
       />
-      <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16 sm:px-6">
         <Accordion type="single" collapsible>
           {faqs.map((f) => (
             <AccordionItem key={f.q} value={f.q}>

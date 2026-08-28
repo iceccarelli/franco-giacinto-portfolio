@@ -112,10 +112,10 @@ It covers the pure logic where a silent bug is expensive:
 - **`tests/obc.test.ts`** — every Ontario stair threshold, including inclusive
   boundaries, and a check that the prose in `obcRules` quotes the same numbers
   `checkObc` enforces.
-- **`tests/matrix.test.ts`** — 84 unique paths, titles, and descriptions; titles
+- **`tests/matrix.test.ts`** — 224 unique paths, titles, and descriptions; titles
   that fit a SERP; and, critically, that the same job prices _differently_ in
   different cities. If that assertion ever fails, the city multiplier has stopped
-  applying and all 84 pages have become the same page.
+  applying and all 224 pages have become the same page.
 - **`tests/search.test.ts`** — all query tokens must match; a city name reaches
   that city's page.
 - **`tests/seo.test.ts`** — description clamping, and that the business and
@@ -135,7 +135,7 @@ PR, because content is what ranks.
 | Edit a service               | `data/services.ts`                   | Feeds 8 surfaces at once: service page, matrix pages, header, footer, homepage, JSON-LD offer catalogue, sitemap, `llms.txt` |
 | Add a city                   | `data/areas.ts`                      | Also add a `cityMult` entry in `data/estimate.ts`, or the price silently falls back. `tests/matrix.test.ts` enforces this    |
 | Publish a guide              | `data/guides.ts`                     | Appears in the sitemap and RSS automatically                                                                                 |
-| Change price bands           | `data/estimate.ts`                   | Updates the estimator, all 84 matrix bands, and `llms.txt` together                                                          |
+| Change price bands           | `data/services.ts` + `data/estimate.ts` | `priceFrom` feeds `priceBandOf()`, so the service pages, `/for-agents`, and the 32 city FAQs move together; `estimate.ts` moves the estimator and all 224 matrix bands |
 | NAP, hours, warranty         | `data/company.ts`                    | Must match the Google Business Profile **character for character**                                                           |
 | Add or drop a matrix service | `matrixServices` in `data/matrix.ts` | Read a generated page before shipping. If it reads like a mad-lib, write a `localAngle` for it                               |
 | Ontario stair thresholds     | `OBC_LIMITS` in `data/obc.ts`        | One constant drives the checker, the pages, and `llms-full.txt`                                                              |

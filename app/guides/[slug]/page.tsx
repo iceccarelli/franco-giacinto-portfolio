@@ -5,6 +5,7 @@ import { JsonLd } from "@/components/json-ld";
 import { Button } from "@/components/ui/button";
 import { getGuide, guides } from "@/data/guides";
 import { breadcrumbLd, clampDescription } from "@/lib/seo";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 
 type Params = { slug: string };
 
@@ -38,15 +39,18 @@ export default async function GuidePage({ params }: { params: Promise<Params> })
   const guide = getGuide(slug);
   if (!guide) notFound();
 
+  // One array, used for both the visible trail and the JSON-LD. This page
+  // emitted BreadcrumbList markup with no breadcrumbs on screen — the only
+  // detail route on the site that did. Google asks for the two to correspond.
+  const crumbs = [
+    { name: "Home", path: "/" },
+    { name: "Guides", path: "/guides" },
+    { name: guide.title, path: `/guides/${guide.slug}` },
+  ];
+
   return (
     <>
-      <JsonLd
-        data={breadcrumbLd([
-          { name: "Home", path: "/" },
-          { name: "Guides", path: "/guides" },
-          { name: guide.title, path: `/guides/${guide.slug}` },
-        ])}
-      />
+      <JsonLd data={breadcrumbLd(crumbs)} />
       <JsonLd
         data={{
           "@context": "https://schema.org",
@@ -57,11 +61,12 @@ export default async function GuidePage({ params }: { params: Promise<Params> })
           author: { "@type": "Organization", name: "Green Hardwood" },
         }}
       />
-      <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
+        <Breadcrumbs items={crumbs} className="mb-6" />
         <p className="text-xs tracking-[0.18em] text-accent uppercase">
           {guide.kicker} · {guide.read} · Updated {guide.updated}
         </p>
-        <h1 className="mt-3 font-display text-4xl leading-[1.1] sm:text-5xl">{guide.title}</h1>
+        <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">{guide.title}</h1>
         <p className="mt-4 text-lg text-muted">{guide.description}</p>
         {guide.sections.map((section) => (
           <section key={section.heading} className="mt-10">

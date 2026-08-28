@@ -128,7 +128,7 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
             <p className="text-xs tracking-[0.18em] text-accent uppercase">
               {city.region} · {service.eyebrow}
             </p>
-            <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">{page.h1}</h1>
+            <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">{page.h1}</h1>
             <p className="mt-4 text-lg text-muted">{page.angle}</p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Button asChild size="lg">
@@ -145,6 +145,7 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
             width={1600}
             height={1200}
             loading="eager"
+            fetchPriority="high"
             className="aspect-[4/3] w-full rounded-xl object-cover shadow-[var(--shadow-card)]"
           />
         </div>
@@ -185,7 +186,7 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
       </section>
 
       {/* Body -------------------------------------------------------------- */}
-      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-[1.3fr_0.7fr]">
+      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-[1.3fr_0.7fr]">
         <article>
           <h2 className="font-display text-3xl">What we walk into in {city.name}</h2>
           <p className="mt-3 text-muted">{city.housing}</p>
@@ -283,7 +284,7 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
 
       {/* Internal linking -------------------------------------------------- */}
       <section className="border-t border-border bg-bg-warm">
-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-2">
+        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-2">
           <div>
             <h2 className="font-display text-2xl">Everything else we do in {city.name}</h2>
             <ul className="mt-4 grid gap-2 sm:grid-cols-2">

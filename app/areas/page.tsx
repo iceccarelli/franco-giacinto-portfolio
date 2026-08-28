@@ -24,7 +24,7 @@ export default function AreasIndex() {
         title="Toronto and the GTA, city by city — because a King West slab is not a Forest Hill joist."
         lede="Local pages exist so homeowners, builders, and AI agents can see the housing stock we actually work in, not a dumped list of suburbs."
       />
-      <div className="mx-auto max-w-6xl space-y-12 px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-6xl space-y-12 px-4 py-12 sm:py-16 sm:px-6">
         <section>
           <h2 className="font-display text-3xl">Core service area</h2>
           <p className="mt-1 max-w-2xl text-muted">

@@ -28,9 +28,9 @@ export default function ShowroomPage() {
         ])}
       />
       <section className="border-b border-border bg-bg-warm">
-        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
           <p className="text-xs tracking-[0.18em] text-accent uppercase">Species showroom</p>
-          <h1 className="mt-3 max-w-3xl font-display text-4xl leading-[1.08] sm:text-5xl">
+          <h1 className="mt-3 max-w-3xl font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
             Pick the wood the house can actually live with.
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-muted">
@@ -39,13 +39,14 @@ export default function ShowroomPage() {
           </p>
         </div>
       </section>
-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
         <SpeciesShowroom />
         <img
           src="/images/species-board.jpg"
           alt="White oak, red oak, walnut, maple, and hickory sample boards on a Green Hardwood workbench."
           className="mt-12 aspect-[21/9] w-full rounded-xl object-cover"
-        />
+           loading="lazy" decoding="async"
+          />
         <div className="mt-10 rounded-xl bg-primary px-6 py-10 text-primary-fg sm:px-10">
           <h2 className="font-display text-3xl">
             Samples leave the shop. The internet does not pick a stain.

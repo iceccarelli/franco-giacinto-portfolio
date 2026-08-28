@@ -338,3 +338,23 @@ export function getService(slug: string) {
 export function seoNameOf(service: Service) {
   return service.seoName ?? service.name;
 }
+
+/**
+ * The bare price band for a service, with the leading "From " removed so it
+ * can be dropped mid-sentence: `$380–$850 per step, installed`.
+ *
+ * This exists because the same six price bands had been retyped by hand into
+ * `app/for-agents/page.tsx` and into the templated city FAQ in
+ * `app/areas/[city]/page.tsx`. That put the numbers a customer sees on 32 city
+ * pages, and the numbers an AI agent is invited to quote, one edit away from
+ * disagreeing with the service pages. Prices come from here now, or they do
+ * not appear.
+ *
+ * Throws on an unknown slug rather than returning a placeholder: a build that
+ * fails loudly beats 358 pages quoting an empty string.
+ */
+export function priceBandOf(slug: string): string {
+  const service = getService(slug);
+  if (!service) throw new Error(`priceBandOf: no service with slug "${slug}"`);
+  return service.priceFrom.replace(/^From\s+/i, "");
+}

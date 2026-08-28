@@ -116,15 +116,15 @@ export default async function ProblemPage({ params }: { params: Promise<Params> 
         }}
       />
 
-      <div className="mx-auto max-w-4xl px-4 sm:px-6">
+      <div className="mx-auto max-w-3xl px-4 sm:px-6">
         <Breadcrumbs items={crumbs} />
       </div>
 
-      <article className="mx-auto max-w-4xl px-4 pb-8 sm:px-6">
+      <article className="mx-auto max-w-3xl px-4 pb-8 sm:px-6">
         <p className={`text-xs tracking-[0.18em] uppercase ${u.tone}`}>
           {u.label} · {u.note}
         </p>
-        <h1 className="mt-3 font-display text-4xl leading-[1.1] sm:text-5xl">{problem.name}</h1>
+        <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">{problem.name}</h1>
         <p className="mt-2 text-sm text-muted">Also searched as: {problem.alsoCalled.join(", ")}</p>
 
         {/* What you are looking at ---------------------------------------- */}
