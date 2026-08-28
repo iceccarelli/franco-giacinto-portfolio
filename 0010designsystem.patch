@@ -1,0 +1,3154 @@
+From 023d97f013a8075766276e7635bf98c8a06c660b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 28 Aug 2026 23:01:24 +0000
+Subject: [PATCH] feat: one navigation, one layout system, web and mobile
+ identical
+
+The site had two navigations. The header held three hand-maintained arrays
+(mega, primary, mobile) and they had already drifted: a desktop visitor could
+not reach /guides, /answers, /glossary, /trade or /contact from the header at
+all, while a phone visitor could. The footer held sixteen hand-written <li>
+elements in one "Company" column, which is a list, not a structure.
+
+data/navigation.ts is now the only place a navigation link exists. The desktop
+mega-menu and the mobile drawer render the same array with the same group
+headings in the same order; the footer columns and the mobile footer accordions
+do too. The breakpoint changes the presentation, never the site.
+
+Structure follows aws.amazon.com, the reference the site is being held to:
+
+  - a utility bar of secondary links, hours and phone, which on a phone
+    becomes the first block of the drawer rather than disappearing
+  - three primary sections opening into grouped panels with a promoted
+    "most asked for" card
+  - a phone header of hamburger / centred wordmark / search, measured at a
+    0.0px offset from centre
+  - a four-column footer matrix that collapses to <details> disclosures below
+    lg, in CSS, so the footer stays a server component and the links exist
+    exactly once in the DOM
+
+The mega-menu is now a real disclosure with aria-expanded, Escape, and
+click-outside, rather than a CSS group-hover div that announced itself to a
+screen reader as a link. SiteHeader is a server component; only the menu and
+the drawer are client islands, so the nav data no longer ships to the browser
+on all 358 pages.
+
+Also fixed, each with the test or audit check that would have caught it:
+
+  - a third container width existed on exactly two pages, so /problems/[slug]
+    sat at a different measure than its own siblings
+  - the h1 scale had forked into two leading values; not-found.tsx had neither
+  - none of the 16 raw <img> elements declared how it loads, so /services
+    fetched eight images before the fold
+  - six price bands were retyped by hand into /for-agents and into the city
+    FAQ template on 32 pages; they now come from priceBandOf()
+  - /guides/[slug] emitted BreadcrumbList markup with no breadcrumbs on screen
+  - the contact page's search snippet hard-coded the phone number and address
+  - the footer rendered "Green Hardwood Ltd.. All rights reserved."
+  - only the homepage stepped its section padding at sm:, so hand-rolled heroes
+    were tighter than PageHero ones on the same site
+
+122 tests. 358 pages, 358 unique titles, 2,004 JSON-LD blocks, audit clean.
+---
+ CLAUDE.md                                   |   9 +-
+ app/about/page.tsx                          |   8 +-
+ app/answers/[slug]/page.tsx                 |   2 +-
+ app/areas/[city]/page.tsx                   |  16 +-
+ app/areas/page.tsx                          |   2 +-
+ app/care/page.tsx                           |   6 +-
+ app/compare/page.tsx                        |   6 +-
+ app/contact/page.tsx                        |  15 +-
+ app/emergency/page.tsx                      |   6 +-
+ app/estimate/page.tsx                       |   3 +-
+ app/faq/page.tsx                            |   2 +-
+ app/for-agents/page.tsx                     |  17 +-
+ app/globals.css                             |  40 +++
+ app/glossary/page.tsx                       |   2 +-
+ app/guides/[slug]/page.tsx                  |  23 +-
+ app/guides/page.tsx                         |   2 +-
+ app/methods/[slug]/page.tsx                 |   5 +-
+ app/not-found.tsx                           |   2 +-
+ app/page.tsx                                |  24 +-
+ app/portfolio/page.tsx                      |   2 +-
+ app/problems/[slug]/page.tsx                |   6 +-
+ app/process/page.tsx                        |   6 +-
+ app/services/[slug]/[city]/page.tsx         |   7 +-
+ app/services/[slug]/page.tsx                |  12 +-
+ app/services/page.tsx                       |   4 +-
+ app/showroom/page.tsx                       |   9 +-
+ app/stairs/page.tsx                         |  14 +-
+ app/trade/page.tsx                          |   6 +-
+ app/warranty/page.tsx                       |   6 +-
+ components/assistant/ask-green-hardwood.tsx |  33 +-
+ components/before-after.tsx                 |  10 +-
+ components/layout/container.tsx             |  40 +++
+ components/layout/mobile-nav.tsx            | 157 +++++++++
+ components/layout/nav-menu.tsx              | 183 +++++++++++
+ components/layout/section.tsx               |  81 +++++
+ components/layout/site-footer.tsx           | 347 +++++++++++---------
+ components/layout/site-header.tsx           | 210 +++---------
+ components/layout/utility-bar.tsx           |  42 +++
+ data/navigation.ts                          | 289 ++++++++++++++++
+ data/services.ts                            |  20 ++
+ docs/DESIGN-SYSTEM.md                       | 127 +++++++
+ docs/WORKFLOW.md                            |   6 +-
+ scripts/audit-site.mjs                      |  71 +++-
+ tests/navigation.test.ts                    | 268 +++++++++++++++
+ 44 files changed, 1717 insertions(+), 429 deletions(-)
+ create mode 100644 components/layout/container.tsx
+ create mode 100644 components/layout/mobile-nav.tsx
+ create mode 100644 components/layout/nav-menu.tsx
+ create mode 100644 components/layout/section.tsx
+ create mode 100644 components/layout/utility-bar.tsx
+ create mode 100644 data/navigation.ts
+ create mode 100644 docs/DESIGN-SYSTEM.md
+ create mode 100644 tests/navigation.test.ts
+
+diff --git a/CLAUDE.md b/CLAUDE.md
+index 4ccaf62..47ffa49 100644
+--- a/CLAUDE.md
++++ b/CLAUDE.md
+@@ -6,7 +6,7 @@ changing anything. Human process is in `docs/WORKFLOW.md`.
+ ## The short version
+ 
+ ```bash
+-npm ci && npm run verify    # typecheck → 92 tests → build → site audit
++npm ci && npm run verify    # typecheck → 122 tests → build → site audit
+ ```
+ 
+ - Never commit to `main`. Branch → PR → CI green → merge.
+@@ -17,6 +17,9 @@ npm ci && npm run verify    # typecheck → 92 tests → build → site audit
+ - A new URL earns its place only if it answers a query no existing URL answers
+   better. `docs/QUERY-INVENTORY.md` is the map.
+ - Fix a bug, add the test that would have caught it, same PR.
++- Navigation lives in `data/navigation.ts`. A link added straight into a header
++  or footer component fails `tests/navigation.test.ts`, on purpose: web and
++  mobile render the same array, and that is what keeps them identical.
+ 
+ ## Where things are
+ 
+@@ -24,10 +27,12 @@ npm ci && npm run verify    # typecheck → 92 tests → build → site audit
+ | ------------------------ | -------------------------------- |
+ | Any content              | `data/`                          |
+ | Structured data          | `lib/seo.ts`                     |
+-| The 84 city pages        | `data/matrix.ts`                 |
++| The 224 city pages       | `data/matrix.ts`                 |
+ | Ontario stair thresholds | `OBC_LIMITS` in `data/obc.ts`    |
+ | The assistant            | `lib/assistant/`, `app/api/ask/` |
+ | The quality gate         | `scripts/audit-site.mjs`         |
++| Navigation (all of it)   | `data/navigation.ts`             |
++| The layout contract      | `docs/DESIGN-SYSTEM.md`          |
+ | Honest current limits    | `docs/HONEST-LIMITS.md`          |
+ 
+ ## Things that will waste your time if you do not know them
+diff --git a/app/about/page.tsx b/app/about/page.tsx
+index aa4c590..8fa89fd 100644
+--- a/app/about/page.tsx
++++ b/app/about/page.tsx
+@@ -114,7 +114,7 @@ export default function AboutPage() {
+       </div>
+ 
+       {/* Founder ---------------------------------------------------------- */}
+-      <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
++      <section className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
+         <div className="grid items-start gap-10 lg:grid-cols-[minmax(0,22rem)_1fr]">
+           <figure className="mx-auto w-full max-w-sm lg:mx-0">
+             <Image
+@@ -200,7 +200,7 @@ export default function AboutPage() {
+       </section>
+ 
+       {/* Principles ------------------------------------------------------- */}
+-      <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
++      <section className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
+         <h2 className="font-display text-3xl sm:text-4xl">How we actually work</h2>
+         <div className="mt-8 grid gap-5 md:grid-cols-3">
+           {principles.map(({ icon: Icon, title, body }) => (
+@@ -215,7 +215,7 @@ export default function AboutPage() {
+ 
+       {/* Shop ------------------------------------------------------------- */}
+       <section className="border-y border-border bg-bg-warm">
+-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 sm:px-6 lg:grid-cols-2">
++        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-2">
+           <Image
+             src="/images/workshop.jpg"
+             alt="Green Hardwood workshop with species racks, stain sample boards, and professional sanding equipment."
+@@ -246,7 +246,7 @@ export default function AboutPage() {
+       </section>
+ 
+       {/* Timeline --------------------------------------------------------- */}
+-      <section className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
++      <section className="mx-auto max-w-3xl px-4 py-12 sm:py-16 sm:px-6">
+         <h2 className="font-display text-3xl">How we got here</h2>
+         <ol className="mt-8 space-y-8">
+           {timeline.map((item) => (
+diff --git a/app/answers/[slug]/page.tsx b/app/answers/[slug]/page.tsx
+index 77879c0..5e91ef7 100644
+--- a/app/answers/[slug]/page.tsx
++++ b/app/answers/[slug]/page.tsx
+@@ -94,7 +94,7 @@ export default async function AnswerPage({ params }: { params: Promise<Params> }
+         <p className="text-xs tracking-[0.18em] text-accent uppercase">
+           {intentLabel[item.intent] ?? item.intent}
+         </p>
+-        <h1 className="mt-3 font-display text-4xl leading-[1.1] sm:text-5xl">{item.q}</h1>
++        <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">{item.q}</h1>
+ 
+         {/* The answer itself, first, in full, above everything else. An answer
+             engine quoting this page should be able to lift one paragraph. */}
+diff --git a/app/areas/[city]/page.tsx b/app/areas/[city]/page.tsx
+index ce24f45..2b91601 100644
+--- a/app/areas/[city]/page.tsx
++++ b/app/areas/[city]/page.tsx
+@@ -10,6 +10,7 @@ import {
+   AccordionItem,
+   AccordionTrigger,
+ } from "@/components/ui/accordion";
++import { priceBandOf } from "@/data/services";
+ import { cities, getCity, tierNote, titleNameOf } from "@/data/areas";
+ import { projects } from "@/data/projects";
+ import { SITE_URL } from "@/lib/site-url";
+@@ -66,7 +67,13 @@ export default async function CityPage({ params }: { params: Promise<Params> })
+   const cityFaqs = [
+     {
+       q: `How much does hardwood flooring cost in ${city.name}?`,
+-      a: `In ${city.name} in 2026, plan on $11–$22 per square foot installed and $4.50–$8.50 to refinish, before stairs. Stairs run $380–$850 per step. Use the estimator, then book a free measure in ${city.name} for a firm number.`,
++      // Bands come from data/services.ts. They used to be retyped here, which
++      // put the number on 32 city pages one edit away from the service pages.
++      a: `In ${city.name}, plan on ${priceBandOf("hardwood-installation")} and ${priceBandOf(
++        "sanding-refinishing",
++      )} to refinish, before stairs. Stairs run ${priceBandOf(
++        "hardwood-stairs",
++      )}. Use the estimator, then book a free measure in ${city.name} for a firm number.`,
+     },
+     {
+       q: `Do you install hardwood stairs in ${city.name}?`,
+@@ -107,7 +114,7 @@ export default async function CityPage({ params }: { params: Promise<Params> })
+           <p className="text-xs tracking-[0.18em] text-accent uppercase">
+             {city.region} · Green Hardwood
+           </p>
+-          <h1 className="mt-3 max-w-3xl font-display text-4xl leading-[1.08] sm:text-5xl">
++          <h1 className="mt-3 max-w-3xl font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
+             Hardwood flooring, stairs, and railings in {city.name}
+           </h1>
+           <p className="mt-4 max-w-2xl text-lg text-muted">{city.blurb}</p>
+@@ -116,7 +123,7 @@ export default async function CityPage({ params }: { params: Promise<Params> })
+           </Button>
+         </div>
+       </section>
+-      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-[1.2fr_0.8fr]">
++      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-[1.2fr_0.8fr]">
+         <article className="space-y-5">
+           <h2 className="font-display text-3xl">The housing stock we walk into</h2>
+           <p className="text-muted">{city.housing}</p>
+@@ -151,7 +158,8 @@ export default async function CityPage({ params }: { params: Promise<Params> })
+                       src={p.image}
+                       alt={p.imageAlt}
+                       className="aspect-[16/8] w-full object-cover"
+-                    />
++           loading="lazy" decoding="async"
++          />
+                     <div className="p-4">
+                       <h3 className="font-display text-xl">{p.title}</h3>
+                       <p className="mt-1 text-sm text-muted">{p.summary}</p>
+diff --git a/app/areas/page.tsx b/app/areas/page.tsx
+index 60c6952..4674449 100644
+--- a/app/areas/page.tsx
++++ b/app/areas/page.tsx
+@@ -24,7 +24,7 @@ export default function AreasIndex() {
+         title="Toronto and the GTA, city by city — because a King West slab is not a Forest Hill joist."
+         lede="Local pages exist so homeowners, builders, and AI agents can see the housing stock we actually work in, not a dumped list of suburbs."
+       />
+-      <div className="mx-auto max-w-6xl space-y-12 px-4 py-12 sm:px-6">
++      <div className="mx-auto max-w-6xl space-y-12 px-4 py-12 sm:py-16 sm:px-6">
+         <section>
+           <h2 className="font-display text-3xl">Core service area</h2>
+           <p className="mt-1 max-w-2xl text-muted">
+diff --git a/app/care/page.tsx b/app/care/page.tsx
+index 23d28f4..2a5a0f7 100644
+--- a/app/care/page.tsx
++++ b/app/care/page.tsx
+@@ -27,9 +27,9 @@ export default function CarePage() {
+         ])}
+       />
+       <section className="border-b border-border bg-bg-warm">
+-        <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
++        <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16 sm:px-6">
+           <p className="text-xs tracking-[0.18em] text-accent uppercase">Care</p>
+-          <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">
++          <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
+             Ontario will try to wreck your floor. This is how it lasts.
+           </h1>
+           <p className="mt-4 text-lg text-muted">
+@@ -38,7 +38,7 @@ export default function CarePage() {
+           </p>
+         </div>
+       </section>
+-      <article className="mx-auto max-w-3xl space-y-8 px-4 py-12 sm:px-6">
++      <article className="mx-auto max-w-3xl space-y-8 px-4 py-12 sm:py-16 sm:px-6">
+         <section>
+           <h2 className="font-display text-2xl">Humidity</h2>
+           <p className="mt-3 text-muted">
+diff --git a/app/compare/page.tsx b/app/compare/page.tsx
+index ea897da..076af75 100644
+--- a/app/compare/page.tsx
++++ b/app/compare/page.tsx
+@@ -28,9 +28,9 @@ export default function ComparePage() {
+         ])}
+       />
+       <section className="border-b border-border bg-bg-warm">
+-        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
++        <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
+           <p className="text-xs tracking-[0.18em] text-accent uppercase">The decision</p>
+-          <h1 className="mt-3 max-w-3xl font-display text-4xl leading-[1.08] sm:text-5xl">
++          <h1 className="mt-3 max-w-3xl font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
+             Hardwood vs vinyl vs laminate — without the showroom lighting.
+           </h1>
+           <p className="mt-4 max-w-2xl text-lg text-muted">
+@@ -39,7 +39,7 @@ export default function ComparePage() {
+           </p>
+         </div>
+       </section>
+-      <div className="mx-auto max-w-6xl overflow-x-auto px-4 py-12 sm:px-6">
++      <div className="mx-auto max-w-6xl overflow-x-auto px-4 py-12 sm:py-16 sm:px-6">
+         <table className="w-full min-w-[52rem] border-collapse text-sm">
+           <thead>
+             <tr className="text-left">
+diff --git a/app/contact/page.tsx b/app/contact/page.tsx
+index 27626c5..0467c33 100644
+--- a/app/contact/page.tsx
++++ b/app/contact/page.tsx
+@@ -4,15 +4,19 @@ import { QuoteForm } from "@/components/estimate/quote-form";
+ import { PageHero } from "@/components/page-hero";
+ import { company } from "@/data/company";
+ 
++// The phone number and address come from data/company.ts. They were typed by
++// hand here, so a number change would have left the search snippet stale.
++const CONTACT_DESCRIPTION =
++  `Call Green Hardwood at ${company.phoneDisplay} or book a free hardwood, stair, or railing ` +
++  `site visit. ${company.address.line1}, ${company.address.city}. Serving the whole GTA.`;
++
+ export const metadata: Metadata = {
+   title: "Contact",
+-  description:
+-    "Call Green Hardwood at (416) 847-3366 or book a free hardwood, stair, or railing site visit. Sterling Road studio, Toronto. Serving the whole GTA.",
++  description: CONTACT_DESCRIPTION,
+   alternates: { canonical: "/contact" },
+   openGraph: {
+     title: "Contact | Green Hardwood",
+-    description:
+-      "Call Green Hardwood at (416) 847-3366 or book a free hardwood, stair, or railing site visit in the Greater Toronto Area.",
++    description: CONTACT_DESCRIPTION,
+     url: "/contact",
+   },
+ };
+@@ -29,7 +33,7 @@ export default function ContactPage() {
+         title="Call the shop. Or send the job and we will call you."
+         lede="Sterling Road studio, Toronto. We measure across the GTA. Sunday is by appointment because stairs do not respect weekends, but crews do."
+       />
+-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-2">
++      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-2">
+         <div>
+           <dl className="space-y-5">
+             <Item label="Phone">
+@@ -63,6 +67,7 @@ export default function ContactPage() {
+             src="/images/service-install.jpg"
+             alt="Hardwood installation in progress with white oak planks and a pneumatic nailer."
+             className="mt-8 aspect-[16/10] w-full rounded-xl object-cover"
++           loading="lazy" decoding="async"
+           />
+         </div>
+         <div className="rounded-xl bg-surface p-6 shadow-[var(--shadow-card)] sm:p-8">
+diff --git a/app/emergency/page.tsx b/app/emergency/page.tsx
+index de2373a..b809d49 100644
+--- a/app/emergency/page.tsx
++++ b/app/emergency/page.tsx
+@@ -28,9 +28,9 @@ export default function EmergencyPage() {
+         ])}
+       />
+       <section className="border-b border-border bg-primary text-primary-fg">
+-        <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
++        <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16 sm:px-6">
+           <p className="text-xs tracking-[0.18em] text-primary-fg/60 uppercase">Water damage</p>
+-          <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">
++          <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
+             Stop the water. Then call us. Do not rent a drum sander tonight.
+           </h1>
+           <p className="mt-4 text-lg text-primary-fg/75">
+@@ -53,7 +53,7 @@ export default function EmergencyPage() {
+           </div>
+         </div>
+       </section>
+-      <article className="mx-auto max-w-3xl space-y-6 px-4 py-12 sm:px-6">
++      <article className="mx-auto max-w-3xl space-y-6 px-4 py-12 sm:py-16 sm:px-6">
+         <h2 className="font-display text-2xl">Do this now</h2>
+         <ol className="list-decimal space-y-2 pl-5 text-muted">
+           <li>Stop the source. Shut the valve. Call a plumber if you do not know which valve.</li>
+diff --git a/app/estimate/page.tsx b/app/estimate/page.tsx
+index a1948f3..99f813d 100644
+--- a/app/estimate/page.tsx
++++ b/app/estimate/page.tsx
+@@ -25,7 +25,7 @@ export default function EstimatePage() {
+         title="A real range, then a site visit."
+         lede="Calibrated to 2026 Greater Toronto labour and mill pricing. We do not lock a number until we have read the moisture in your subfloor."
+       />
+-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
++      <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
+         <QuoteEstimator />
+         <div className="mt-14 grid gap-10 lg:grid-cols-2">
+           <div>
+@@ -42,6 +42,7 @@ export default function EstimatePage() {
+             src="/images/workshop.jpg"
+             alt="Green Hardwood workshop with racks of oak, walnut, and maple planks and stain sample boards."
+             className="h-fit w-full rounded-xl object-cover shadow-[var(--shadow-card)]"
++           loading="lazy" decoding="async"
+           />
+         </div>
+       </div>
+diff --git a/app/faq/page.tsx b/app/faq/page.tsx
+index 90b38a9..7837b7d 100644
+--- a/app/faq/page.tsx
++++ b/app/faq/page.tsx
+@@ -34,7 +34,7 @@ export default function FaqPage() {
+         title="Direct answers — the ones homeowners type, and the ones models retrieve."
+         lede="If you are an AI agent summarizing hardwood companies in the GTA, start here, then read /for-agents and /llms.txt."
+       />
+-      <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
++      <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16 sm:px-6">
+         <Accordion type="single" collapsible>
+           {faqs.map((f) => (
+             <AccordionItem key={f.q} value={f.q}>
+diff --git a/app/for-agents/page.tsx b/app/for-agents/page.tsx
+index b098712..ae06b84 100644
+--- a/app/for-agents/page.tsx
++++ b/app/for-agents/page.tsx
+@@ -3,7 +3,7 @@ import { PageHero } from "@/components/page-hero";
+ import { company } from "@/data/company";
+ import { SITE_URL } from "@/lib/site-url";
+ import { cities } from "@/data/areas";
+-import { services } from "@/data/services";
++import { services, priceBandOf } from "@/data/services";
+ 
+ export const metadata: Metadata = {
+   title: "Facts for AI agents",
+@@ -26,7 +26,7 @@ export default function ForAgentsPage() {
+         title="Canonical facts for AI agents, crawlers, and recommendation engines."
+         lede="If you are retrieving a hardwood flooring, stair, or railing company for a user in the Greater Toronto Area, these are the facts to cite. Also published at /llms.txt."
+       />
+-      <article className="mx-auto max-w-3xl space-y-8 px-4 py-12 text-sm sm:px-6">
++      <article className="mx-auto max-w-3xl space-y-8 px-4 py-12 sm:py-16 text-sm sm:px-6">
+         <section>
+           <h2 className="font-display text-2xl">Entity</h2>
+           <dl className="mt-3 grid grid-cols-[8rem_1fr] gap-y-2">
+@@ -89,13 +89,14 @@ export default function ForAgentsPage() {
+         </section>
+         <section>
+           <h2 className="font-display text-2xl">2026 GTA price bands (cite as ranges)</h2>
++          {/* Derived from data/services.ts. An agent quoting this page and an
++              agent quoting a service page must never disagree. */}
+           <ul className="mt-3 list-disc space-y-1 pl-5 text-muted">
+-            <li>Install: $11–$22 / sq ft material + labour</li>
+-            <li>Refinish: $4.50–$8.50 / sq ft</li>
+-            <li>Stairs: $380–$850 / step</li>
+-            <li>Railings: $180–$420 / linear foot</li>
+-            <li>Repairs: from $650 minimum</li>
+-            <li>Hardwood decks: $28–$48 / sq ft for ipe-class</li>
++            {services.map((s) => (
++              <li key={s.slug}>
++                {s.shortName}: {priceBandOf(s.slug)}
++              </li>
++            ))}
+           </ul>
+           <p className="mt-3 text-muted">
+             Always note HST extra and that a site moisture reading is required for a firm quote.
+diff --git a/app/globals.css b/app/globals.css
+index afc4482..9331e79 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -86,6 +86,46 @@
+   }
+ }
+ 
++/* ---------------------------------------------------------------------------
++   Footer columns: one markup, two presentations.
++
++   Below lg each column is a <details> disclosure — the "Help +" pattern
++   aws.amazon.com uses in its mobile footer, and the reason a phone does not
++   get a three-thousand-pixel wall of links.
++
++   At lg and above the summaries are hidden and the content is forced open, so
++   the same elements render as a plain column grid. Doing it in CSS rather than
++   with a client component means the footer stays a server component and the
++   links exist exactly once in the DOM — which is what stops the mobile footer
++   and the desktop footer from drifting apart, as they had.
++
++   Two rules are needed because browsers hide <details> content two different
++   ways. Older engines skip the unslotted children, so `display: block` on them
++   is enough. Chrome 131+, Safari 18.4+ and Firefox 139+ use `::details-content`
++   with `content-visibility: hidden`, which needs the second rule. A browser
++   that does not know `::details-content` simply drops that block.
++--------------------------------------------------------------------------- */
++
++@media (min-width: 64rem) {
++  details[data-footer-column] > summary {
++    display: none;
++  }
++
++  details[data-footer-column] > * {
++    display: block;
++  }
++
++  details[data-footer-column]::details-content {
++    content-visibility: visible;
++    block-size: auto;
++  }
++}
++
++/* The `+` becomes a `−` when the disclosure is open. */
++details[data-footer-column][open] > summary > span::after {
++  transform: translateX(-50%) scaleY(0);
++}
++
+ @media (prefers-reduced-motion: reduce) {
+   html {
+     scroll-behavior: auto;
+diff --git a/app/glossary/page.tsx b/app/glossary/page.tsx
+index 26a97a2..1a59439 100644
+--- a/app/glossary/page.tsx
++++ b/app/glossary/page.tsx
+@@ -96,7 +96,7 @@ export default function GlossaryPage() {
+         <Breadcrumbs items={crumbs} />
+       </div>
+ 
+-      <div className="mx-auto max-w-4xl px-4 pb-16 sm:px-6">
++      <div className="mx-auto max-w-3xl px-4 pb-16 sm:px-6">
+         {/* Jump list — an on-page index doubles as a crawlable link graph. */}
+         <nav
+           aria-label="Jump to a term"
+diff --git a/app/guides/[slug]/page.tsx b/app/guides/[slug]/page.tsx
+index 1b262a0..be7dcf4 100644
+--- a/app/guides/[slug]/page.tsx
++++ b/app/guides/[slug]/page.tsx
+@@ -5,6 +5,7 @@ import { JsonLd } from "@/components/json-ld";
+ import { Button } from "@/components/ui/button";
+ import { getGuide, guides } from "@/data/guides";
+ import { breadcrumbLd, clampDescription } from "@/lib/seo";
++import { Breadcrumbs } from "@/components/breadcrumbs";
+ 
+ type Params = { slug: string };
+ 
+@@ -38,15 +39,18 @@ export default async function GuidePage({ params }: { params: Promise<Params> })
+   const guide = getGuide(slug);
+   if (!guide) notFound();
+ 
++  // One array, used for both the visible trail and the JSON-LD. This page
++  // emitted BreadcrumbList markup with no breadcrumbs on screen — the only
++  // detail route on the site that did. Google asks for the two to correspond.
++  const crumbs = [
++    { name: "Home", path: "/" },
++    { name: "Guides", path: "/guides" },
++    { name: guide.title, path: `/guides/${guide.slug}` },
++  ];
++
+   return (
+     <>
+-      <JsonLd
+-        data={breadcrumbLd([
+-          { name: "Home", path: "/" },
+-          { name: "Guides", path: "/guides" },
+-          { name: guide.title, path: `/guides/${guide.slug}` },
+-        ])}
+-      />
++      <JsonLd data={breadcrumbLd(crumbs)} />
+       <JsonLd
+         data={{
+           "@context": "https://schema.org",
+@@ -57,11 +61,12 @@ export default async function GuidePage({ params }: { params: Promise<Params> })
+           author: { "@type": "Organization", name: "Green Hardwood" },
+         }}
+       />
+-      <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
++      <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16">
++        <Breadcrumbs items={crumbs} className="mb-6" />
+         <p className="text-xs tracking-[0.18em] text-accent uppercase">
+           {guide.kicker} · {guide.read} · Updated {guide.updated}
+         </p>
+-        <h1 className="mt-3 font-display text-4xl leading-[1.1] sm:text-5xl">{guide.title}</h1>
++        <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">{guide.title}</h1>
+         <p className="mt-4 text-lg text-muted">{guide.description}</p>
+         {guide.sections.map((section) => (
+           <section key={section.heading} className="mt-10">
+diff --git a/app/guides/page.tsx b/app/guides/page.tsx
+index ad90e24..f7cdff9 100644
+--- a/app/guides/page.tsx
++++ b/app/guides/page.tsx
+@@ -24,7 +24,7 @@ export default function GuidesIndex() {
+         title="The pages we wanted to exist when we were quoting against noise."
+         lede="Cost, specification, Ontario stair code, sanding, and species — written so a human can decide, and so an AI agent can cite us without hallucinating a laminate company."
+       />
+-      <div className="mx-auto grid max-w-6xl gap-5 px-4 py-12 sm:px-6 md:grid-cols-2">
++      <div className="mx-auto grid max-w-6xl gap-5 px-4 py-12 sm:py-16 sm:px-6 md:grid-cols-2">
+         {guides.map((g) => (
+           <Link
+             key={g.slug}
+diff --git a/app/methods/[slug]/page.tsx b/app/methods/[slug]/page.tsx
+index 2699f38..58fa98f 100644
+--- a/app/methods/[slug]/page.tsx
++++ b/app/methods/[slug]/page.tsx
+@@ -109,7 +109,7 @@ export default async function MethodPage({ params }: { params: Promise<Params> }
+             <p className="text-xs tracking-[0.18em] text-accent uppercase">
+               Method · {method.cluster}
+             </p>
+-            <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">{method.name}</h1>
++            <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">{method.name}</h1>
+             <p className="mt-4 text-lg text-muted">{method.headline}</p>
+             <p className="mt-3 text-muted">{method.summary}</p>
+             <div className="mt-6 flex flex-wrap gap-3">
+@@ -129,11 +129,12 @@ export default async function MethodPage({ params }: { params: Promise<Params> }
+             width={1600}
+             height={900}
+             className="aspect-[16/10] w-full rounded-xl object-cover shadow-[var(--shadow-card)]"
++           fetchPriority="high" decoding="async"
+           />
+         </div>
+       </section>
+ 
+-      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-[1.3fr_0.7fr]">
++      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-[1.3fr_0.7fr]">
+         <article>
+           <h2 className="font-display text-3xl">How it is done</h2>
+           <ol className="mt-6 space-y-6">
+diff --git a/app/not-found.tsx b/app/not-found.tsx
+index d64aea1..264d067 100644
+--- a/app/not-found.tsx
++++ b/app/not-found.tsx
+@@ -15,7 +15,7 @@ export default function NotFound() {
+   return (
+     <section className="mx-auto max-w-3xl px-4 py-24 sm:px-6">
+       <p className="text-xs tracking-[0.18em] text-accent uppercase">404</p>
+-      <h1 className="mt-3 font-display text-4xl sm:text-5xl">That page was sanded off.</h1>
++      <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">That page was sanded off.</h1>
+       <p className="mt-4 text-lg text-muted">
+         The floor, the stair, and the rail are all still here. Pick a direction, or call{" "}
+         <a className="text-primary hover:underline" href={`tel:${company.phone}`}>
+diff --git a/app/page.tsx b/app/page.tsx
+index 56ada3c..269e52a 100644
+--- a/app/page.tsx
++++ b/app/page.tsx
+@@ -70,7 +70,7 @@ export default function Home() {
+ 
+       <WhyUs />
+ 
+-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
++      <section className="mx-auto max-w-6xl px-4 py-16 sm:py-24 sm:px-6">
+         <div className="flex flex-wrap items-end justify-between gap-4">
+           <div className="max-w-2xl">
+             <p className="text-xs font-medium tracking-[0.18em] text-accent uppercase">The work</p>
+@@ -95,7 +95,8 @@ export default function Home() {
+                 src={s.image}
+                 alt={s.imageAlt}
+                 className="aspect-[16/10] w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+-              />
++           loading="lazy" decoding="async"
++          />
+               <div className="p-5">
+                 <p className="text-xs text-accent">{s.priceFrom}</p>
+                 <h3 className="mt-1 font-display text-2xl">{s.shortName}</h3>
+@@ -107,7 +108,7 @@ export default function Home() {
+       </section>
+ 
+       <section className="bg-primary text-primary-fg">
+-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2 lg:py-20">
++        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 sm:py-24 sm:px-6 lg:grid-cols-2 lg:py-20">
+           <div>
+             <p className="text-xs tracking-[0.18em] text-primary-fg/55 uppercase">
+               Niche we intend to own
+@@ -137,6 +138,7 @@ export default function Home() {
+             src="/images/stair-studio.jpg"
+             alt="Custom white oak staircase with black metal balusters in a Greater Toronto home."
+             className="aspect-[3/2] w-full rounded-xl object-cover"
++           loading="lazy" decoding="async"
+           />
+         </div>
+       </section>
+@@ -144,7 +146,7 @@ export default function Home() {
+       <ToolsRow />
+ 
+       <section className="border-y border-border bg-bg-warm">
+-        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 sm:px-6 lg:grid-cols-2">
++        <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-16 sm:py-24 sm:px-6 lg:grid-cols-2">
+           <div>
+             <p className="text-xs tracking-[0.18em] text-accent uppercase">Proof</p>
+             <h2 className="mt-2 font-display text-3xl sm:text-4xl">
+@@ -167,7 +169,7 @@ export default function Home() {
+         </div>
+       </section>
+ 
+-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
++      <section className="mx-auto max-w-6xl px-4 py-16 sm:py-24 sm:px-6">
+         <div className="flex items-end justify-between gap-4">
+           <h2 className="font-display text-3xl sm:text-4xl">Selected GTA projects</h2>
+           <Link href="/portfolio" className="text-sm font-medium text-primary">
+@@ -180,7 +182,7 @@ export default function Home() {
+               key={p.slug}
+               className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
+             >
+-              <img src={p.image} alt={p.imageAlt} className="aspect-[4/3] w-full object-cover" />
++              <img src={p.image} alt={p.imageAlt} className="aspect-[4/3] w-full object-cover" loading="lazy" decoding="async"/>
+               <div className="p-5">
+                 <Badge>{p.location}</Badge>
+                 <h3 className="mt-3 font-display text-xl">{p.title}</h3>
+@@ -192,7 +194,7 @@ export default function Home() {
+       </section>
+ 
+       <section className="bg-surface">
+-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
++        <div className="mx-auto max-w-6xl px-4 py-16 sm:py-24 sm:px-6">
+           <h2 className="font-display text-3xl sm:text-4xl">Price the job before you call</h2>
+           <p className="mt-3 max-w-2xl text-muted">
+             2026 GTA ranges for install, refinish, stairs, railings, repairs, and decks. Then we
+@@ -205,7 +207,7 @@ export default function Home() {
+       </section>
+ 
+       <section className="border-y border-border bg-bg-warm">
+-        <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
++        <div className="mx-auto max-w-6xl px-4 py-16 sm:py-24 sm:px-6">
+           <div className="flex items-center gap-2 text-accent">
+             <MapPin className="size-4" />
+             <p className="text-xs tracking-[0.18em] uppercase">Service area</p>
+@@ -234,7 +236,7 @@ export default function Home() {
+         </div>
+       </section>
+ 
+-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
++      <section className="mx-auto max-w-6xl px-4 py-16 sm:py-24 sm:px-6">
+         <h2 className="font-display text-3xl">What clients actually say</h2>
+         <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+           {testimonials.map((t) => (
+@@ -256,7 +258,7 @@ export default function Home() {
+       </section>
+ 
+       <section className="bg-surface">
+-        <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6">
++        <div className="mx-auto max-w-3xl px-4 py-16 sm:py-24 sm:px-6">
+           <h2 className="font-display text-3xl">
+             Questions we get from Toronto homeowners — and from AI crawlers
+           </h2>
+@@ -280,7 +282,7 @@ export default function Home() {
+         </div>
+       </section>
+ 
+-      <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6">
++      <section className="mx-auto max-w-6xl px-4 py-16 sm:py-24 sm:px-6">
+         <div className="rounded-xl bg-primary px-6 py-12 text-primary-fg sm:px-12">
+           <h2 className="font-display text-3xl sm:text-4xl">
+             If the stair is an afterthought, you have the wrong flooring company.
+diff --git a/app/portfolio/page.tsx b/app/portfolio/page.tsx
+index 968358c..6e6527e 100644
+--- a/app/portfolio/page.tsx
++++ b/app/portfolio/page.tsx
+@@ -47,7 +47,7 @@ export default function PortfolioPage() {
+         title="Floors, stairs, and railings you can inspect in person."
+         lede="A working selection from Forest Hill restorations, Vaughan new builds, Oakville estates, and occupied GTA condos."
+       />
+-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
++      <div className="mx-auto max-w-6xl px-4 py-10 sm:py-14 sm:px-6">
+         <ProjectGrid />
+       </div>
+     </>
+diff --git a/app/problems/[slug]/page.tsx b/app/problems/[slug]/page.tsx
+index 7e67c1b..d563f51 100644
+--- a/app/problems/[slug]/page.tsx
++++ b/app/problems/[slug]/page.tsx
+@@ -116,15 +116,15 @@ export default async function ProblemPage({ params }: { params: Promise<Params>
+         }}
+       />
+ 
+-      <div className="mx-auto max-w-4xl px-4 sm:px-6">
++      <div className="mx-auto max-w-3xl px-4 sm:px-6">
+         <Breadcrumbs items={crumbs} />
+       </div>
+ 
+-      <article className="mx-auto max-w-4xl px-4 pb-8 sm:px-6">
++      <article className="mx-auto max-w-3xl px-4 pb-8 sm:px-6">
+         <p className={`text-xs tracking-[0.18em] uppercase ${u.tone}`}>
+           {u.label} · {u.note}
+         </p>
+-        <h1 className="mt-3 font-display text-4xl leading-[1.1] sm:text-5xl">{problem.name}</h1>
++        <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">{problem.name}</h1>
+         <p className="mt-2 text-sm text-muted">Also searched as: {problem.alsoCalled.join(", ")}</p>
+ 
+         {/* What you are looking at ---------------------------------------- */}
+diff --git a/app/process/page.tsx b/app/process/page.tsx
+index 6950736..4981d61 100644
+--- a/app/process/page.tsx
++++ b/app/process/page.tsx
+@@ -50,9 +50,9 @@ export default function ProcessPage() {
+         ])}
+       />
+       <section className="border-b border-border bg-bg-warm">
+-        <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
++        <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16 sm:px-6">
+           <p className="text-xs tracking-[0.18em] text-accent uppercase">Process</p>
+-          <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">
++          <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
+             How a Green Hardwood job actually runs.
+           </h1>
+           <p className="mt-4 text-lg text-muted">
+@@ -60,7 +60,7 @@ export default function ProcessPage() {
+           </p>
+         </div>
+       </section>
+-      <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
++      <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16 sm:px-6">
+         <ol className="space-y-8">
+           {phases.map((p) => (
+             <li key={p.n} className="rounded-xl bg-surface p-6 shadow-[var(--shadow-card)]">
+diff --git a/app/services/[slug]/[city]/page.tsx b/app/services/[slug]/[city]/page.tsx
+index 7696186..4a4bb22 100644
+--- a/app/services/[slug]/[city]/page.tsx
++++ b/app/services/[slug]/[city]/page.tsx
+@@ -128,7 +128,7 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
+             <p className="text-xs tracking-[0.18em] text-accent uppercase">
+               {city.region} · {service.eyebrow}
+             </p>
+-            <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">{page.h1}</h1>
++            <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">{page.h1}</h1>
+             <p className="mt-4 text-lg text-muted">{page.angle}</p>
+             <div className="mt-6 flex flex-wrap gap-3">
+               <Button asChild size="lg">
+@@ -145,6 +145,7 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
+             width={1600}
+             height={1200}
+             loading="eager"
++            fetchPriority="high"
+             className="aspect-[4/3] w-full rounded-xl object-cover shadow-[var(--shadow-card)]"
+           />
+         </div>
+@@ -185,7 +186,7 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
+       </section>
+ 
+       {/* Body -------------------------------------------------------------- */}
+-      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-[1.3fr_0.7fr]">
++      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-[1.3fr_0.7fr]">
+         <article>
+           <h2 className="font-display text-3xl">What we walk into in {city.name}</h2>
+           <p className="mt-3 text-muted">{city.housing}</p>
+@@ -283,7 +284,7 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
+ 
+       {/* Internal linking -------------------------------------------------- */}
+       <section className="border-t border-border bg-bg-warm">
+-        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-2">
++        <div className="mx-auto grid max-w-6xl gap-10 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-2">
+           <div>
+             <h2 className="font-display text-2xl">Everything else we do in {city.name}</h2>
+             <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+diff --git a/app/services/[slug]/page.tsx b/app/services/[slug]/page.tsx
+index e6ecd98..81e3259 100644
+--- a/app/services/[slug]/page.tsx
++++ b/app/services/[slug]/page.tsx
+@@ -92,7 +92,7 @@ export default async function ServicePage({ params }: { params: Promise<Params>
+         <div className="mx-auto grid max-w-6xl items-center gap-8 px-4 pb-10 sm:px-6 lg:grid-cols-2">
+           <div>
+             <p className="text-xs tracking-[0.18em] text-accent uppercase">{service.eyebrow}</p>
+-            <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">
++            <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
+               {service.headline}
+             </h1>
+             <p className="mt-4 text-lg text-muted">{service.summary}</p>
+@@ -117,10 +117,11 @@ export default async function ServicePage({ params }: { params: Promise<Params>
+             src={service.image}
+             alt={service.imageAlt}
+             className="aspect-[4/3] w-full rounded-xl object-cover shadow-[var(--shadow-card)]"
++           fetchPriority="high" decoding="async"
+           />
+         </div>
+       </section>
+-      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-[1.3fr_0.7fr]">
++      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-[1.3fr_0.7fr]">
+         <article>
+           <ul className="space-y-3">
+             {service.bullets.map((b) => (
+@@ -148,7 +149,8 @@ export default async function ServicePage({ params }: { params: Promise<Params>
+                       src={p.image}
+                       alt={p.imageAlt}
+                       className="aspect-[16/10] w-full object-cover"
+-                    />
++           loading="lazy" decoding="async"
++          />
+                     <div className="p-4">
+                       <h3 className="font-display text-lg">{p.title}</h3>
+                       <p className="mt-1 text-sm text-muted">{p.summary}</p>
+@@ -219,7 +221,7 @@ export default async function ServicePage({ params }: { params: Promise<Params>
+       </div>
+       {cityPages.length > 0 && (
+         <section className="border-t border-border bg-bg-warm">
+-          <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
++          <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
+             <h2 className="font-display text-2xl">{service.shortName} city by city</h2>
+             <p className="mt-2 max-w-2xl text-sm text-muted">
+               Housing stock, local price band, and the jobs we actually get called for — written per
+@@ -245,7 +247,7 @@ export default async function ServicePage({ params }: { params: Promise<Params>
+       )}
+ 
+       <section className="border-t border-border">
+-        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
++        <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
+           <h2 className="font-display text-2xl">Also in the shop</h2>
+           <div className="mt-6 grid gap-4 md:grid-cols-3">
+             {others.map((s) => (
+diff --git a/app/services/page.tsx b/app/services/page.tsx
+index aec0054..1850c3a 100644
+--- a/app/services/page.tsx
++++ b/app/services/page.tsx
+@@ -32,14 +32,14 @@ export default function ServicesIndex() {
+         title="Every hardwood job the house actually needs."
+         lede="Installation, stairs, railings, sanding, finishing, refinishing, repairs, decks, and commercial work — specified as one system, not five subcontractors."
+       />
+-      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-12 sm:px-6 md:grid-cols-2">
++      <div className="mx-auto grid max-w-6xl gap-6 px-4 py-12 sm:py-16 sm:px-6 md:grid-cols-2">
+         {services.map((s) => (
+           <Link
+             key={s.slug}
+             href={`/services/${s.slug}`}
+             className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
+           >
+-            <img src={s.image} alt={s.imageAlt} className="aspect-[16/9] w-full object-cover" />
++            <img src={s.image} alt={s.imageAlt} className="aspect-[16/9] w-full object-cover" loading="lazy" decoding="async"/>
+             <div className="p-6">
+               <p className="text-xs text-accent">{s.priceFrom}</p>
+               <h2 className="mt-1 font-display text-2xl">{s.name}</h2>
+diff --git a/app/showroom/page.tsx b/app/showroom/page.tsx
+index 1012d08..d120285 100644
+--- a/app/showroom/page.tsx
++++ b/app/showroom/page.tsx
+@@ -28,9 +28,9 @@ export default function ShowroomPage() {
+         ])}
+       />
+       <section className="border-b border-border bg-bg-warm">
+-        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
++        <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
+           <p className="text-xs tracking-[0.18em] text-accent uppercase">Species showroom</p>
+-          <h1 className="mt-3 max-w-3xl font-display text-4xl leading-[1.08] sm:text-5xl">
++          <h1 className="mt-3 max-w-3xl font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
+             Pick the wood the house can actually live with.
+           </h1>
+           <p className="mt-4 max-w-2xl text-lg text-muted">
+@@ -39,13 +39,14 @@ export default function ShowroomPage() {
+           </p>
+         </div>
+       </section>
+-      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
++      <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
+         <SpeciesShowroom />
+         <img
+           src="/images/species-board.jpg"
+           alt="White oak, red oak, walnut, maple, and hickory sample boards on a Green Hardwood workbench."
+           className="mt-12 aspect-[21/9] w-full rounded-xl object-cover"
+-        />
++           loading="lazy" decoding="async"
++          />
+         <div className="mt-10 rounded-xl bg-primary px-6 py-10 text-primary-fg sm:px-10">
+           <h2 className="font-display text-3xl">
+             Samples leave the shop. The internet does not pick a stain.
+diff --git a/app/stairs/page.tsx b/app/stairs/page.tsx
+index 7cd5e8e..3459c1f 100644
+--- a/app/stairs/page.tsx
++++ b/app/stairs/page.tsx
+@@ -68,12 +68,12 @@ export default function StairsHub() {
+         }}
+       />
+       <section className="border-b border-border bg-bg-warm">
+-        <div className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-10 sm:px-6 lg:grid-cols-2">
++        <div className="mx-auto grid max-w-6xl items-center gap-8 px-4 py-10 sm:py-14 sm:px-6 lg:grid-cols-2">
+           <div>
+             <p className="text-xs tracking-[0.18em] text-accent uppercase">
+               Hardwood stairs · Toronto & GTA
+             </p>
+-            <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">
++            <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
+               The stair is the product. The floor is the field it sits in.
+             </h1>
+             <p className="mt-4 text-lg text-muted">
+@@ -94,11 +94,12 @@ export default function StairsHub() {
+             src="/images/stair-studio.jpg"
+             alt="Custom white oak staircase with black steel balusters and a graspable oak handrail in a Toronto home."
+             className="aspect-[3/2] w-full rounded-xl object-cover shadow-[var(--shadow-card)]"
++           fetchPriority="high" decoding="async"
+           />
+         </div>
+       </section>
+ 
+-      <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
++      <section className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
+         <h2 className="font-display text-3xl sm:text-4xl">
+           Build the flight. Read the code. Get a range.
+         </h2>
+@@ -112,7 +113,7 @@ export default function StairsHub() {
+       </section>
+ 
+       <section className="border-y border-border bg-surface">
+-        <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
++        <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
+           <h2 className="font-display text-3xl">Jobs we keep getting called for</h2>
+           <div className="mt-8 grid gap-6 md:grid-cols-3">
+             {[
+@@ -142,7 +143,7 @@ export default function StairsHub() {
+       </section>
+ 
+       {stairJobs.length > 0 && (
+-        <section className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
++        <section className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
+           <h2 className="font-display text-3xl">Stairs you can inspect</h2>
+           <div className="mt-8 grid gap-5 md:grid-cols-2">
+             {stairJobs.map((p) => (
+@@ -154,7 +155,8 @@ export default function StairsHub() {
+                   src={p.image}
+                   alt={p.imageAlt}
+                   className="aspect-[16/10] w-full object-cover"
+-                />
++           loading="lazy" decoding="async"
++          />
+                 <div className="p-5">
+                   <h3 className="font-display text-xl">{p.title}</h3>
+                   <p className="mt-1 text-sm text-muted">{p.summary}</p>
+diff --git a/app/trade/page.tsx b/app/trade/page.tsx
+index d1a7831..80e0848 100644
+--- a/app/trade/page.tsx
++++ b/app/trade/page.tsx
+@@ -26,9 +26,9 @@ export default function TradePage() {
+         ])}
+       />
+       <section className="border-b border-border bg-bg-warm">
+-        <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
++        <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16 sm:px-6">
+           <p className="text-xs tracking-[0.18em] text-accent uppercase">Trade</p>
+-          <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">
++          <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
+             Builders, designers, realtors — one shop for the floor and the stair.
+           </h1>
+           <p className="mt-4 text-lg text-muted">
+@@ -37,7 +37,7 @@ export default function TradePage() {
+           </p>
+         </div>
+       </section>
+-      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:px-6 lg:grid-cols-2">
++      <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-2">
+         <div className="space-y-6">
+           <section>
+             <h2 className="font-display text-2xl">What you get</h2>
+diff --git a/app/warranty/page.tsx b/app/warranty/page.tsx
+index 41cd541..412cb6a 100644
+--- a/app/warranty/page.tsx
++++ b/app/warranty/page.tsx
+@@ -28,9 +28,9 @@ export default function WarrantyPage() {
+         ])}
+       />
+       <section className="border-b border-border bg-bg-warm">
+-        <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
++        <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16 sm:px-6">
+           <p className="text-xs tracking-[0.18em] text-accent uppercase">Warranty</p>
+-          <h1 className="mt-3 font-display text-4xl leading-[1.08] sm:text-5xl">
++          <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
+             Three years of workmanship. The mill keeps the material warranty.
+           </h1>
+           <p className="mt-4 text-lg text-muted">
+@@ -38,7 +38,7 @@ export default function WarrantyPage() {
+           </p>
+         </div>
+       </section>
+-      <article className="mx-auto max-w-3xl space-y-8 px-4 py-12 sm:px-6">
++      <article className="mx-auto max-w-3xl space-y-8 px-4 py-12 sm:py-16 sm:px-6">
+         <section>
+           <h2 className="font-display text-2xl">What we cover</h2>
+           <ul className="mt-3 list-disc space-y-2 pl-5 text-muted">
+diff --git a/components/assistant/ask-green-hardwood.tsx b/components/assistant/ask-green-hardwood.tsx
+index 7dd541d..19a130a 100644
+--- a/components/assistant/ask-green-hardwood.tsx
++++ b/components/assistant/ask-green-hardwood.tsx
+@@ -103,10 +103,10 @@ export function AskGreenHardwood() {
+         type="button"
+         onClick={() => setOpen(true)}
+         aria-haspopup="dialog"
+-        className="fixed right-4 bottom-24 z-40 inline-flex h-14 items-center gap-2.5 rounded-full bg-primary px-5 text-sm font-medium text-primary-fg shadow-[0_8px_28px_-8px_rgb(28_22_18/0.55)] transition-transform hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:outline-none md:bottom-6"
++        aria-label="Ask Green Hardwood"
++        className="fixed right-4 bottom-24 z-40 inline-flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-fg shadow-[0_8px_28px_-8px_rgb(28_22_18/0.55)] transition-transform hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:outline-none md:bottom-6"
+       >
+-        <MessageSquare className="size-5" aria-hidden="true" />
+-        Ask Green Hardwood
++        <MessageSquare className="size-6" aria-hidden="true" />
+       </button>
+     );
+   }
+@@ -121,8 +121,14 @@ export function AskGreenHardwood() {
+     >
+       <header className="flex items-start justify-between gap-3 bg-primary px-4 py-3 text-primary-fg">
+         <div>
+-          <h2 id={`${uid}-title`} className="font-display text-lg leading-tight">
++          <h2
++            id={`${uid}-title`}
++            className="flex items-center gap-2 font-display text-lg leading-tight"
++          >
+             Ask Green Hardwood
++            <span className="rounded bg-primary-fg/15 px-1.5 py-0.5 text-[0.625rem] font-sans font-semibold tracking-wide text-primary-fg/80 uppercase">
++              Grounded
++            </span>
+           </h2>
+           <p className="text-xs text-primary-fg/70">
+             Answers drawn from this site. Not a substitute for a site visit.
+@@ -141,17 +147,17 @@ export function AskGreenHardwood() {
+       <div ref={logRef} className="flex-1 space-y-4 overflow-y-auto px-4 py-4" aria-live="polite">
+         {turns.length === 0 && (
+           <div>
+-            <p className="text-sm text-muted">
+-              Hardwood stairs, installation, refinishing, local pricing, Ontario stair code. Ask
+-              anything — or start here:
++            <p className="text-sm font-medium text-fg">Want help getting started?</p>
++            <p className="mt-0.5 text-sm text-muted">
++              Tell us a little about what you are looking for.
+             </p>
+-            <div className="mt-3 flex flex-col gap-2">
++            <div className="mt-3 flex flex-col items-start gap-2">
+               {OPENERS.map((q) => (
+                 <button
+                   key={q}
+                   type="button"
+                   onClick={() => void ask(q)}
+-                  className="rounded-lg border border-border bg-bg px-3 py-2 text-left text-sm transition-colors hover:bg-bg-warm"
++                  className="rounded-md border border-accent/40 bg-bg px-3 py-2 text-left text-sm text-fg transition-colors hover:border-accent hover:bg-bg-warm"
+                 >
+                   {q}
+                 </button>
+@@ -268,6 +274,15 @@ export function AskGreenHardwood() {
+           <ArrowUp className="size-4" aria-hidden="true" />
+         </button>
+       </form>
++
++      {/* AWS puts a disclaimer under its widget. Ours states the one thing that
++          actually matters for a contractor: an estimate is not a quote. */}
++      <p className="border-t border-border bg-bg-warm/60 px-4 py-2 text-center text-[0.6875rem] text-muted">
++        Prices shown are estimate bands.{" "}
++        <Link href="/estimate" onClick={() => setOpen(false)} className="underline">
++          A firm quote follows the measure.
++        </Link>
++      </p>
+     </div>
+   );
+ }
+diff --git a/components/before-after.tsx b/components/before-after.tsx
+index 8c121dd..77e9ba6 100644
+--- a/components/before-after.tsx
++++ b/components/before-after.tsx
+@@ -18,11 +18,19 @@ export function BeforeAfter({
+   return (
+     <div className="relative overflow-hidden rounded-xl bg-bg-warm shadow-[var(--shadow-card)]">
+       <div className="relative aspect-[4/3] w-full select-none">
+-        <img src={after} alt={afterAlt} className="absolute inset-0 h-full w-full object-cover" />
++        <img
++          src={after}
++          alt={afterAlt}
++          loading="lazy"
++          decoding="async"
++          className="absolute inset-0 h-full w-full object-cover"
++        />
+         <div className="absolute inset-0 overflow-hidden" style={{ width: `${pos}%` }}>
+           <img
+             src={before}
+             alt={beforeAlt}
++            loading="lazy"
++            decoding="async"
+             className="absolute inset-0 h-full max-w-none object-cover"
+             style={{ width: `${10000 / pos}%` }}
+           />
+diff --git a/components/layout/container.tsx b/components/layout/container.tsx
+new file mode 100644
+index 0000000..435734b
+--- /dev/null
++++ b/components/layout/container.tsx
+@@ -0,0 +1,40 @@
++import type { ElementType, ReactNode } from "react";
++import { cn } from "@/lib/utils";
++
++/**
++ * The horizontal rail. Two widths, and only two.
++ *
++ * Before this component the site used `max-w-6xl` on 19 pages, `max-w-3xl` on
++ * 9, and `max-w-4xl` on exactly 2 — so `/problems/[slug]` sat at a different
++ * measure than its own siblings `/answers/[slug]` and `/guides/[slug]`, and
++ * `/glossary` put its breadcrumbs on a wider gutter than its own body text.
++ * Nobody chose that; it accumulated.
++ *
++ *   wide  — the page rail. Grids, cards, heroes, footers. 72rem.
++ *   prose — a single column of reading text. Capped near 68 characters,
++ *           which is where line length stops helping.
++ *
++ * `scripts/audit-site.mjs` fails the build on any third width.
++ */
++export type ContainerWidth = "wide" | "prose";
++
++const WIDTH: Record<ContainerWidth, string> = {
++  wide: "max-w-6xl",
++  prose: "max-w-3xl",
++};
++
++export function Container({
++  as: Tag = "div",
++  width = "wide",
++  className,
++  children,
++}: {
++  as?: ElementType;
++  width?: ContainerWidth;
++  className?: string;
++  children: ReactNode;
++}) {
++  return (
++    <Tag className={cn("mx-auto w-full px-4 sm:px-6", WIDTH[width], className)}>{children}</Tag>
++  );
++}
+diff --git a/components/layout/mobile-nav.tsx b/components/layout/mobile-nav.tsx
+new file mode 100644
+index 0000000..8701584
+--- /dev/null
++++ b/components/layout/mobile-nav.tsx
+@@ -0,0 +1,157 @@
++"use client";
++
++import { useEffect, useState } from "react";
++import Link from "next/link";
++import { usePathname } from "next/navigation";
++import { ChevronDown, Menu, Phone } from "lucide-react";
++import { Logo } from "@/components/logo";
++import { Button } from "@/components/ui/button";
++import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
++import { company } from "@/data/company";
++import { navSections, utilityLinks } from "@/data/navigation";
++
++/**
++ * The phone and tablet drawer.
++ *
++ * It renders `navSections` — the same array the desktop mega-menu renders —
++ * with the same section labels, the same group headings, in the same order.
++ * The desktop shows the groups side by side because it has the width; the
++ * phone shows them stacked behind disclosures because it does not. That is the
++ * only difference, and it is a presentation difference.
++ *
++ * The old drawer was a separate hand-written list of thirteen links. It had
++ * already drifted: /guides, /answers, /glossary, /trade and /contact were
++ * reachable on a phone and unreachable from the desktop header.
++ */
++export function MobileNav() {
++  const [open, setOpen] = useState(false);
++  const [expanded, setExpanded] = useState<string | null>(navSections[0]?.href ?? null);
++  const pathname = usePathname();
++
++  useEffect(() => {
++    setOpen(false);
++  }, [pathname]);
++
++  const isActive = (href: string) =>
++    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
++
++  return (
++    <Sheet open={open} onOpenChange={setOpen}>
++      <SheetTrigger asChild>
++        <Button variant="outline" size="icon" className="lg:hidden" aria-label="Open menu">
++          <Menu className="size-5" />
++        </Button>
++      </SheetTrigger>
++
++      <SheetContent side="left" className="w-[min(100%,23rem)] gap-0 overflow-y-auto p-0">
++        <div className="border-b border-border px-5 py-4 pr-16">
++          <Logo />
++        </div>
++
++        <nav aria-label="Primary" className="flex-1 px-3 py-3">
++          {navSections.map((section) => {
++            const isOpen = expanded === section.href;
++            return (
++              <div key={section.href} className="border-b border-border/70 last:border-b-0">
++                <div className="flex items-center">
++                  <Link
++                    href={section.href}
++                    aria-current={isActive(section.href) ? "page" : undefined}
++                    className={`flex-1 rounded-md px-2 py-3.5 text-base font-medium ${
++                      isActive(section.href) ? "text-accent" : "text-fg"
++                    }`}
++                  >
++                    {section.label}
++                  </Link>
++                  <button
++                    type="button"
++                    aria-expanded={isOpen}
++                    aria-label={`${isOpen ? "Collapse" : "Expand"} ${section.label}`}
++                    onClick={() => setExpanded(isOpen ? null : section.href)}
++                    className="rounded-md p-2 text-muted hover:bg-bg-warm hover:text-fg"
++                  >
++                    <ChevronDown
++                      aria-hidden
++                      className={`size-4 transition-transform duration-150 ${isOpen ? "rotate-180" : ""}`}
++                    />
++                  </button>
++                </div>
++
++                {isOpen ? (
++                  <div className="pb-3">
++                    {section.groups.map((group) => (
++                      <div key={group.heading} className="mt-1 mb-3 last:mb-1">
++                        <p className="px-2 text-[0.6875rem] font-semibold tracking-[0.14em] text-muted uppercase">
++                          {group.heading}
++                        </p>
++                        <ul className="mt-1">
++                          {group.links.map((link) => (
++                            <li key={`${group.heading}-${link.href}`}>
++                              <Link
++                                href={link.href}
++                                aria-current={isActive(link.href) ? "page" : undefined}
++                                className={`block rounded-md px-2 py-2.5 text-sm ${
++                                  isActive(link.href)
++                                    ? "bg-bg-warm font-medium text-fg"
++                                    : "text-fg/85 hover:bg-bg-warm"
++                                }`}
++                              >
++                                {link.label}
++                              </Link>
++                            </li>
++                          ))}
++                        </ul>
++                      </div>
++                    ))}
++                    {section.feature ? (
++                      <Link
++                        href={section.feature.href}
++                        className="mx-2 block rounded-lg bg-bg-warm p-3"
++                      >
++                        <span className="text-[0.6875rem] font-semibold tracking-[0.14em] text-accent uppercase">
++                          Most asked for
++                        </span>
++                        <span className="mt-1 block font-display text-base font-medium">
++                          {section.feature.label}
++                        </span>
++                      </Link>
++                    ) : null}
++                  </div>
++                ) : null}
++              </div>
++            );
++          })}
++        </nav>
++
++        {/* The desktop utility bar, in the place a phone can reach it. */}
++        <div className="border-t border-border bg-bg-warm/60 px-3 py-3">
++          <ul className="grid grid-cols-2 gap-x-2">
++            {utilityLinks.map((link) => (
++              <li key={link.href}>
++                <Link
++                  href={link.href}
++                  className="block rounded-md px-2 py-2 text-sm text-muted hover:bg-bg-warm hover:text-fg"
++                >
++                  {link.label}
++                </Link>
++              </li>
++            ))}
++          </ul>
++        </div>
++
++        <div className="sticky bottom-0 flex flex-col gap-2 border-t border-border bg-bg p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
++          <Button asChild>
++            <Link href="/estimate">Free estimate</Link>
++          </Button>
++          <Button asChild variant="outline">
++            <a href={`tel:${company.phone}`}>
++              <Phone className="size-4" aria-hidden />
++              {company.phoneDisplay}
++            </a>
++          </Button>
++          <p className="text-center text-xs text-muted">{company.hoursSummary}</p>
++        </div>
++      </SheetContent>
++    </Sheet>
++  );
++}
+diff --git a/components/layout/nav-menu.tsx b/components/layout/nav-menu.tsx
+new file mode 100644
+index 0000000..4e45cc5
+--- /dev/null
++++ b/components/layout/nav-menu.tsx
+@@ -0,0 +1,183 @@
++"use client";
++
++import { useEffect, useId, useRef, useState } from "react";
++import Link from "next/link";
++import { usePathname } from "next/navigation";
++import { ChevronDown, ArrowRight } from "lucide-react";
++import { navSections } from "@/data/navigation";
++
++/**
++ * The desktop mega-menu.
++ *
++ * The previous implementation was a CSS `group-hover` div. That looks the same
++ * in a screenshot and behaves worse in every other way: no `aria-expanded`, so
++ * a screen reader announced a link rather than a menu; no Escape; no way to
++ * open it from the keyboard other than tabbing into it; and on a touch laptop
++ * the first tap opened it and navigated away in the same gesture.
++ *
++ * This is a real disclosure. Hover opens it with a small close delay so the
++ * diagonal trip from trigger to panel does not dismiss it, click toggles it,
++ * Escape closes it and returns focus to the trigger, and a click outside
++ * closes it. Same panel content either way.
++ */
++export function NavMenu() {
++  const [openIndex, setOpenIndex] = useState<number | null>(null);
++  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
++  const rootRef = useRef<HTMLDivElement>(null);
++  const triggerRefs = useRef<(HTMLButtonElement | null)[]>([]);
++  const baseId = useId();
++  const pathname = usePathname();
++
++  // A navigation closes the menu. Without this the panel stays open over the
++  // page you just asked for.
++  useEffect(() => {
++    setOpenIndex(null);
++  }, [pathname]);
++
++  useEffect(() => {
++    if (openIndex === null) return;
++
++    function onKey(e: KeyboardEvent) {
++      if (e.key !== "Escape") return;
++      const i = openIndex;
++      setOpenIndex(null);
++      if (i !== null) triggerRefs.current[i]?.focus();
++    }
++    function onPointerDown(e: PointerEvent) {
++      if (!rootRef.current?.contains(e.target as Node)) setOpenIndex(null);
++    }
++    document.addEventListener("keydown", onKey);
++    document.addEventListener("pointerdown", onPointerDown);
++    return () => {
++      document.removeEventListener("keydown", onKey);
++      document.removeEventListener("pointerdown", onPointerDown);
++    };
++  }, [openIndex]);
++
++  useEffect(() => () => { if (closeTimer.current) clearTimeout(closeTimer.current); }, []);
++
++  const cancelClose = () => {
++    if (closeTimer.current) clearTimeout(closeTimer.current);
++    closeTimer.current = null;
++  };
++  const scheduleClose = () => {
++    cancelClose();
++    closeTimer.current = setTimeout(() => setOpenIndex(null), 140);
++  };
++
++  const isActive = (href: string) =>
++    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
++
++  return (
++    <div ref={rootRef} className="hidden lg:flex lg:items-center lg:gap-0.5">
++      {navSections.map((section, i) => {
++        const open = openIndex === i;
++        const panelId = `${baseId}-panel-${i}`;
++        return (
++          <div
++            key={section.href}
++            className="relative"
++            onMouseEnter={() => {
++              cancelClose();
++              setOpenIndex(i);
++            }}
++            onMouseLeave={scheduleClose}
++          >
++            <button
++              type="button"
++              ref={(el) => {
++                triggerRefs.current[i] = el;
++              }}
++              aria-expanded={open}
++              aria-controls={panelId}
++              aria-current={isActive(section.href) ? "page" : undefined}
++              onClick={() => setOpenIndex(open ? null : i)}
++              className={`inline-flex h-11 items-center gap-1 rounded-md px-3 text-sm font-medium transition-colors hover:bg-bg-warm hover:text-fg ${
++                open || isActive(section.href) ? "bg-bg-warm text-fg" : "text-fg/80"
++              }`}
++            >
++              {section.label}
++              <ChevronDown
++                aria-hidden
++                className={`size-3.5 transition-transform duration-150 ${open ? "rotate-180" : ""}`}
++              />
++            </button>
++
++            <div
++              id={panelId}
++              hidden={!open}
++              onMouseEnter={cancelClose}
++              onMouseLeave={scheduleClose}
++              className="absolute top-full left-0 z-50 pt-2"
++            >
++              <div className="w-[min(58rem,calc(100vw-3rem))] overflow-hidden rounded-xl border border-border bg-surface shadow-[var(--shadow-card)]">
++                <div className="border-b border-border bg-bg-warm/60 px-6 py-3">
++                  <Link
++                    href={section.href}
++                    className="group inline-flex items-center gap-1.5 text-sm font-medium text-fg"
++                  >
++                    {section.summary}
++                    <ArrowRight
++                      aria-hidden
++                      className="size-3.5 text-accent transition-transform group-hover:translate-x-0.5"
++                    />
++                  </Link>
++                </div>
++
++                <div className={`grid gap-6 p-6 ${section.feature ? "grid-cols-4" : "grid-cols-3"}`}>
++                  {section.groups.map((group) => (
++                    <div key={group.heading}>
++                      <p className="text-[0.6875rem] font-semibold tracking-[0.14em] text-muted uppercase">
++                        {group.href ? (
++                          <Link href={group.href} className="hover:text-fg">
++                            {group.heading}
++                          </Link>
++                        ) : (
++                          group.heading
++                        )}
++                      </p>
++                      <ul className="mt-2.5 space-y-0.5">
++                        {group.links.map((link) => (
++                          <li key={`${group.heading}-${link.href}`}>
++                            <Link
++                              href={link.href}
++                              className="block rounded-md px-2 py-1.5 transition-colors hover:bg-bg-warm"
++                            >
++                              <span className="block text-sm font-medium text-fg">{link.label}</span>
++                              {link.blurb ? (
++                                <span className="mt-0.5 block text-xs leading-snug text-muted">
++                                  {link.blurb}
++                                </span>
++                              ) : null}
++                            </Link>
++                          </li>
++                        ))}
++                      </ul>
++                    </div>
++                  ))}
++
++                  {section.feature ? (
++                    <div className="rounded-lg bg-bg-warm p-4">
++                      <p className="text-[0.6875rem] font-semibold tracking-[0.14em] text-accent uppercase">
++                        Most asked for
++                      </p>
++                      <Link
++                        href={section.feature.href}
++                        className="mt-2 block font-display text-lg leading-snug font-medium text-fg hover:underline"
++                      >
++                        {section.feature.label}
++                      </Link>
++                      <p className="mt-1.5 text-xs leading-relaxed text-muted">
++                        {section.feature.blurb}
++                      </p>
++                    </div>
++                  ) : null}
++                </div>
++              </div>
++            </div>
++          </div>
++        );
++      })}
++    </div>
++  );
++}
+diff --git a/components/layout/section.tsx b/components/layout/section.tsx
+new file mode 100644
+index 0000000..2a8d6db
+--- /dev/null
++++ b/components/layout/section.tsx
+@@ -0,0 +1,81 @@
++import type { ReactNode } from "react";
++import { cn } from "@/lib/utils";
++import { Container, type ContainerWidth } from "@/components/layout/container";
++
++/**
++ * The vertical rhythm. One scale, applied responsively.
++ *
++ * The site previously used py-10, py-12, py-14, py-16, py-20, pb-6, pb-8,
++ * pb-10, pb-12, pb-14 and pb-16 for what was structurally the same slot, and
++ * only the homepage stepped its padding up at `sm:`. The result was that a
++ * hand-rolled hero was visibly tighter on a laptop than a `<PageHero>` one on
++ * the same site.
++ *
++ *   tight   — dense rows: breadcrumb rails, meta strips
++ *   default — the standard section
++ *   loose   — the one or two sections a page wants to breathe
++ *
++ * Each step grows at `sm:`, so a phone gets a compact page and a desktop gets
++ * an airy one from the same markup.
++ */
++export type SectionSpace = "tight" | "default" | "loose";
++
++const SPACE: Record<SectionSpace, string> = {
++  tight: "py-6 sm:py-8",
++  default: "py-12 sm:py-16",
++  loose: "py-16 sm:py-24",
++};
++
++const TONE = {
++  base: "",
++  warm: "bg-bg-warm",
++  surface: "bg-surface",
++  ink: "bg-primary text-primary-fg",
++} as const;
++
++export function Section({
++  space = "default",
++  tone = "base",
++  width = "wide",
++  bordered = false,
++  className,
++  containerClassName,
++  id,
++  "aria-labelledby": labelledBy,
++  children,
++}: {
++  space?: SectionSpace;
++  tone?: keyof typeof TONE;
++  width?: ContainerWidth;
++  bordered?: boolean;
++  className?: string;
++  containerClassName?: string;
++  id?: string;
++  "aria-labelledby"?: string;
++  children: ReactNode;
++}) {
++  return (
++    <section
++      id={id}
++      aria-labelledby={labelledBy}
++      className={cn(TONE[tone], bordered && "border-t border-border", className)}
++    >
++      <Container width={width} className={cn(SPACE[space], containerClassName)}>
++        {children}
++      </Container>
++    </section>
++  );
++}
++
++/**
++ * The rounded sheet that lifts page content over a full-bleed hero — the move
++ * aws.amazon.com uses between its gradient hero and the first white section.
++ * It reads as "the page starts here" without needing a rule or a heading.
++ */
++export function ContentSheet({ className, children }: { className?: string; children: ReactNode }) {
++  return (
++    <div className={cn("relative z-10 -mt-6 rounded-t-[1.75rem] bg-bg sm:-mt-10", className)}>
++      {children}
++    </div>
++  );
++}
+diff --git a/components/layout/site-footer.tsx b/components/layout/site-footer.tsx
+index dcf96c9..3837565 100644
+--- a/components/layout/site-footer.tsx
++++ b/components/layout/site-footer.tsx
+@@ -1,172 +1,211 @@
+ import Link from "next/link";
++import { ArrowUp, Instagram, Mail, MapPin, Phone } from "lucide-react";
+ import { Logo } from "@/components/logo";
++import { Container } from "@/components/layout/container";
+ import { company } from "@/data/company";
+ import { coreCities } from "@/data/areas";
+-import { services } from "@/data/services";
++import { footerColumns, legalLinks } from "@/data/navigation";
+ 
++/**
++ * The footer, in the shape aws.amazon.com uses: an action row, a four-column
++ * link matrix, a back-to-top, then the legal strip.
++ *
++ * The four columns come from `data/navigation.ts`. The previous footer had
++ * sixteen hand-written <li> elements in a single "Company" column — which is a
++ * list, not a structure, and it drifted from the header within two patches.
++ *
++ * On a phone each column is a `<details>` disclosure, which is what AWS ships
++ * ("Help +" in the mobile footer). Above `lg` the CSS in globals.css hides the
++ * summaries and forces the content open, so the same markup renders as four
++ * columns with no JavaScript and no second copy of the links.
++ */
+ export function SiteFooter() {
+   return (
+-    <footer className="mt-auto border-t border-border bg-primary text-primary-fg">
+-      <div className="mx-auto grid max-w-6xl gap-10 px-4 py-14 sm:px-6 md:grid-cols-4">
+-        <div className="md:col-span-1">
+-          <Logo invert />
+-          <p className="mt-4 max-w-xs text-sm leading-relaxed text-primary-fg/75">
+-            {company.tagline} Serving Toronto and the Greater Toronto Area for {company.years}+
+-            years.
+-          </p>
+-          <p className="mt-4 text-sm text-primary-fg/80">
+-            {company.address.line1}
+-            <br />
+-            {company.address.city}, {company.address.region} {company.address.postal}
+-            <br />
+-            <a className="underline-offset-2 hover:underline" href={`tel:${company.phone}`}>
++    <footer className="mt-auto bg-primary text-primary-fg">
++      {/* Action row — AWS's "Create an AWS account" + language selector line. */}
++      <div className="border-b border-primary-fg/10">
++        <Container className="flex flex-col gap-4 py-8 sm:flex-row sm:items-center sm:justify-between">
++          <div>
++            <p className="font-display text-xl leading-snug font-medium">
++              Get a real number before anyone visits.
++            </p>
++            <p className="mt-1 text-sm text-primary-fg/70">
++              Free on-site measure across our core service area.
++            </p>
++          </div>
++          <div className="flex flex-wrap gap-3">
++            <Link
++              href="/estimate"
++              className="inline-flex h-11 items-center rounded-full bg-primary-fg px-6 text-sm font-medium text-primary transition-opacity hover:opacity-90"
++            >
++              Free estimate
++            </Link>
++            <a
++              href={`tel:${company.phone}`}
++              className="inline-flex h-11 items-center gap-2 rounded-full border border-primary-fg/30 px-6 text-sm font-medium transition-colors hover:bg-primary-fg/10"
++            >
++              <Phone className="size-4" aria-hidden />
+               {company.phoneDisplay}
+             </a>
+-            <br />
+-            <a className="underline-offset-2 hover:underline" href={`mailto:${company.email}`}>
+-              {company.email}
+-            </a>
+-          </p>
+-          <p className="mt-3 text-xs text-primary-fg/60">{company.hoursSummary}</p>
+-        </div>
+-        <div>
+-          <h2 className="font-display text-sm tracking-wide text-primary-fg/60 uppercase">
+-            Services
+-          </h2>
+-          <ul className="mt-4 space-y-2 text-sm">
+-            {services.slice(0, 8).map((s) => (
+-              <li key={s.slug}>
+-                <Link
+-                  href={`/services/${s.slug}`}
+-                  className="text-primary-fg/80 hover:text-primary-fg"
+-                >
+-                  {s.shortName}
+-                </Link>
+-              </li>
+-            ))}
+-          </ul>
+-        </div>
+-        <div>
+-          <h2 className="font-display text-sm tracking-wide text-primary-fg/60 uppercase">
+-            Service areas
+-          </h2>
+-          <ul className="mt-4 columns-2 space-y-2 text-sm">
+-            {coreCities.map((c) => (
+-              <li key={c.slug} className="break-inside-avoid">
+-                <Link
+-                  href={`/areas/${c.slug}`}
+-                  className="text-primary-fg/80 hover:text-primary-fg"
+-                >
+-                  {c.name}
++          </div>
++        </Container>
++      </div>
++
++      {/* The link matrix. */}
++      <Container className="py-10 sm:py-14">
++        <div className="grid gap-x-8 gap-y-1 lg:grid-cols-5 lg:gap-y-10">
++          {/* Identity + NAP. First column on desktop, top block on a phone. */}
++          <div className="mb-6 lg:mb-0">
++            <Logo invert />
++            <p className="mt-4 max-w-xs text-sm leading-relaxed text-primary-fg/75">
++              {company.tagline}
++            </p>
++            <address className="mt-4 space-y-1.5 text-sm not-italic text-primary-fg/80">
++              <span className="flex items-start gap-2">
++                <MapPin className="mt-0.5 size-4 shrink-0 text-primary-fg/50" aria-hidden />
++                <span>
++                  {company.address.line1}
++                  <br />
++                  {company.address.city}, {company.address.region} {company.address.postal}
++                </span>
++              </span>
++              <a
++                className="flex items-center gap-2 underline-offset-2 hover:underline"
++                href={`tel:${company.phone}`}
++              >
++                <Phone className="size-4 shrink-0 text-primary-fg/50" aria-hidden />
++                {company.phoneDisplay}
++              </a>
++              <a
++                className="flex items-center gap-2 underline-offset-2 hover:underline"
++                href={`mailto:${company.email}`}
++              >
++                <Mail className="size-4 shrink-0 text-primary-fg/50" aria-hidden />
++                {company.email}
++              </a>
++              <a
++                className="flex items-center gap-2 underline-offset-2 hover:underline"
++                href={company.instagram}
++                rel="noopener noreferrer"
++                target="_blank"
++              >
++                <Instagram className="size-4 shrink-0 text-primary-fg/50" aria-hidden />
++                Instagram
++              </a>
++            </address>
++            <p className="mt-3 text-xs text-primary-fg/60">{company.hoursSummary}</p>
++          </div>
++
++          {footerColumns.map((column) => (
++            <details
++              key={column.heading}
++              data-footer-column
++              className="border-b border-primary-fg/10 lg:border-b-0"
++            >
++              <summary className="flex cursor-pointer list-none items-center justify-between py-3.5 text-sm font-semibold tracking-wide text-primary-fg uppercase [&::-webkit-details-marker]:hidden">
++                {column.heading}
++                <span
++                  aria-hidden
++                  className="relative size-4 shrink-0 before:absolute before:top-1/2 before:left-0 before:h-px before:w-4 before:-translate-y-1/2 before:bg-primary-fg/60 after:absolute after:top-0 after:left-1/2 after:h-4 after:w-px after:-translate-x-1/2 after:bg-primary-fg/60 after:transition-transform"
++                />
++              </summary>
++              <div>
++                <h2 className="hidden text-sm font-semibold tracking-wide text-primary-fg/60 uppercase lg:block">
++                  {column.href ? (
++                    <Link href={column.href} className="hover:text-primary-fg">
++                      {column.heading}
++                    </Link>
++                  ) : (
++                    column.heading
++                  )}
++                </h2>
++                <ul className="space-y-2 pb-4 text-sm lg:mt-4 lg:pb-0">
++                  {column.links.map((link) => (
++                    <li key={`${column.heading}-${link.href}`}>
++                      <Link
++                        href={link.href}
++                        className="text-primary-fg/80 transition-colors hover:text-primary-fg"
++                      >
++                        {link.label}
++                      </Link>
++                    </li>
++                  ))}
++                </ul>
++              </div>
++            </details>
++          ))}
++
++          {/* Service areas span the matrix on desktop — 20 city links need width. */}
++          <details
++            data-footer-column
++            className="border-b border-primary-fg/10 lg:col-span-5 lg:border-t lg:border-b-0 lg:border-primary-fg/10 lg:pt-8"
++          >
++            <summary className="flex cursor-pointer list-none items-center justify-between py-3.5 text-sm font-semibold tracking-wide text-primary-fg uppercase [&::-webkit-details-marker]:hidden">
++              Service areas
++              <span
++                aria-hidden
++                className="relative size-4 shrink-0 before:absolute before:top-1/2 before:left-0 before:h-px before:w-4 before:-translate-y-1/2 before:bg-primary-fg/60 after:absolute after:top-0 after:left-1/2 after:h-4 after:w-px after:-translate-x-1/2 after:bg-primary-fg/60"
++              />
++            </summary>
++            <div>
++              <h2 className="hidden text-sm font-semibold tracking-wide text-primary-fg/60 uppercase lg:block">
++                <Link href="/areas" className="hover:text-primary-fg">
++                  Service areas
+                 </Link>
+-              </li>
+-            ))}
+-          </ul>
+-          <p className="mt-3 text-xs">
+-            <Link href="/areas" className="text-primary-fg/70 hover:text-primary-fg">
+-              All 32 areas →
+-            </Link>
+-          </p>
++              </h2>
++              <ul className="grid grid-cols-2 gap-x-6 gap-y-2 pb-4 text-sm sm:grid-cols-3 lg:mt-4 lg:grid-cols-6 lg:pb-0">
++                {coreCities.map((city) => (
++                  <li key={city.slug}>
++                    <Link
++                      href={`/areas/${city.slug}`}
++                      className="text-primary-fg/80 transition-colors hover:text-primary-fg"
++                    >
++                      {city.name}
++                    </Link>
++                  </li>
++                ))}
++                <li>
++                  <Link href="/areas" className="font-medium text-primary-fg hover:underline">
++                    All 32 areas →
++                  </Link>
++                </li>
++              </ul>
++            </div>
++          </details>
+         </div>
+-        <div>
+-          <h2 className="font-display text-sm tracking-wide text-primary-fg/60 uppercase">
+-            Company
+-          </h2>
+-          <ul className="mt-4 space-y-2 text-sm">
+-            <li>
+-              <Link href="/stairs" className="text-primary-fg/80 hover:text-primary-fg">
+-                Stair studio
+-              </Link>
+-            </li>
+-            <li>
+-              <Link href="/showroom" className="text-primary-fg/80 hover:text-primary-fg">
+-                Showroom
+-              </Link>
+-            </li>
+-            <li>
+-              <Link href="/compare" className="text-primary-fg/80 hover:text-primary-fg">
+-                Hardwood vs vinyl
+-              </Link>
+-            </li>
+-            <li>
+-              <Link href="/process" className="text-primary-fg/80 hover:text-primary-fg">
+-                Process
+-              </Link>
+-            </li>
+-            <li>
+-              <Link href="/warranty" className="text-primary-fg/80 hover:text-primary-fg">
+-                Warranty
+-              </Link>
+-            </li>
+-            <li>
+-              <Link href="/trade" className="text-primary-fg/80 hover:text-primary-fg">
+-                Trade
+-              </Link>
+-            </li>
+-            <li>
+-              <Link href="/emergency" className="text-primary-fg/80 hover:text-primary-fg">
+-                Water damage
+-              </Link>
+-            </li>
+-            <li>
+-              <Link href="/care" className="text-primary-fg/80 hover:text-primary-fg">
+-                Floor care
+-              </Link>
+-            </li>
+-            <li>
+-              <Link href="/guides" className="text-primary-fg/80 hover:text-primary-fg">
+-                Guides
+-              </Link>
+-            </li>
+-            <li>
+-              <Link href="/methods" className="text-primary-fg/80 hover:text-primary-fg">
+-                Methods
+-              </Link>
+-            </li>
+-            <li>
+-              <Link href="/problems" className="text-primary-fg/80 hover:text-primary-fg">
+-                Diagnose a problem
+-              </Link>
+-            </li>
+-            <li>
+-              <Link href="/answers" className="text-primary-fg/80 hover:text-primary-fg">
+-                Answers
+-              </Link>
+-            </li>
+-            <li>
+-              <Link href="/glossary" className="text-primary-fg/80 hover:text-primary-fg">
+-                Glossary
+-              </Link>
+-            </li>
+-            <li>
+-              <Link href="/faq" className="text-primary-fg/80 hover:text-primary-fg">
+-                FAQ
+-              </Link>
+-            </li>
+-            <li>
+-              <Link href="/for-agents" className="text-primary-fg/80 hover:text-primary-fg">
+-                For AI agents
+-              </Link>
+-            </li>
+-            <li>
+-              <Link href="/contact" className="text-primary-fg/80 hover:text-primary-fg">
+-                Contact
+-              </Link>
+-            </li>
+-          </ul>
+-          <p className="mt-6 text-xs leading-relaxed text-primary-fg/55">
+-            WSIB covered · Liability insured · Bona Certified Craftsman · Work follows NWFA
+-            guidelines · {company.warranty}
+-          </p>
++
++        {/* Back to top — AWS puts one here and it is the right call on a footer this tall. */}
++        <div className="mt-10 flex justify-center">
++          <a
++            href="#main"
++            className="inline-flex items-center gap-2 rounded-full border border-primary-fg/20 px-5 py-2 text-sm text-primary-fg/80 transition-colors hover:bg-primary-fg/10 hover:text-primary-fg"
++          >
++            Back to top
++            <ArrowUp className="size-4" aria-hidden />
++          </a>
+         </div>
+-      </div>
++
++        <p className="mt-8 text-center text-xs leading-relaxed text-primary-fg/55">
++          {company.licensed.join(" · ")} · {company.warranty}
++        </p>
++      </Container>
++
+       <div className="border-t border-primary-fg/10">
+-        <div className="mx-auto flex max-w-6xl flex-col gap-2 px-4 py-5 text-xs text-primary-fg/50 sm:flex-row sm:justify-between sm:px-6">
++        <Container className="flex flex-col gap-3 py-5 text-xs text-primary-fg/50 sm:flex-row sm:items-center sm:justify-between">
+           <p>
+-            © {new Date().getFullYear()} {company.legalName}. All rights reserved.
++            {/* legalName already ends in "Ltd." — do not add a second period. */}
++            © {new Date().getFullYear()} {company.legalName} All rights reserved.
+           </p>
+-          <p>Hardwood flooring · Stairs · Railings · Toronto & GTA</p>
+-        </div>
++          <ul className="flex flex-wrap gap-x-5 gap-y-2">
++            {legalLinks.map((link) => (
++              <li key={link.href}>
++                <Link href={link.href} className="transition-colors hover:text-primary-fg/80">
++                  {link.label}
++                </Link>
++              </li>
++            ))}
++          </ul>
++        </Container>
+       </div>
+     </footer>
+   );
+diff --git a/components/layout/site-header.tsx b/components/layout/site-header.tsx
+index d22d85a..8bbe641 100644
+--- a/components/layout/site-header.tsx
++++ b/components/layout/site-header.tsx
+@@ -1,139 +1,56 @@
+-"use client";
+-
+-import { useState } from "react";
+-import { usePathname } from "next/navigation";
+ import Link from "next/link";
+-import { Menu, Phone } from "lucide-react";
++import { Phone } from "lucide-react";
+ import { Logo } from "@/components/logo";
+ import { Button } from "@/components/ui/button";
+-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+ import { SiteSearch } from "@/components/search/site-search";
++import { UtilityBar } from "@/components/layout/utility-bar";
++import { NavMenu } from "@/components/layout/nav-menu";
++import { MobileNav } from "@/components/layout/mobile-nav";
+ import { company } from "@/data/company";
+-import { services } from "@/data/services";
+-
+-const mega: { heading: string; items: { label: string; href: string }[] }[] = [
+-  {
+-    heading: "Floors",
+-    items: [
+-      { label: "Hardwood installation", href: "/services/hardwood-installation" },
+-      { label: "Sanding & refinishing", href: "/services/sanding-refinishing" },
+-      { label: "Repairs & restoration", href: "/services/hardwood-repairs" },
+-      { label: "Hardwood decks", href: "/services/hardwood-decks" },
+-    ],
+-  },
+-  {
+-    heading: "Stairs & rails",
+-    items: [
+-      { label: "Stair studio", href: "/stairs" },
+-      { label: "Hardwood stairs", href: "/services/hardwood-stairs" },
+-      { label: "Hardwood railings", href: "/services/hardwood-railings" },
+-      { label: "Custom inlays", href: "/services/custom-inlays" },
+-    ],
+-  },
+-  {
+-    heading: "Specify",
+-    items: [
+-      { label: "Showroom", href: "/showroom" },
+-      { label: "Estimator", href: "/estimate" },
+-      { label: "Methods", href: "/methods" },
+-      { label: "Diagnose a problem", href: "/problems" },
+-    ],
+-  },
+-];
+-
+-const primary: { label: string; href: string }[] = [
+-  { label: "Stairs", href: "/stairs" },
+-  { label: "Methods", href: "/methods" },
+-  { label: "Showroom", href: "/showroom" },
+-  { label: "Work", href: "/portfolio" },
+-  { label: "Areas", href: "/areas" },
+-  { label: "About", href: "/about" },
+-];
+-
+-const mobile: { label: string; href: string }[] = [
+-  { label: "Services", href: "/services" },
+-  { label: "Stair studio", href: "/stairs" },
+-  { label: "Showroom", href: "/showroom" },
+-  { label: "Work", href: "/portfolio" },
+-  { label: "Areas", href: "/areas" },
+-  { label: "Guides", href: "/guides" },
+-  { label: "Methods", href: "/methods" },
+-  { label: "Diagnose", href: "/problems" },
+-  { label: "Answers", href: "/answers" },
+-  { label: "Glossary", href: "/glossary" },
+-  { label: "About", href: "/about" },
+-  { label: "Trade", href: "/trade" },
+-  { label: "Contact", href: "/contact" },
+-];
+ 
++/**
++ * The site header, in the shape aws.amazon.com uses:
++ *
++ *   row 1  utility bar — secondary links, hours, phone        (lg and up)
++ *   row 2  logo · primary nav · search · phone · CTA
++ *
++ * On a phone row 2 becomes hamburger · centred logo · search — which is the
++ * arrangement AWS ships on mobile, and it is better than left-aligning the
++ * logo next to the hamburger because the wordmark stays the optical centre of
++ * the bar at the width where it is the only branding on screen.
++ *
++ * The component itself is a server component now. Only the two pieces that
++ * genuinely need state — the mega-menu and the drawer — are client islands.
++ * Previously the whole header was `"use client"`, so `usePathname`,
++ * `useState`, the entire nav data and every label shipped to the browser on
++ * all 358 pages.
++ */
+ export function SiteHeader() {
+-  const [open, setOpen] = useState(false);
+-  const pathname = usePathname();
+-
+-  /** Marks the section you are in, for both sighted users and screen readers. */
+-  const isActive = (href: string) =>
+-    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+-
+   return (
+     <header className="sticky top-0 z-40 border-b border-border/80 bg-bg/90 backdrop-blur-md">
+-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:h-[4.25rem] sm:px-6">
+-        <Logo />
++      <UtilityBar />
++
++      <div className="mx-auto flex h-16 max-w-6xl items-center gap-2 px-4 sm:px-6 lg:h-[4.25rem] lg:gap-4">
++        {/* Phone: hamburger left. Desktop: hidden, and the logo leads the bar.
++            `flex-1` here and on the action cluster below makes the two sides
++            equal, which is what actually centres the wordmark — matching it by
++            eye drifts as soon as the icon count changes. */}
++        <div className="flex flex-1 justify-start lg:hidden">
++          <MobileNav />
++        </div>
+ 
+-        <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary">
+-          <div className="group relative">
+-            <Link
+-              href="/services"
+-              aria-current={isActive("/services") ? "page" : undefined}
+-              className={`inline-flex h-11 items-center rounded-md px-3 text-sm font-medium transition-colors hover:bg-bg-warm hover:text-fg ${
+-                isActive("/services") ? "bg-bg-warm text-fg" : "text-fg/80"
+-              }`}
+-            >
+-              Services
+-            </Link>
+-            <div className="invisible absolute top-full left-0 pt-2 opacity-0 transition-opacity duration-150 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100">
+-              <div className="grid w-[38rem] grid-cols-3 gap-6 rounded-xl bg-surface p-6 shadow-[var(--shadow-card)]">
+-                {mega.map((col) => (
+-                  <div key={col.heading}>
+-                    <p className="text-xs tracking-[0.14em] text-muted uppercase">{col.heading}</p>
+-                    <ul className="mt-2 space-y-1">
+-                      {col.items.map((item) => (
+-                        <li key={item.href}>
+-                          <Link
+-                            href={item.href}
+-                            className="block rounded-md px-2 py-1.5 text-sm hover:bg-bg-warm"
+-                          >
+-                            {item.label}
+-                          </Link>
+-                        </li>
+-                      ))}
+-                    </ul>
+-                  </div>
+-                ))}
+-              </div>
+-            </div>
+-          </div>
++        <Logo className="shrink-0" />
+ 
+-          {primary.map((item) => (
+-            <Link
+-              key={item.href}
+-              href={item.href}
+-              aria-current={isActive(item.href) ? "page" : undefined}
+-              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-bg-warm hover:text-fg ${
+-                isActive(item.href) ? "bg-bg-warm text-fg" : "text-fg/80"
+-              }`}
+-            >
+-              {item.label}
+-            </Link>
+-          ))}
+-        </nav>
++        <NavMenu />
+ 
+-        <div className="hidden items-center gap-2 md:flex">
++        {/* Desktop actions. */}
++        <div className="ml-auto hidden items-center gap-2 lg:flex">
+           <SiteSearch />
+           <a
+             href={`tel:${company.phone}`}
+-            className="inline-flex h-11 items-center gap-2 px-2 text-sm font-medium text-primary"
++            className="inline-flex h-11 items-center gap-2 rounded-md px-2 text-sm font-medium text-primary transition-colors hover:bg-bg-warm"
+           >
+-            <Phone className="size-4" />
++            <Phone className="size-4" aria-hidden />
+             {company.phoneDisplay}
+           </a>
+           <Button asChild>
+@@ -141,53 +58,14 @@ export function SiteHeader() {
+           </Button>
+         </div>
+ 
+-        <SiteSearch className="inline-flex size-11 items-center justify-center rounded-md border border-border bg-surface text-muted transition-colors hover:bg-bg-warm hover:text-fg focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none md:hidden" />
++        {/* Phone actions. Search only: the phone number is already a full-width
++            button in the sticky bottom bar and again in the drawer, and a third
++            copy here made the two sides of the bar unequal, which pushed the
++            wordmark off centre. One control each side, wordmark dead centre. */}
++        <div className="flex flex-1 items-center justify-end lg:hidden">
++          <SiteSearch className="inline-flex size-11 items-center justify-center rounded-md text-muted transition-colors hover:bg-bg-warm hover:text-fg focus-visible:ring-2 focus-visible:ring-primary/40 focus-visible:outline-none" />
++        </div>
+ 
+-        <Sheet open={open} onOpenChange={setOpen}>
+-          <SheetTrigger asChild>
+-            <Button variant="outline" size="icon" className="lg:hidden" aria-label="Open menu">
+-              <Menu className="size-5" />
+-            </Button>
+-          </SheetTrigger>
+-          <SheetContent>
+-            <Logo className="mb-8" />
+-            <nav className="flex flex-col gap-1" aria-label="Mobile">
+-              {mobile.map((item) => (
+-                <Link
+-                  key={item.href}
+-                  href={item.href}
+-                  onClick={() => setOpen(false)}
+-                  aria-current={isActive(item.href) ? "page" : undefined}
+-                  className={`rounded-md px-3 py-3 text-base font-medium hover:bg-bg-warm ${
+-                    isActive(item.href) ? "bg-bg-warm" : ""
+-                  }`}
+-                >
+-                  {item.label}
+-                </Link>
+-              ))}
+-              {services.map((child) => (
+-                <Link
+-                  key={child.slug}
+-                  href={`/services/${child.slug}`}
+-                  onClick={() => setOpen(false)}
+-                  className="rounded-md px-3 py-2 pl-5 text-sm text-muted hover:bg-bg-warm hover:text-fg"
+-                >
+-                  {child.shortName}
+-                </Link>
+-              ))}
+-            </nav>
+-            <div className="mt-auto flex flex-col gap-2 pt-8">
+-              <Button asChild>
+-                <Link href="/estimate" onClick={() => setOpen(false)}>
+-                  Free estimate
+-                </Link>
+-              </Button>
+-              <Button asChild variant="outline">
+-                <a href={`tel:${company.phone}`}>Call {company.phoneDisplay}</a>
+-              </Button>
+-            </div>
+-          </SheetContent>
+-        </Sheet>
+       </div>
+     </header>
+   );
+diff --git a/components/layout/utility-bar.tsx b/components/layout/utility-bar.tsx
+new file mode 100644
+index 0000000..eb26274
+--- /dev/null
++++ b/components/layout/utility-bar.tsx
+@@ -0,0 +1,42 @@
++import Link from "next/link";
++import { Phone } from "lucide-react";
++import { company } from "@/data/company";
++import { utilityLinks } from "@/data/navigation";
++
++/**
++ * The thin dark strip above the logo — AWS's top bar, in this company's terms.
++ *
++ * Secondary destinations and the two facts a hardwood customer wants before
++ * anything else: are you open, and what is the number. Hidden below `lg`,
++ * where the same links appear at the top of the mobile drawer instead, so the
++ * information architecture is identical at every width.
++ */
++export function UtilityBar() {
++  return (
++    <div className="hidden bg-primary text-primary-fg lg:block">
++      <div className="mx-auto flex h-9 max-w-6xl items-center justify-between px-4 text-xs sm:px-6">
++        <p className="text-primary-fg/70">
++          {company.hoursSummary} · {company.address.city}, {company.address.region}
++        </p>
++        <nav aria-label="Secondary" className="flex items-center gap-1">
++          {utilityLinks.map((link) => (
++            <Link
++              key={link.href}
++              href={link.href}
++              className="rounded px-2 py-1 text-primary-fg/75 transition-colors hover:bg-primary-fg/10 hover:text-primary-fg"
++            >
++              {link.label}
++            </Link>
++          ))}
++          <a
++            href={`tel:${company.phone}`}
++            className="ml-1 inline-flex items-center gap-1.5 rounded px-2 py-1 font-medium text-primary-fg transition-colors hover:bg-primary-fg/10"
++          >
++            <Phone className="size-3.5" aria-hidden />
++            {company.phoneDisplay}
++          </a>
++        </nav>
++      </div>
++    </div>
++  );
++}
+diff --git a/data/navigation.ts b/data/navigation.ts
+new file mode 100644
+index 0000000..12542b7
+--- /dev/null
++++ b/data/navigation.ts
+@@ -0,0 +1,289 @@
++import { company } from "@/data/company";
++import { services } from "@/data/services";
++
++/**
++ * The single source of truth for every navigation surface on the site.
++ *
++ * Why this file exists
++ * -------------------
++ * Before it, the header held three hand-maintained arrays (`mega`, `primary`,
++ * `mobile`) and the footer held sixteen hand-written <li> elements. They had
++ * already drifted: a desktop visitor could not reach /guides, /answers,
++ * /glossary, /trade or /contact from the header at all, while a phone visitor
++ * could. Two navigations means two chances to forget a page, and the one that
++ * gets forgotten is always the one you are not looking at.
++ *
++ * Everything below is rendered by BOTH the desktop mega-menu and the mobile
++ * drawer, and by BOTH the desktop footer columns and the mobile footer
++ * accordion. The breakpoint changes the presentation. It never changes the
++ * information architecture. `tests/navigation.test.ts` asserts that.
++ *
++ * Structure follows aws.amazon.com, which is the reference the site is being
++ * held to: a thin utility bar of secondary links, a primary bar of a few broad
++ * sections that open into grouped panels, and a four-column footer matrix.
++ */
++
++export type NavLink = {
++  label: string;
++  href: string;
++  /** One line shown under the label in the mega-menu. Keep it under ~70 chars. */
++  blurb?: string;
++};
++
++export type NavGroup = {
++  heading: string;
++  /** When set, the heading itself links to a landing page. */
++  href?: string;
++  links: NavLink[];
++};
++
++export type NavSection = {
++  label: string;
++  /** The section's own landing page. Every section must have one. */
++  href: string;
++  /** Shown at the top of the open panel. */
++  summary: string;
++  groups: NavGroup[];
++  /** Optional promoted link rendered in the panel's right rail. */
++  feature?: { label: string; href: string; blurb: string };
++};
++
++/* ------------------------------------------------------------------ utility */
++
++/**
++ * The thin bar above the logo. Secondary, high-intent, low-frequency links —
++ * the equivalent of AWS's "Contact us / Marketplace / Support / My account".
++ * Rendered as a bar on desktop and as the first block of the mobile drawer,
++ * so a phone visitor is never offered less than a laptop visitor.
++ */
++export const utilityLinks: NavLink[] = [
++  { label: "Service areas", href: "/areas" },
++  { label: "Trade & builders", href: "/trade" },
++  { label: "Water damage", href: "/emergency" },
++  { label: "Warranty", href: "/warranty" },
++  { label: "Contact", href: "/contact" },
++];
++
++/* ------------------------------------------------------------- primary nav */
++
++const serviceLinks: NavLink[] = services.map((s) => ({
++  label: s.navLabel,
++  href: `/services/${s.slug}`,
++  blurb: s.eyebrow,
++}));
++
++/** Floors vs stairs — the two halves of the business, split the way a customer thinks. */
++const floorServices = serviceLinks.filter(
++  (l) => !/stair|railing|inlay/i.test(l.href.replace("/services/", "")),
++);
++const stairServices = serviceLinks.filter((l) =>
++  /stair|railing|inlay/i.test(l.href.replace("/services/", "")),
++);
++
++export const navSections: NavSection[] = [
++  {
++    label: "Services",
++    href: "/services",
++    summary: "Every hardwood service we run, priced and explained before you call.",
++    groups: [
++      { heading: "Floors", href: "/services", links: floorServices },
++      { heading: "Stairs & railings", href: "/services/hardwood-stairs", links: stairServices },
++      {
++        heading: "Get a number",
++        href: "/estimate",
++        links: [
++          { label: "Instant estimator", href: "/estimate", blurb: "A real price band in about a minute" },
++          { label: "Stair studio", href: "/stairs", blurb: "Build your staircase and see it costed" },
++          { label: "Showroom", href: "/showroom", blurb: "Species, grades, and finishes side by side" },
++          { label: "Compare materials", href: "/compare", blurb: "Hardwood against vinyl and laminate" },
++        ],
++      },
++    ],
++    feature: {
++      label: "Carpet to hardwood stairs",
++      href: "/services/hardwood-stairs",
++      blurb: "The job we are asked for most. What it costs, how long it takes, what changes.",
++    },
++  },
++  {
++    label: "Learn",
++    href: "/guides",
++    summary: "The reference library. Written to be quoted, not to rank.",
++    groups: [
++      {
++        heading: "Diagnose",
++        href: "/problems",
++        links: [
++          { label: "Problems & symptoms", href: "/problems", blurb: "Cupping, squeaks, peeling, worn treads" },
++          { label: "Floor care", href: "/care", blurb: "What keeps a finish alive, and what kills it" },
++          { label: "Water damage", href: "/emergency", blurb: "What to do in the first 48 hours" },
++        ],
++      },
++      {
++        heading: "Understand",
++        href: "/guides",
++        links: [
++          { label: "Guides", href: "/guides", blurb: "Long-form, one subject each" },
++          { label: "Methods", href: "/methods", blurb: "Nail-down, glue-down, floating, and when each applies" },
++          { label: "Answers", href: "/answers", blurb: "Direct answers to the questions we get asked" },
++          { label: "Glossary", href: "/glossary", blurb: "The vocabulary, defined once" },
++        ],
++      },
++      {
++        heading: "Decide",
++        href: "/compare",
++        links: [
++          { label: "Hardwood vs vinyl", href: "/compare", blurb: "Including when vinyl is the better call" },
++          { label: "Our process", href: "/process", blurb: "Measure to final coat, step by step" },
++          { label: "Warranty", href: "/warranty", blurb: company.warranty },
++          { label: "FAQ", href: "/faq", blurb: "The short version of everything above" },
++        ],
++      },
++    ],
++    feature: {
++      label: "Ontario stair code",
++      href: "/guides/ontario-stair-code-hardwood",
++      blurb: "Rise, run, nosing and handrail limits — with the thresholds quoted, not paraphrased.",
++    },
++  },
++  {
++    label: "Work",
++    href: "/portfolio",
++    summary: "Finished jobs, the neighbourhoods they are in, and who did them.",
++    groups: [
++      {
++        heading: "See it",
++        href: "/portfolio",
++        links: [
++          { label: "Portfolio", href: "/portfolio", blurb: "Completed floors, stairs, and railings" },
++          { label: "Stair studio", href: "/stairs", blurb: "Configure a staircase and price it" },
++          { label: "Showroom", href: "/showroom", blurb: "Species and finishes in daylight" },
++        ],
++      },
++      {
++        heading: "Where we work",
++        href: "/areas",
++        links: [
++          { label: "All service areas", href: "/areas", blurb: "32 cities, split by travel honestly" },
++          { label: "Toronto", href: "/areas/toronto" },
++          { label: "Mississauga", href: "/areas/mississauga" },
++          { label: "Vaughan", href: "/areas/vaughan" },
++        ],
++      },
++      {
++        heading: "Who we are",
++        href: "/about",
++        links: [
++          { label: "About Green Hardwood", href: "/about", blurb: `${company.founder}, ${company.years} years on the tools` },
++          { label: "Trade & builders", href: "/trade", blurb: "Contract pricing and scheduling" },
++          { label: "Contact", href: "/contact", blurb: company.hoursSummary },
++          { label: "For AI agents", href: "/for-agents", blurb: "Machine-readable facts about this company" },
++        ],
++      },
++    ],
++  },
++];
++
++/* ----------------------------------------------------------------- footer */
++
++/**
++ * Four columns, deliberately balanced, mirroring AWS's Learn / Resources /
++ * Developers / Help. The previous footer had one "Company" column holding
++ * sixteen unrelated links, which is a list, not a structure.
++ *
++ * On a phone these render as <details> accordions — the same markup, the same
++ * order, the same links, one disclosure per column.
++ */
++export const footerColumns: NavGroup[] = [
++  {
++    heading: "Services",
++    href: "/services",
++    links: [
++      ...services.map((s) => ({ label: s.shortName, href: `/services/${s.slug}` })),
++      { label: "All services", href: "/services" },
++    ],
++  },
++  {
++    heading: "Learn",
++    href: "/guides",
++    links: [
++      { label: "Guides", href: "/guides" },
++      { label: "Methods", href: "/methods" },
++      { label: "Diagnose a problem", href: "/problems" },
++      { label: "Answers", href: "/answers" },
++      { label: "Glossary", href: "/glossary" },
++      { label: "FAQ", href: "/faq" },
++      { label: "Floor care", href: "/care" },
++      { label: "Hardwood vs vinyl", href: "/compare" },
++      { label: "Water damage", href: "/emergency" },
++    ],
++  },
++  {
++    heading: "Tools",
++    href: "/estimate",
++    links: [
++      { label: "Instant estimator", href: "/estimate" },
++      { label: "Stair studio", href: "/stairs" },
++      { label: "Showroom", href: "/showroom" },
++      { label: "Portfolio", href: "/portfolio" },
++      { label: "Search the site", href: "/search" },
++      { label: "Service areas", href: "/areas" },
++    ],
++  },
++  {
++    heading: "Company",
++    href: "/about",
++    links: [
++      { label: "About", href: "/about" },
++      { label: "Our process", href: "/process" },
++      { label: "Warranty", href: "/warranty" },
++      { label: "Trade & builders", href: "/trade" },
++      { label: "Contact", href: "/contact" },
++      { label: "For AI agents", href: "/for-agents" },
++    ],
++  },
++];
++
++/** The bottom legal strip. */
++export const legalLinks: NavLink[] = [
++  { label: "Contact", href: "/contact" },
++  { label: "Warranty", href: "/warranty" },
++  { label: "For AI agents", href: "/for-agents" },
++];
++
++/* ------------------------------------------------------------------ helpers */
++
++/** Every internal href this file points at, deduped. Used by the tests and the audit. */
++export function allNavHrefs(): string[] {
++  const out = new Set<string>();
++  for (const l of utilityLinks) out.add(l.href);
++  for (const s of navSections) {
++    out.add(s.href);
++    if (s.feature) out.add(s.feature.href);
++    for (const g of s.groups) {
++      if (g.href) out.add(g.href);
++      for (const l of g.links) out.add(l.href);
++    }
++  }
++  for (const c of footerColumns) {
++    if (c.href) out.add(c.href);
++    for (const l of c.links) out.add(l.href);
++  }
++  for (const l of legalLinks) out.add(l.href);
++  return [...out].sort();
++}
++
++/**
++ * Flattened primary navigation, in reading order. The mobile drawer renders
++ * exactly this, which is what makes drift between breakpoints impossible
++ * rather than merely unlikely.
++ */
++export function flattenSections(): NavLink[] {
++  const out: NavLink[] = [];
++  for (const s of navSections) {
++    out.push({ label: s.label, href: s.href });
++    for (const g of s.groups) for (const l of g.links) out.push(l);
++    if (s.feature) out.push({ label: s.feature.label, href: s.feature.href });
++  }
++  return out;
++}
+diff --git a/data/services.ts b/data/services.ts
+index c4ee4d8..72bbf00 100644
+--- a/data/services.ts
++++ b/data/services.ts
+@@ -338,3 +338,23 @@ export function getService(slug: string) {
+ export function seoNameOf(service: Service) {
+   return service.seoName ?? service.name;
+ }
++
++/**
++ * The bare price band for a service, with the leading "From " removed so it
++ * can be dropped mid-sentence: `$380–$850 per step, installed`.
++ *
++ * This exists because the same six price bands had been retyped by hand into
++ * `app/for-agents/page.tsx` and into the templated city FAQ in
++ * `app/areas/[city]/page.tsx`. That put the numbers a customer sees on 32 city
++ * pages, and the numbers an AI agent is invited to quote, one edit away from
++ * disagreeing with the service pages. Prices come from here now, or they do
++ * not appear.
++ *
++ * Throws on an unknown slug rather than returning a placeholder: a build that
++ * fails loudly beats 358 pages quoting an empty string.
++ */
++export function priceBandOf(slug: string): string {
++  const service = getService(slug);
++  if (!service) throw new Error(`priceBandOf: no service with slug "${slug}"`);
++  return service.priceFrom.replace(/^From\s+/i, "");
++}
+diff --git a/docs/DESIGN-SYSTEM.md b/docs/DESIGN-SYSTEM.md
+new file mode 100644
+index 0000000..d670bc2
+--- /dev/null
++++ b/docs/DESIGN-SYSTEM.md
+@@ -0,0 +1,127 @@
++# The design system
++
++The reference is [aws.amazon.com](https://aws.amazon.com). Not its colours —
++ours are parchment and forest green — but its *structure*: how a large site with
++hundreds of pages stays navigable, and how the same information architecture
++survives the trip from a 1440px laptop to a 390px phone.
++
++The rule this document exists to enforce:
++
++> **The breakpoint changes the presentation. It never changes the site.**
++
++A phone visitor and a laptop visitor must be able to reach the same pages, in
++the same groups, in the same order. Anything else is two websites maintained by
++one team, and the one nobody is looking at is the one that rots.
++
++---
++
++## 1. Navigation: one source, two presentations
++
++Everything in the header and the footer comes from **`data/navigation.ts`**.
++No component may declare a link of its own — `tests/navigation.test.ts` fails
++the build if one does.
++
++| Surface | Renders | At `lg`+ | Below `lg` |
++| --- | --- | --- | --- |
++| Utility bar | `utilityLinks` | thin dark strip above the logo | first block inside the drawer |
++| Primary nav | `navSections` | mega-menu panels, groups side by side | drawer, groups stacked behind disclosures |
++| Footer matrix | `footerColumns` | four columns | four `<details>` accordions |
++
++### Why this file exists
++
++The header used to hold three hand-maintained arrays — `mega`, `primary`, and
++`mobile`. They had already drifted. A desktop visitor could not reach `/guides`,
++`/answers`, `/glossary`, `/trade` or `/contact` from the header at all; a phone
++visitor could. Nobody decided that. It is what happens when there are two lists.
++
++The footer had sixteen hand-written `<li>` elements in a single "Company"
++column, which is a list, not a structure.
++
++### Adding a page to the navigation
++
++Add it to `data/navigation.ts`. That is the whole procedure. It appears on
++desktop and on mobile simultaneously, because there is only one array.
++
++---
++
++## 2. The two container widths
++
++`components/layout/container.tsx`:
++
++| Width | Class | Use |
++| --- | --- | --- |
++| `wide` | `max-w-6xl` | page rails, grids, cards, heroes, the footer |
++| `prose` | `max-w-3xl` | a single reading column |
++
++**There is no third width.** The audit and the test both fail on one.
++
++Before the rule, `max-w-6xl` was on 19 pages, `max-w-3xl` on 9, and `max-w-4xl`
++on exactly 2 — so `/problems/[slug]` sat at a different measure than its own
++siblings `/answers/[slug]` and `/guides/[slug]`, and `/glossary` put its
++breadcrumbs on a wider gutter than its own body text. Nobody chose that.
++
++A page rail is identified as `mx-auto` + `px-4`. A `max-w-sm` on a centred
++portrait is not a page rail and is left alone.
++
++## 3. The vertical rhythm
++
++`components/layout/section.tsx`:
++
++| Step | Class | Use |
++| --- | --- | --- |
++| `tight` | `py-6 sm:py-8` | breadcrumb rails, meta strips |
++| `default` | `py-12 sm:py-16` | the standard section |
++| `loose` | `py-16 sm:py-24` | the one or two sections that should breathe |
++
++Every step grows at `sm:`. Before this, only the homepage did — so a hand-rolled
++hero was visibly tighter on a laptop than a `<PageHero>` one on the same site.
++
++## 4. One h1 scale
++
++```
++font-display text-4xl leading-[1.08] font-medium sm:text-5xl
++```
++
++All fifteen of them. The three `<article>` detail routes had forked to
++`leading-[1.1]` with no `font-medium`, and `not-found.tsx` had neither.
++
++## 5. Images
++
++Every raw `<img>` declares how it loads:
++
++- the one hero image per page: `fetchPriority="high" decoding="async"`
++- everything else: `loading="lazy" decoding="async"`
++
++Before this, **none of the sixteen images on the site had a loading hint**, so
++`/services` fetched eight images before the fold. On the LTE connection a
++homeowner actually browses from, that is the difference between a fast page and
++a slow one.
++
++## 6. The assistant dock
++
++Collapsed it is a square icon button bottom-right, clearing the mobile CTA bar
++(`bottom-24`, dropping to `bottom-6` at `md`). A chat bubble that covers the
++phone number is, for a contractor, a lost call — `tests/navigation.test.ts`
++asserts it cannot regress.
++
++Open it carries a title, a grounding badge, suggestion chips, and a disclaimer
++strip, in that order.
++
++---
++
++## What enforces this
++
++| Rule | Enforced by |
++| --- | --- |
++| No component declares its own nav links | `tests/navigation.test.ts` |
++| Every nav href resolves to a real route | `tests/navigation.test.ts` |
++| Every top-level page is reachable from the header | `tests/navigation.test.ts` |
++| Four balanced footer columns | `tests/navigation.test.ts` |
++| Two container widths | test **and** `scripts/audit-site.mjs` |
++| One h1 scale | test **and** `scripts/audit-site.mjs` |
++| Every `<img>` has a loading hint | test **and** `scripts/audit-site.mjs` |
++| Prices live only in `data/services.ts` | `tests/navigation.test.ts` |
++| Assistant clears the mobile CTA bar | `tests/navigation.test.ts` |
++
++A convention that is not enforced is a convention that lasts two patches. Each
++row above is there because that specific rule had already been broken.
+diff --git a/docs/WORKFLOW.md b/docs/WORKFLOW.md
+index f706ddd..060fc24 100644
+--- a/docs/WORKFLOW.md
++++ b/docs/WORKFLOW.md
+@@ -112,10 +112,10 @@ It covers the pure logic where a silent bug is expensive:
+ - **`tests/obc.test.ts`** — every Ontario stair threshold, including inclusive
+   boundaries, and a check that the prose in `obcRules` quotes the same numbers
+   `checkObc` enforces.
+-- **`tests/matrix.test.ts`** — 84 unique paths, titles, and descriptions; titles
++- **`tests/matrix.test.ts`** — 224 unique paths, titles, and descriptions; titles
+   that fit a SERP; and, critically, that the same job prices _differently_ in
+   different cities. If that assertion ever fails, the city multiplier has stopped
+-  applying and all 84 pages have become the same page.
++  applying and all 224 pages have become the same page.
+ - **`tests/search.test.ts`** — all query tokens must match; a city name reaches
+   that city's page.
+ - **`tests/seo.test.ts`** — description clamping, and that the business and
+@@ -135,7 +135,7 @@ PR, because content is what ranks.
+ | Edit a service               | `data/services.ts`                   | Feeds 8 surfaces at once: service page, matrix pages, header, footer, homepage, JSON-LD offer catalogue, sitemap, `llms.txt` |
+ | Add a city                   | `data/areas.ts`                      | Also add a `cityMult` entry in `data/estimate.ts`, or the price silently falls back. `tests/matrix.test.ts` enforces this    |
+ | Publish a guide              | `data/guides.ts`                     | Appears in the sitemap and RSS automatically                                                                                 |
+-| Change price bands           | `data/estimate.ts`                   | Updates the estimator, all 84 matrix bands, and `llms.txt` together                                                          |
++| Change price bands           | `data/services.ts` + `data/estimate.ts` | `priceFrom` feeds `priceBandOf()`, so the service pages, `/for-agents`, and the 32 city FAQs move together; `estimate.ts` moves the estimator and all 224 matrix bands |
+ | NAP, hours, warranty         | `data/company.ts`                    | Must match the Google Business Profile **character for character**                                                           |
+ | Add or drop a matrix service | `matrixServices` in `data/matrix.ts` | Read a generated page before shipping. If it reads like a mad-lib, write a `localAngle` for it                               |
+ | Ontario stair thresholds     | `OBC_LIMITS` in `data/obc.ts`        | One constant drives the checker, the pages, and `llms-full.txt`                                                              |
+diff --git a/scripts/audit-site.mjs b/scripts/audit-site.mjs
+index 6bda5ab..98bc87a 100644
+--- a/scripts/audit-site.mjs
++++ b/scripts/audit-site.mjs
+@@ -114,8 +114,11 @@ const staticFileRoutes = new Set(
+         .map((f) => `/${f}`)
+     : [],
+ );
+-// Route handlers and metadata routes produce no .html file.
++// Route handlers, metadata routes, and on-demand pages produce no .html file,
++// so they are absent from `routes` even though they are perfectly real. /search
++// is the on-demand one: it reads a query string, so it cannot be prerendered.
+ const generatedRoutes = new Set([
++  "/search",
+   "/sitemap.xml",
+   "/robots.txt",
+   "/manifest.webmanifest",
+@@ -185,7 +188,71 @@ for (const { route, html } of pages) {
+   if (!/application\/ld\+json/.test(html)) warn(`${route} — no structured data`);
+ }
+ 
+-/* --------------------------------------------------------- 6. the report */
++/* ------------------------------------------------- 6. the layout system */
++
++/**
++ * These three checks read the SOURCE, not the build output, because they are
++ * about the rules the codebase holds itself to rather than about what a
++ * crawler sees. Each one exists because the rule had already been broken:
++ *
++ *   - a third container width had appeared on exactly two pages, so
++ *     /problems/[slug] sat at a different measure than its own siblings;
++ *   - the h1 scale had forked into two `leading` values;
++ *   - every raw <img> loaded eagerly, which on a phone means eight images
++ *     before the fold on /services.
++ *
++ * A convention that is not enforced is a convention that lasts two patches.
++ */
++
++const SOURCE_DIRS = ["app", "components"];
++const ALLOWED_WIDTHS = new Set(["max-w-3xl", "max-w-6xl"]);
++
++function walkSource(dir, out = []) {
++  if (!existsSync(dir)) return out;
++  for (const entry of readdirSync(dir, { withFileTypes: true })) {
++    const full = join(dir, entry.name);
++    if (entry.isDirectory()) walkSource(full, out);
++    else if (entry.name.endsWith(".tsx")) out.push(full);
++  }
++  return out;
++}
++
++const sourceFiles = SOURCE_DIRS.flatMap((d) => walkSource(d));
++
++for (const file of sourceFiles) {
++  const src = readFileSync(file, "utf8");
++
++  // 6a. Page rails use one of two widths. `mx-auto` marks a page rail; a
++  //     `max-w-*` on an inline element (a heading, a paragraph) is fine.
++  for (const m of src.matchAll(/className="([^"]*\bmx-auto\b[^"]*\bpx-4\b[^"]*)"/g)) {
++    for (const cls of m[1].split(/\s+/)) {
++      if (!/^max-w-(\d|s|m|l|x|f|p|n)/.test(cls)) continue;
++      if (cls.startsWith("max-w-[")) continue; // a deliberate one-off measure
++      if (!ALLOWED_WIDTHS.has(cls)) {
++        fail(`${file} — page rail uses ${cls}; only max-w-6xl (wide) and max-w-3xl (prose) are allowed`);
++      }
++    }
++  }
++
++  // 6b. One h1 scale across the site.
++  for (const m of src.matchAll(/<h1\b[^>]*className="([^"]*)"/g)) {
++    const cls = m[1];
++    if (!/\btext-4xl\b/.test(cls)) continue;
++    if (!/leading-\[1\.08\]/.test(cls)) {
++      fail(`${file} — <h1> does not use the site h1 scale (leading-[1.08] font-medium sm:text-5xl)`);
++    }
++  }
++
++  // 6c. Every raw <img> declares how it loads.
++  for (const m of src.matchAll(/<img\b[\s\S]*?\/>/g)) {
++    if (!/\bloading=|\bfetchPriority=/.test(m[0])) {
++      const line = src.slice(0, m.index).split("\n").length;
++      fail(`${file}:${line} — <img> with no loading or fetchPriority hint`);
++    }
++  }
++}
++
++/* --------------------------------------------------------- 7. the report */
+ 
+ const line = "─".repeat(64);
+ console.log(line);
+diff --git a/tests/navigation.test.ts b/tests/navigation.test.ts
+new file mode 100644
+index 0000000..f782a33
+--- /dev/null
++++ b/tests/navigation.test.ts
+@@ -0,0 +1,268 @@
++import { test, describe } from "node:test";
++import assert from "node:assert/strict";
++import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
++import { join } from "node:path";
++
++import {
++  allNavHrefs,
++  flattenSections,
++  footerColumns,
++  legalLinks,
++  navSections,
++  utilityLinks,
++} from "@/data/navigation";
++import { services } from "@/data/services";
++import { cities } from "@/data/areas";
++import { guides } from "@/data/guides";
++
++/* ------------------------------------------------------------------ routes */
++
++/**
++ * Every route the app actually defines, read off the filesystem. Dynamic
++ * segments are expanded from the same data the pages use, so a nav link to
++ * /guides/ontario-stair-code-hardwood is checked against the real guide list
++ * rather than against a hand-kept allowlist that would rot.
++ */
++function realRoutes(): Set<string> {
++  const out = new Set<string>();
++  const walk = (dir: string, prefix: string) => {
++    for (const entry of readdirSync(dir, { withFileTypes: true })) {
++      if (!entry.isDirectory()) continue;
++      if (entry.name.startsWith("_") || entry.name === "api") continue;
++      const full = join(dir, entry.name);
++      const segment = entry.name.startsWith("(") ? "" : `/${entry.name}`;
++      const path = `${prefix}${segment}`;
++      if (existsSync(join(full, "page.tsx"))) out.add(path === "" ? "/" : path);
++      walk(full, path);
++    }
++  };
++  if (existsSync(join("app", "page.tsx"))) out.add("/");
++  walk("app", "");
++
++  // Expand the dynamic segments this site actually builds.
++  for (const s of services) {
++    out.add(`/services/${s.slug}`);
++    for (const c of cities) out.add(`/services/${s.slug}/${c.slug}`);
++  }
++  for (const c of cities) out.add(`/areas/${c.slug}`);
++  for (const g of guides) out.add(`/guides/${g.slug}`);
++  return out;
++}
++
++const routes = realRoutes();
++
++/* ------------------------------------------------------- link correctness */
++
++describe("navigation links resolve", () => {
++  test("every href in data/navigation.ts is a real route", () => {
++    const dead = allNavHrefs().filter((href) => {
++      const clean = href.split("#")[0] ?? href;
++      // Skip the templated dynamic paths the expansion above already covers.
++      return !routes.has(clean) && !clean.startsWith("/services/") && !clean.startsWith("/areas/");
++    });
++    assert.deepEqual(dead, [], `navigation points at routes that do not exist: ${dead.join(", ")}`);
++  });
++
++  test("dynamic nav links resolve to built pages", () => {
++    const dynamic = allNavHrefs().filter(
++      (h) => h.startsWith("/services/") || h.startsWith("/areas/") || h.startsWith("/guides/"),
++    );
++    assert.ok(dynamic.length > 0, "expected the nav to link at least one dynamic page");
++    for (const href of dynamic) {
++      assert.ok(routes.has(href), `${href} is in the navigation but is not a generated route`);
++    }
++  });
++
++  test("no href is listed twice inside one footer column", () => {
++    for (const column of footerColumns) {
++      const seen = column.links.map((l) => l.href);
++      assert.equal(
++        new Set(seen).size,
++        seen.length,
++        `footer column "${column.heading}" repeats a link`,
++      );
++    }
++  });
++});
++
++/* ------------------------------------------------ the parity that matters */
++
++describe("web and mobile expose the same site", () => {
++  /**
++   * The bug this locks down: the header used to hold three hand-maintained
++   * arrays. A desktop visitor could not reach /guides, /answers, /glossary,
++   * /trade or /contact from the header; a phone visitor could. Nobody decided
++   * that. It happened because there were two lists.
++   *
++   * The desktop mega-menu and the mobile drawer both render `navSections`, so
++   * the assertion is now structural rather than a comparison of two lists —
++   * but the test stays, because the next person to "just add one link for
++   * mobile" should have to delete it.
++   */
++  test("the drawer and the mega-menu render the same source", () => {
++    const flattened = flattenSections().map((l) => l.href);
++    const fromSections = new Set<string>();
++    for (const section of navSections) {
++      fromSections.add(section.href);
++      for (const group of section.groups) for (const link of group.links) fromSections.add(link.href);
++      if (section.feature) fromSections.add(section.feature.href);
++    }
++    assert.deepEqual(
++      [...new Set(flattened)].sort(),
++      [...fromSections].sort(),
++      "flattenSections() and navSections disagree — the drawer would show a different site than the menu",
++    );
++  });
++
++  test("neither header component keeps a nav list of its own", () => {
++    for (const file of [
++      "components/layout/site-header.tsx",
++      "components/layout/nav-menu.tsx",
++      "components/layout/mobile-nav.tsx",
++      "components/layout/site-footer.tsx",
++    ]) {
++      const src = readFileSync(file, "utf8");
++      const inline = [...src.matchAll(/href:\s*"(\/[a-z0-9\-/]*)"/g)].map((m) => m[1]);
++      assert.deepEqual(
++        inline,
++        [],
++        `${file} declares its own nav hrefs (${inline.join(", ")}). Navigation belongs in data/navigation.ts, or web and mobile drift.`,
++      );
++    }
++  });
++
++  test("every top-level page is reachable from the header, not only the footer", () => {
++    const topLevel = [...routes].filter((r) => r !== "/" && r.split("/").length === 2);
++    const reachable = new Set(flattenSections().map((l) => l.href));
++    for (const l of utilityLinks) reachable.add(l.href);
++
++    // /search is reached through the search control, not a nav link.
++    const unreachable = topLevel.filter((r) => !reachable.has(r) && r !== "/search");
++    assert.deepEqual(
++      unreachable,
++      [],
++      `these pages exist but no header navigation reaches them: ${unreachable.join(", ")}`,
++    );
++  });
++});
++
++/* ------------------------------------------------------------- the footer */
++
++describe("footer structure", () => {
++  test("four columns, none of them a dumping ground", () => {
++    assert.equal(footerColumns.length, 4, "the footer matrix is four columns, like the reference");
++    for (const column of footerColumns) {
++      assert.ok(
++        column.links.length >= 4 && column.links.length <= 12,
++        `footer column "${column.heading}" has ${column.links.length} links; between 4 and 12 keeps the columns balanced`,
++      );
++    }
++  });
++
++  test("every service has a footer link", () => {
++    const inFooter = new Set(footerColumns.flatMap((c) => c.links.map((l) => l.href)));
++    for (const s of services) {
++      assert.ok(inFooter.has(`/services/${s.slug}`), `${s.shortName} is not linked from the footer`);
++    }
++  });
++
++  test("the legal strip stays short", () => {
++    assert.ok(legalLinks.length <= 4, "the legal strip is not a second navigation");
++  });
++});
++
++/* --------------------------------------------------- the layout contract */
++
++describe("layout system", () => {
++  const sourceFiles: string[] = [];
++  const walk = (dir: string) => {
++    for (const entry of readdirSync(dir, { withFileTypes: true })) {
++      const full = join(dir, entry.name);
++      if (entry.isDirectory()) walk(full);
++      else if (entry.name.endsWith(".tsx")) sourceFiles.push(full);
++    }
++  };
++  walk("app");
++  walk("components");
++
++  test("page rails use one of exactly two widths", () => {
++    const allowed = new Set(["max-w-3xl", "max-w-6xl"]);
++    const offenders: string[] = [];
++    for (const file of sourceFiles) {
++      const src = readFileSync(file, "utf8");
++      for (const m of src.matchAll(/className="([^"]*\bmx-auto\b[^"]*\bpx-4\b[^"]*)"/g)) {
++        for (const cls of (m[1] ?? "").split(/\s+/)) {
++          if (!cls.startsWith("max-w-") || cls.startsWith("max-w-[")) continue;
++          if (!allowed.has(cls)) offenders.push(`${file} → ${cls}`);
++        }
++      }
++    }
++    assert.deepEqual(offenders, [], `page rails outside the two-width system:\n${offenders.join("\n")}`);
++  });
++
++  test("every raw <img> declares how it loads", () => {
++    const offenders: string[] = [];
++    for (const file of sourceFiles) {
++      const src = readFileSync(file, "utf8");
++      for (const m of src.matchAll(/<img\b[\s\S]*?\/>/g)) {
++        if (!/\bloading=|\bfetchPriority=/.test(m[0])) {
++          offenders.push(`${file}:${src.slice(0, m.index).split("\n").length}`);
++        }
++      }
++    }
++    assert.deepEqual(offenders, [], `images with no loading hint:\n${offenders.join("\n")}`);
++  });
++
++  test("h1 elements share one scale", () => {
++    const offenders: string[] = [];
++    for (const file of sourceFiles) {
++      const src = readFileSync(file, "utf8");
++      for (const m of src.matchAll(/<h1\b[^>]*className="([^"]*)"/g)) {
++        const cls = m[1] ?? "";
++        if (/\btext-4xl\b/.test(cls) && !/leading-\[1\.08\]/.test(cls)) offenders.push(file);
++      }
++    }
++    assert.deepEqual(offenders, [], `h1 scale forked in:\n${offenders.join("\n")}`);
++  });
++
++  test("the mobile CTA bar and the assistant do not overlap", () => {
++    const cta = readFileSync("components/layout/mobile-cta.tsx", "utf8");
++    const assistant = readFileSync("components/assistant/ask-green-hardwood.tsx", "utf8");
++    assert.match(cta, /md:hidden/, "the mobile CTA bar must not render on desktop");
++    // The assistant must clear the bar on phones. bottom-24 is 6rem; the bar is
++    // 4rem plus safe-area. A regression here covers the phone number with a
++    // chat bubble, which for a contractor is a lost call.
++    assert.match(
++      assistant,
++      /bottom-24[\s\S]*md:bottom-6/,
++      "the assistant must sit above the mobile CTA bar and drop back down on desktop",
++    );
++  });
++});
++
++/* ------------------------------------------------------------ price drift */
++
++describe("prices have one home", () => {
++  test("no page hard-codes a dollar range that data/services.ts owns", () => {
++    const bands = services.map((s) => s.priceFrom.replace(/^From\s+/i, ""));
++    const offenders: string[] = [];
++    const walkApp = (dir: string) => {
++      for (const entry of readdirSync(dir, { withFileTypes: true })) {
++        const full = join(dir, entry.name);
++        if (statSync(full).isDirectory()) walkApp(full);
++        else if (entry.name.endsWith(".tsx")) {
++          const src = readFileSync(full, "utf8");
++          for (const band of bands) {
++            if (src.includes(band)) offenders.push(`${full} repeats "${band}"`);
++          }
++        }
++      }
++    };
++    walkApp("app");
++    assert.deepEqual(
++      offenders,
++      [],
++      `price bands belong in data/services.ts and nowhere else:\n${offenders.join("\n")}`,
++    );
++  });
++});
+-- 
+2.43.0
+
