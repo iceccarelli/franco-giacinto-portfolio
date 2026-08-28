@@ -1,0 +1,1279 @@
+From 94a2c1fd3a1d6c70fc2bff9517ff2df27818f1f3 Mon Sep 17 00:00:00 2001
+From: iceccarelli <vince.ceccarelli@gmail.com>
+Date: Fri, 28 Aug 2026 19:00:27 +0000
+Subject: [PATCH] feat: 32 service areas with an honest core/travel split
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Takes the matrix from 84 to 224 pages, and the site from 181 to 341.
+
+20 new municipalities across Durham, York, Peel, Halton, Hamilton, Simcoe,
+Dufferin, and Wellington, each with its own housing-stock and specification
+prose — East York's wartime semis with oak under broadloom, Hamilton's Durand
+Victorians, Innisfil's cottage conversions that swing humidity all winter.
+
+The structural addition is City.tier:
+
+- core (20)     free on-site measure for any qualified job
+- extended (12) we travel, but on stair packages and whole-home work, not a
+                single-room repair
+
+That distinction is published on the area page, the matrix page, and the areas
+index, and it is priced into cityMult. A test asserts the extended tier averages
+above the core multiplier, because a crew losing ninety minutes a day to travel
+costs more per square foot. Ranking for 'hardwood stairs Barrie' and then
+declining the call is worse than not ranking.
+
+Also: City.titleName for the two municipalities whose full names overflow a
+SERP title; homepage and footer now show the core twenty and link to all 32;
+the '32 cities' stat is true again.
+
+99 tests. 341 pages, 341 unique titles, 1,919 JSON-LD blocks, clean audit.
+---
+ README.md                           |  14 +-
+ app/areas/[city]/page.tsx           |   8 +-
+ app/areas/page.tsx                  |  56 ++++-
+ app/page.tsx                        |  12 +-
+ app/services/[slug]/[city]/page.tsx |  10 +-
+ components/layout/site-footer.tsx   |   9 +-
+ data/areas.ts                       | 370 ++++++++++++++++++++++++++++
+ data/company.ts                     |   2 +-
+ data/estimate.ts                    |  36 +++
+ data/matrix.ts                      |   4 +-
+ docs/HONEST-LIMITS.md               |   2 +
+ docs/QUERY-INVENTORY.md             | 147 ++++++-----
+ docs/SATELLITE-ARCHITECTURE.md      |  16 +-
+ docs/WORKFLOW.md                    |  67 +++--
+ tests/matrix.test.ts                |  47 +++-
+ 15 files changed, 654 insertions(+), 146 deletions(-)
+
+diff --git a/README.md b/README.md
+index 316da52..2971711 100644
+--- a/README.md
++++ b/README.md
+@@ -24,8 +24,8 @@ A statically prerendered Next.js 15 App Router site built around one commercial
+ ```
+ app/                        route segments; every page exports metadata + JSON-LD
+   services/[slug]/          8 services, prerendered from data/services.ts
+-  services/[slug]/[city]/   84 service x city pages — the long-tail capture layer
+-  areas/[city]/             12 GTA cities, prerendered from data/areas.ts
++  services/[slug]/[city]/   224 service x city pages — the long-tail capture layer
++  areas/[city]/             32 cities (20 core, 12 travel), from data/areas.ts
+   guides/[slug]/            9 long-form guides, prerendered from data/guides.ts
+   actions/lead.ts           Server Action: validate, throttle, deliver
+   search/                   crawlable results page for the client-side index
+@@ -63,12 +63,12 @@ own content and nothing else — every reply is either verbatim from `data/` or
+ template whose variables come from `data/`, and every reply cites the internal
+ pages it came from.
+ 
+-| Question | What it does |
+-| --- | --- |
+-| "How much are stairs in Vaughan?" | Returns *that city's* computed band from `data/matrix.ts` |
++| Question                          | What it does                                                 |
++| --------------------------------- | ------------------------------------------------------------ |
++| "How much are stairs in Vaughan?" | Returns _that city's_ computed band from `data/matrix.ts`    |
+ | "Will my stairs pass inspection?" | Quotes `OBC_LIMITS` and says the building department decides |
+-| "Do you install vinyl?" | Declines plainly, as the brand does |
+-| Anything undocumented | Says so and gives the phone number |
++| "Do you install vinyl?"           | Declines plainly, as the brand does                          |
++| Anything undocumented             | Says so and gives the phone number                           |
+ 
+ Setting `ANTHROPIC_API_KEY` adds a phrasing layer over the same retrieved
+ passages. It cannot introduce new facts, cannot cite a page retrieval did not
+diff --git a/app/areas/[city]/page.tsx b/app/areas/[city]/page.tsx
+index b87c3ae..ce24f45 100644
+--- a/app/areas/[city]/page.tsx
++++ b/app/areas/[city]/page.tsx
+@@ -10,7 +10,7 @@ import {
+   AccordionItem,
+   AccordionTrigger,
+ } from "@/components/ui/accordion";
+-import { cities, getCity } from "@/data/areas";
++import { cities, getCity, tierNote, titleNameOf } from "@/data/areas";
+ import { projects } from "@/data/projects";
+ import { SITE_URL } from "@/lib/site-url";
+ import { breadcrumbLd, clampDescription, faqLd, webPageLd } from "@/lib/seo";
+@@ -29,7 +29,7 @@ export async function generateMetadata({ params }: { params: Promise<Params> }):
+   const { city: slug } = await params;
+   const city = getCity(slug);
+   if (!city) return {};
+-  const title = `Hardwood Flooring, Stairs & Railings in ${city.name}`;
++  const title = `Hardwood Flooring & Stairs in ${titleNameOf(city)}`;
+   const description = clampDescription(
+     `Hardwood floors, custom stairs, and railings in ${city.name}. ${city.blurb}`,
+   );
+@@ -175,9 +175,7 @@ export default async function CityPage({ params }: { params: Promise<Params> })
+         </article>
+         <aside className="h-fit rounded-xl bg-surface p-6 shadow-[var(--shadow-card)]">
+           <h2 className="font-display text-2xl">On-site in {city.name}</h2>
+-          <p className="mt-2 mb-4 text-sm text-muted">
+-            Free measure for qualified hardwood, stair, and railing work.
+-          </p>
++          <p className="mt-2 mb-4 text-sm text-muted">{tierNote(city)}</p>
+           <QuoteForm />
+         </aside>
+       </div>
+diff --git a/app/areas/page.tsx b/app/areas/page.tsx
+index 8213952..60c6952 100644
+--- a/app/areas/page.tsx
++++ b/app/areas/page.tsx
+@@ -1,7 +1,7 @@
+ import type { Metadata } from "next";
+ import Link from "next/link";
+ import { PageHero } from "@/components/page-hero";
+-import { cities } from "@/data/areas";
++import { coreCities, extendedCities } from "@/data/areas";
+ 
+ export const metadata: Metadata = {
+   title: "Hardwood Flooring Service Areas",
+@@ -24,18 +24,48 @@ export default function AreasIndex() {
+         title="Toronto and the GTA, city by city — because a King West slab is not a Forest Hill joist."
+         lede="Local pages exist so homeowners, builders, and AI agents can see the housing stock we actually work in, not a dumped list of suburbs."
+       />
+-      <div className="mx-auto grid max-w-6xl gap-5 px-4 py-12 sm:px-6 md:grid-cols-2">
+-        {cities.map((c) => (
+-          <Link
+-            key={c.slug}
+-            href={`/areas/${c.slug}`}
+-            className="rounded-xl bg-surface p-6 shadow-[var(--shadow-card)]"
+-          >
+-            <p className="text-xs text-accent">{c.region}</p>
+-            <h2 className="mt-1 font-display text-2xl">Hardwood flooring in {c.name}</h2>
+-            <p className="mt-2 text-sm text-muted">{c.blurb}</p>
+-          </Link>
+-        ))}
++      <div className="mx-auto max-w-6xl space-y-12 px-4 py-12 sm:px-6">
++        <section>
++          <h2 className="font-display text-3xl">Core service area</h2>
++          <p className="mt-1 max-w-2xl text-muted">
++            Free on-site measure for any qualified hardwood, stair, or railing job.
++          </p>
++          <div className="mt-6 grid gap-5 md:grid-cols-2">
++            {coreCities.map((c) => (
++              <Link
++                key={c.slug}
++                href={`/areas/${c.slug}`}
++                className="rounded-xl bg-surface p-6 shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
++              >
++                <p className="text-xs text-accent">{c.region}</p>
++                <h3 className="mt-1 font-display text-2xl">Hardwood flooring in {c.name}</h3>
++                <p className="mt-2 text-sm text-muted">{c.blurb}</p>
++              </Link>
++            ))}
++          </div>
++        </section>
++
++        <section>
++          <h2 className="font-display text-3xl">Travel area</h2>
++          <p className="mt-1 max-w-2xl text-muted">
++            We work in these towns regularly, but on stair packages, whole-home installs, and
++            refinishing rather than a single-room repair. Saying so up front is better than taking
++            the booking and disappointing someone.
++          </p>
++          <div className="mt-6 grid gap-5 md:grid-cols-2">
++            {extendedCities.map((c) => (
++              <Link
++                key={c.slug}
++                href={`/areas/${c.slug}`}
++                className="rounded-xl bg-surface p-6 shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
++              >
++                <p className="text-xs text-accent">{c.region}</p>
++                <h3 className="mt-1 font-display text-2xl">Hardwood flooring in {c.name}</h3>
++                <p className="mt-2 text-sm text-muted">{c.blurb}</p>
++              </Link>
++            ))}
++          </div>
++        </section>
+       </div>
+     </>
+   );
+diff --git a/app/page.tsx b/app/page.tsx
+index 724e3bb..56ada3c 100644
+--- a/app/page.tsx
++++ b/app/page.tsx
+@@ -17,7 +17,7 @@ import {
+   AccordionTrigger,
+ } from "@/components/ui/accordion";
+ import { company, stats } from "@/data/company";
+-import { cities } from "@/data/areas";
++import { coreCities } from "@/data/areas";
+ import { faqs } from "@/data/faq";
+ import { projects } from "@/data/projects";
+ import { services } from "@/data/services";
+@@ -211,10 +211,10 @@ export default function Home() {
+             <p className="text-xs tracking-[0.18em] uppercase">Service area</p>
+           </div>
+           <h2 className="mt-2 font-display text-3xl">
+-            Every serious hardwood job from Burlington to Markham
++            Thirty-two cities and towns, from Burlington to Barrie
+           </h2>
+           <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+-            {cities.map((c) => (
++            {coreCities.slice(0, 12).map((c) => (
+               <Link
+                 key={c.slug}
+                 href={`/areas/${c.slug}`}
+@@ -225,6 +225,12 @@ export default function Home() {
+               </Link>
+             ))}
+           </div>
++          <p className="mt-6 text-sm">
++            <Link href="/areas" className="font-medium text-primary hover:underline">
++              All 32 service areas
++            </Link>{" "}
++            — twenty inside our core radius, twelve we travel to for larger work.
++          </p>
+         </div>
+       </section>
+ 
+diff --git a/app/services/[slug]/[city]/page.tsx b/app/services/[slug]/[city]/page.tsx
+index d522ae7..7696186 100644
+--- a/app/services/[slug]/[city]/page.tsx
++++ b/app/services/[slug]/[city]/page.tsx
+@@ -12,6 +12,7 @@ import {
+   AccordionItem,
+   AccordionTrigger,
+ } from "@/components/ui/accordion";
++import { tierNote } from "@/data/areas";
+ import { company } from "@/data/company";
+ import { SITE_URL } from "@/lib/site-url";
+ import {
+@@ -176,7 +177,9 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
+               <p className="text-xs tracking-[0.16em] uppercase">Coverage</p>
+             </div>
+             <p className="mt-2 font-display text-2xl text-primary">{city.name}</p>
+-            <p className="mt-1 text-sm text-muted">Free site measure · {company.warranty}</p>
++            <p className="mt-1 text-sm text-muted">
++              {city.tier === "core" ? "Free site measure" : "Travel area"} · {company.warranty}
++            </p>
+           </div>
+         </div>
+       </section>
+@@ -269,10 +272,7 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
+ 
+         <aside className="h-fit rounded-xl bg-surface p-6 shadow-[var(--shadow-card)]">
+           <h2 className="font-display text-2xl">Book a {city.name} site visit</h2>
+-          <p className="mt-2 mb-4 text-sm text-muted">
+-            Free for qualified {service.shortName.toLowerCase()} work in {city.name}. We bring a
+-            moisture meter, not a brochure.
+-          </p>
++          <p className="mt-2 mb-4 text-sm text-muted">{tierNote(city)}</p>
+           <QuoteForm
+             defaultService={leadService(service.slug)}
+             defaultCity={city.slug}
+diff --git a/components/layout/site-footer.tsx b/components/layout/site-footer.tsx
+index 7aa6a4a..165709a 100644
+--- a/components/layout/site-footer.tsx
++++ b/components/layout/site-footer.tsx
+@@ -1,7 +1,7 @@
+ import Link from "next/link";
+ import { Logo } from "@/components/logo";
+ import { company } from "@/data/company";
+-import { cities } from "@/data/areas";
++import { coreCities } from "@/data/areas";
+ import { services } from "@/data/services";
+ 
+ export function SiteFooter() {
+@@ -51,7 +51,7 @@ export function SiteFooter() {
+             Service areas
+           </h2>
+           <ul className="mt-4 columns-2 space-y-2 text-sm">
+-            {cities.map((c) => (
++            {coreCities.map((c) => (
+               <li key={c.slug} className="break-inside-avoid">
+                 <Link
+                   href={`/areas/${c.slug}`}
+@@ -62,6 +62,11 @@ export function SiteFooter() {
+               </li>
+             ))}
+           </ul>
++          <p className="mt-3 text-xs">
++            <Link href="/areas" className="text-primary-fg/70 hover:text-primary-fg">
++              All 32 areas →
++            </Link>
++          </p>
+         </div>
+         <div>
+           <h2 className="font-display text-sm tracking-wide text-primary-fg/60 uppercase">
+diff --git a/data/areas.ts b/data/areas.ts
+index b69a648..9bec807 100644
+--- a/data/areas.ts
++++ b/data/areas.ts
+@@ -1,18 +1,48 @@
+ export type City = {
+   slug: string;
++  /** The municipality's full name, used in headings and body copy. */
+   name: string;
++  /**
++   * Short form for <title> tags, where the full name would push the tag past
++   * the ~70-character SERP limit once " | Green Hardwood" is appended.
++   * Defaults to `name` via `titleNameOf()`.
++   */
++  titleName?: string;
+   region: string;
++  /**
++   * How far this is from the Sterling Road shop, in commercial terms.
++   *
++   * "core"     — free site visit for any qualified job.
++   * "extended" — we travel, but the job has to justify the drive. Saying so
++   *              is better than taking the enquiry and disappointing someone,
++   *              and it is the difference between a service area and a map
++   *              with pins on it.
++   */
++  tier: "core" | "extended";
+   blurb: string;
+   housing: string;
+   typical: string;
+   jobs: string[];
+ };
+ 
++/** The name to use in a <title>. Falls back to the full municipal name. */
++export function titleNameOf(city: City) {
++  return city.titleName ?? city.name;
++}
++
++/** What a visitor in this tier should expect before they call. */
++export function tierNote(city: City) {
++  return city.tier === "core"
++    ? "Free on-site measure for any qualified hardwood, stair, or railing job."
++    : "Outside our core radius. We work here regularly, but on stair packages, whole-home installs, and refinishing — not a single-room repair.";
++}
++
+ export const cities: City[] = [
+   {
+     slug: "toronto",
+     name: "Toronto",
+     region: "Toronto",
++    tier: "core",
+     blurb:
+       "From quarter-sawn oak in Forest Hill to herringbone in King West, Toronto is the core of our hardwood, stair, and railing work.",
+     housing:
+@@ -30,6 +60,7 @@ export const cities: City[] = [
+     slug: "etobicoke",
+     name: "Etobicoke",
+     region: "Toronto",
++    tier: "core",
+     blurb:
+       "Kingsway millwork, lakeshore condos, and family houses that want oak stairs instead of builder carpet.",
+     housing:
+@@ -42,6 +73,7 @@ export const cities: City[] = [
+     slug: "north-york",
+     name: "North York",
+     region: "Toronto",
++    tier: "core",
+     blurb:
+       "Post-war bungalows, custom infill, and condos along Yonge — a lot of red oak that deserves a modern finish.",
+     housing:
+@@ -53,6 +85,7 @@ export const cities: City[] = [
+     slug: "scarborough",
+     name: "Scarborough",
+     region: "Toronto",
++    tier: "core",
+     blurb:
+       "Solid, honest hardwood work in family houses, plus water-damage repairs that insurance actually closes.",
+     housing:
+@@ -64,6 +97,7 @@ export const cities: City[] = [
+     slug: "mississauga",
+     name: "Mississauga",
+     region: "Peel",
++    tier: "core",
+     blurb:
+       "Mississauga is engineered hardwood over concrete, maple in occupied condos, and oak stairs in two-storey family homes.",
+     housing:
+@@ -76,6 +110,7 @@ export const cities: City[] = [
+     slug: "brampton",
+     name: "Brampton",
+     region: "Peel",
++    tier: "core",
+     blurb:
+       "High-volume family houses, new-build stair upgrades, and durable finishes that survive kids and winter salt.",
+     housing:
+@@ -87,6 +122,7 @@ export const cities: City[] = [
+     slug: "vaughan",
+     name: "Vaughan",
+     region: "York",
++    tier: "core",
+     blurb:
+       "New builds that want the builder floor ripped out and a real oak floor and stair put in before move-in day.",
+     housing:
+@@ -99,6 +135,7 @@ export const cities: City[] = [
+     slug: "markham",
+     name: "Markham",
+     region: "York",
++    tier: "core",
+     blurb:
+       "Precision installs for new construction and exacting refinishing in occupied family homes.",
+     housing:
+@@ -110,6 +147,7 @@ export const cities: City[] = [
+     slug: "richmond-hill",
+     name: "Richmond Hill",
+     region: "York",
++    tier: "core",
+     blurb: "Condo refinishing with dust containment, and oak floors in family houses off Yonge.",
+     housing:
+       "A mix of high-rise living and large detached homes. Occupied-unit work is a core skill here.",
+@@ -120,6 +158,7 @@ export const cities: City[] = [
+     slug: "oakville",
+     name: "Oakville",
+     region: "Halton",
++    tier: "core",
+     blurb:
+       "Estate stairs, wide-plank white oak, and millwork-level railings — Oakville is our custom workroom.",
+     housing:
+@@ -131,6 +170,7 @@ export const cities: City[] = [
+     slug: "burlington",
+     name: "Burlington",
+     region: "Halton",
++    tier: "core",
+     blurb: "Family houses, waterfront condos, and stairs that get used every hour of the day.",
+     housing: "A mix of 1960s ranches, 1990s two-storeys, and newer infill near the lake.",
+     typical: "Durable waterborne finishes, stair retreads, deck and porch work on the lake side.",
+@@ -140,14 +180,344 @@ export const cities: City[] = [
+     slug: "milton",
+     name: "Milton",
+     region: "Halton",
++    tier: "core",
+     blurb: "New-build stair and floor upgrades before the first winter salt hits the foyer.",
+     housing:
+       "Fast-growing detached and town stock. Builder-grade laminate and carpeted stairs are the baseline we replace.",
+     typical: "Prefinished oak, solid treads, simple contemporary rails.",
+     jobs: ["Pre-occupancy upgrades", "Townhome stairs", "Open-concept installs"],
+   },
++  {
++    slug: "east-york",
++    name: "East York",
++    region: "Toronto",
++    tier: "core",
++    blurb:
++      "Wartime and post-war semis with original strip oak hiding under sixty years of broadloom — and the tightest stairs in the city.",
++    housing:
++      '1930s–50s semi-detached and small detached houses, many never renovated below the carpet. Rooms are small, ceilings are low, and the original 2 1/4" strip oak is usually still there and usually worth saving.',
++    typical:
++      "Lifting broadloom to find intact oak, dust-contained refinishing in occupied houses, and steep narrow flights where every millimetre of run matters.",
++    jobs: [
++      "Broadloom removal and original-oak refinishing",
++      "Narrow-flight stair retreads",
++      "Kitchen-addition floor matching",
++    ],
++  },
++  {
++    slug: "pickering",
++    name: "Pickering",
++    region: "Durham",
++    tier: "core",
++    blurb:
++      "Eighties two-storeys with builder carpet still on the stairs, and a whole new city going up at Seaton.",
++    housing:
++      "1970s–90s subdivisions through Amberlea and Liverpool, older lakefront stock around Frenchman's Bay, and thousands of new units at Seaton that arrive with the cheapest stair the builder could specify.",
++    typical:
++      "Carpet-to-oak stair conversions, main-floor engineered over 1980s subfloors, and matching new work to twenty-year-old red oak.",
++    jobs: [
++      "Builder carpet stair conversions",
++      "Seaton pre-occupancy upgrades",
++      "Bay-area lakefront refinishing",
++    ],
++  },
++  {
++    slug: "ajax",
++    name: "Ajax",
++    region: "Durham",
++    tier: "core",
++    blurb:
++      "Family subdivisions where the stairs get more traffic than the floor, and the builder knew it would not be his problem.",
++    housing:
++      "Mostly 1990s–2010s detached and semi stock north of the 401, with older lakeshore houses in the south. Volume builder finishes throughout: prefinished floors, carpeted flights, MDF nosings.",
++    typical:
++      "Solid oak retreads over builder stringers, hallway and stair packages done together, hard-wearing waterborne finishes.",
++    jobs: [
++      "Carpet-to-hardwood stair packages",
++      "Whole main-floor installs",
++      "High-traffic finish upgrades",
++    ],
++  },
++  {
++    slug: "whitby",
++    name: "Whitby",
++    region: "Durham",
++    tier: "core",
++    blurb:
++      "Brooklin estate builds at one end, downtown Whitby heritage at the other, and two completely different jobs.",
++    housing:
++      "Brooklin's newer executive homes want wide-plank white oak and an open-to-below feature stair. Downtown Whitby's Victorian and Edwardian stock wants careful restoration and a stair that respects the original newel.",
++    typical:
++      "Wide-plank installs and feature flights in the north, heritage refinishing and stair repair in the old town.",
++    jobs: [
++      "Brooklin feature staircases",
++      "Downtown heritage restoration",
++      "Wide-plank white oak installs",
++    ],
++  },
++  {
++    slug: "oshawa",
++    name: "Oshawa",
++    region: "Durham",
++    tier: "extended",
++    blurb:
++      "Some of the most consistently good original oak in the region, most of it still under carpet in houses built for autoworkers.",
++    housing:
++      "Century homes downtown, dense 1940s–60s worker housing through the centre, and newer subdivisions in the north. The mid-century stock frequently has full-house strip oak in better condition than anything a big-box store sells today.",
++    typical:
++      "Whole-house sand and finish, board replacement where a radiator leaked, and stair retreads in tight 1950s flights.",
++    jobs: [
++      "Whole-house original-oak refinishing",
++      "Century-home board replacement",
++      "Mid-century stair retreads",
++    ],
++  },
++  {
++    slug: "clarington",
++    name: "Clarington",
++    region: "Durham",
++    tier: "extended",
++    blurb:
++      "Bowmanville and Newcastle heritage streets, plus subdivision growth that has outrun the trades following it.",
++    housing:
++      "Nineteenth-century brick homes along the old main streets, farmhouses on the concessions, and fast newer growth around Bowmanville. Original pine and early oak floors are common and are often mistaken for beyond saving.",
++    typical:
++      "Heritage floor restoration, pine board repair, and full stair rebuilds where a previous owner boxed in an original flight.",
++    jobs: [
++      "Heritage pine and oak restoration",
++      "Farmhouse stair rebuilds",
++      "New-build stair upgrades",
++    ],
++  },
++  {
++    slug: "aurora",
++    name: "Aurora",
++    region: "York",
++    tier: "core",
++    blurb:
++      "A heritage core that rewards restraint, and estate builds east of Yonge that want the stair to be the room.",
++    housing:
++      "Victorian and Edwardian houses through the old town with original quarter-sawn oak worth restoring rather than replacing, alongside large newer homes on the east side where the foyer stair is the first thing anyone sees.",
++    typical:
++      "Quarter-sawn restoration, walnut feature flights, and matching new hardwood into hundred-year-old rooms that are not square.",
++    jobs: [
++      "Quarter-sawn oak restoration",
++      "Estate foyer staircases",
++      "Heritage-to-addition floor matching",
++    ],
++  },
++  {
++    slug: "newmarket",
++    name: "Newmarket",
++    region: "York",
++    tier: "core",
++    blurb:
++      "Main Street heritage and thirty years of family subdivisions, both of which eventually call about the stairs.",
++    housing:
++      "Century homes around Main Street South, 1980s–2000s detached stock through Glenway and Stonehaven, and newer infill. Builder-grade carpeted flights are the default in anything after 1985.",
++    typical:
++      "Carpet-to-oak conversions, whole-floor refinishing in occupied family homes, and railings brought up to current code.",
++    jobs: [
++      "Family-home stair conversions",
++      "Occupied-house refinishing",
++      "Railing replacement and code upgrades",
++    ],
++  },
++  {
++    slug: "king",
++    name: "King",
++    region: "York",
++    tier: "core",
++    blurb:
++      "Estate properties and horse farms where the specification conversation starts with the species and ends with the newel post.",
++    housing:
++      "Large custom houses in King City and Nobleton, converted farmhouses on acreage, and outbuildings finished to house standard. Clients expect drawings, signed-off samples, and a crew that keeps a clean site.",
++    typical:
++      "Wide-plank walnut and white oak, hardwax oil, curved and open-riser flights, and millwork-grade railings.",
++    jobs: [
++      "Estate feature staircases",
++      "Wide-plank walnut installs",
++      "Farmhouse conversion floors",
++    ],
++  },
++  {
++    slug: "whitchurch-stouffville",
++    name: "Whitchurch-Stouffville",
++    titleName: "Stouffville",
++    region: "York",
++    tier: "core",
++    blurb:
++      "A small-town core surrounded by new subdivisions, every one of them delivered with a carpeted flight.",
++    housing:
++      "Older village houses on the original grid, plus a decade of rapid detached construction. New owners frequently upgrade the stair before they move in, while the floor is still bare.",
++    typical:
++      "Pre-occupancy stair and hallway packages, prefinished oak, and simple contemporary railings.",
++    jobs: [
++      "Pre-occupancy stair upgrades",
++      "Village-core refinishing",
++      "Open-concept main-floor installs",
++    ],
++  },
++  {
++    slug: "caledon",
++    name: "Caledon",
++    region: "Peel",
++    tier: "extended",
++    blurb:
++      "Century farmhouses, Bolton subdivisions, and rural properties where the floor has to survive a mudroom and two dogs.",
++    housing:
++      "Nineteenth-century farmhouses with original pine, estate builds on acreage through the hills, and denser subdivision stock in Bolton. Heating is uneven and humidity swings hard, which decides the assembly.",
++    typical:
++      "Wide-plank installs specified for movement, pine restoration, hickory where dogs and gravel are involved.",
++    jobs: ["Farmhouse pine restoration", "Wide-plank estate installs", "Bolton stair conversions"],
++  },
++  {
++    slug: "halton-hills",
++    name: "Halton Hills",
++    region: "Halton",
++    tier: "extended",
++    blurb:
++      "Georgetown's heritage streets and Acton's older stock, plus the subdivisions filling the space between them.",
++    housing:
++      "Brick Victorians through downtown Georgetown, older village housing in Acton, and newer detached growth on the edges. Original floors under carpet are common in anything pre-1960.",
++    typical:
++      "Heritage refinishing, board replacement, and stair rebuilds where an original flight was carpeted over rather than repaired.",
++    jobs: [
++      "Georgetown heritage refinishing",
++      "Original-flight stair rebuilds",
++      "Subdivision stair packages",
++    ],
++  },
++  {
++    slug: "hamilton",
++    name: "Hamilton",
++    region: "Hamilton",
++    tier: "extended",
++    blurb:
++      "The best surviving century-home floor stock in Southern Ontario, and the most rewarding restoration work we do.",
++    housing:
++      "Durand, Kirkendall, and Strathcona Victorians with original quarter-sawn oak, maple, and pine; dense post-war stock on the mountain; and converted industrial space downtown. Much of it has been rented for decades and abused accordingly.",
++    typical:
++      "Deep restoration, patching in salvaged boards, stair rebuilds in tall narrow flights, and refinishing that respects the original grade.",
++    jobs: [
++      "Century-home quarter-sawn restoration",
++      "Salvage board patching",
++      "Tall narrow stair rebuilds",
++    ],
++  },
++  {
++    slug: "ancaster",
++    name: "Ancaster",
++    region: "Hamilton",
++    tier: "extended",
++    blurb:
++      "An old village core and a lot of large newer executive homes that want a stair to match the entrance.",
++    housing:
++      "Stone and brick houses around the original village, plus substantial 1990s–2010s detached stock on the surrounding lands. Budgets support wide plank and a feature flight.",
++    typical:
++      "Wide-plank white oak, walnut stair features, and matched railings in open-to-below foyers.",
++    jobs: ["Executive-home wide plank", "Open-to-below feature stairs", "Village-core restoration"],
++  },
++  {
++    slug: "dundas",
++    name: "Dundas",
++    region: "Hamilton",
++    tier: "extended",
++    blurb:
++      "A heritage valley town where the houses are old, the streets are tight, and nothing is square.",
++    housing:
++      "Nineteenth-century brick and stone homes on narrow lots, many with original pine and early oak. Access is genuinely difficult — parking, stairs, and material handling all need planning before a crew arrives.",
++    typical:
++      "Careful heritage restoration, pine repair, and stair work in flights that predate any modern rise-and-run expectation.",
++    jobs: ["Heritage pine restoration", "Pre-code stair rebuilds", "Tight-access refinishing"],
++  },
++  {
++    slug: "bradford-west-gwillimbury",
++    name: "Bradford West Gwillimbury",
++    titleName: "Bradford",
++    region: "Simcoe",
++    tier: "extended",
++    blurb:
++      "Commuter growth at speed: new detached stock arriving faster than the trades who finish it properly.",
++    housing:
++      "Predominantly 2000s onward detached and townhouse construction, with an older core near Holland Street. Builder finishes throughout, and carpeted stairs as standard.",
++    typical:
++      "Stair and hallway packages before move-in, prefinished oak, and durable finishes for young families.",
++    jobs: [
++      "Pre-occupancy stair packages",
++      "Main-floor prefinished installs",
++      "Townhouse stair conversions",
++    ],
++  },
++  {
++    slug: "barrie",
++    name: "Barrie",
++    region: "Simcoe",
++    tier: "extended",
++    blurb:
++      "Lakefront houses, an older downtown, and a great deal of new build — our furthest regular work, and worth the drive on the right job.",
++    housing:
++      "Century homes near the waterfront and downtown, dense 1970s–90s stock through the middle, and extensive newer subdivisions on the south and east edges.",
++    typical:
++      "Whole-home installs and stair packages rather than small repairs — the drive only makes sense on work of that size.",
++    jobs: [
++      "Whole-home hardwood installs",
++      "Lakefront restoration",
++      "Full stair and railing packages",
++    ],
++  },
++  {
++    slug: "innisfil",
++    name: "Innisfil",
++    region: "Simcoe",
++    tier: "extended",
++    blurb:
++      "Cottages becoming houses, and Friday Harbour units that need an assembly built for a building that is empty half the year.",
++    housing:
++      "Former seasonal cottages converted to year-round use, lakefront rebuilds, and newer resort-style condominium stock. Humidity swings are extreme where heating is intermittent.",
++    typical:
++      "Engineered assemblies specified for unheated shoulder seasons, and solid hardwood only where the building is genuinely conditioned year round.",
++    jobs: [
++      "Cottage-to-house conversions",
++      "Friday Harbour engineered installs",
++      "Seasonal-humidity remediation",
++    ],
++  },
++  {
++    slug: "orangeville",
++    name: "Orangeville",
++    region: "Dufferin",
++    tier: "extended",
++    blurb:
++      "A heritage main street with real Victorian housing behind it, and newer subdivisions on every edge.",
++    housing:
++      "Late-nineteenth-century brick homes through the core, mid-century infill, and 1990s onward detached growth. Original floors survive more often here than closer to the city.",
++    typical:
++      "Heritage refinishing, original-stair repair, and hardwood specified for a colder, drier winter than Toronto's.",
++    jobs: ["Victorian floor restoration", "Original stair repair", "Subdivision stair conversions"],
++  },
++  {
++    slug: "guelph",
++    name: "Guelph",
++    region: "Wellington",
++    tier: "extended",
++    blurb:
++      "Limestone century homes with floors worth restoring, and a rental market that has been hard on all of them.",
++    housing:
++      "Limestone and brick Victorians through the older wards, dense student rental stock near the university, and newer detached growth in the south end. Original floors are frequently sound under decades of neglect.",
++    typical:
++      "Restoration over replacement, board patching, and finishes chosen for houses that will keep taking abuse.",
++    jobs: [
++      "Century-home restoration",
++      "Rental-grade durable refinishing",
++      "South-end new installs",
++    ],
++  },
+ ];
+ 
++export const coreCities = cities.filter((c) => c.tier === "core");
++export const extendedCities = cities.filter((c) => c.tier === "extended");
++
+ export function getCity(slug: string) {
+   return cities.find((c) => c.slug === slug);
+ }
+diff --git a/data/company.ts b/data/company.ts
+index 84da582..65737f4 100644
+--- a/data/company.ts
++++ b/data/company.ts
+@@ -65,6 +65,6 @@ export const nav = [
+ export const stats = [
+   { value: "1,200+", label: "Floors installed or refinished" },
+   { value: "15+", label: "Years in the GTA" },
+-  { value: "12", label: "GTA cities with a local page" },
++  { value: "32", label: "Cities and towns served" },
+   { value: "3-year", label: "Workmanship warranty" },
+ ] as const;
+diff --git a/data/estimate.ts b/data/estimate.ts
+index 36c235f..dc0265f 100644
+--- a/data/estimate.ts
++++ b/data/estimate.ts
+@@ -32,6 +32,12 @@ export const finishOptions = [
+   { id: "oil", label: "Hardwax oil", add: 4.1, labourMult: 1.04 },
+ ] as const;
+ 
++/**
++ * Local cost multiplier: labour rates, parking and access, and — for the
++ * extended-tier towns — the drive. A crew that loses ninety minutes a day to
++ * travel costs more per square foot, and pretending otherwise just means
++ * quoting a number we cannot hold.
++ */
+ export const cityMult: Record<string, number> = {
+   toronto: 1.08,
+   etobicoke: 1.05,
+@@ -45,6 +51,36 @@ export const cityMult: Record<string, number> = {
+   oakville: 1.07,
+   burlington: 1.04,
+   milton: 0.99,
++  "east-york": 1.06,
++
++  // Durham
++  pickering: 1.01,
++  ajax: 1.0,
++  whitby: 1.01,
++  oshawa: 1.02,
++  clarington: 1.05,
++
++  // York
++  aurora: 1.04,
++  newmarket: 1.02,
++  king: 1.07,
++  "whitchurch-stouffville": 1.03,
++
++  // Peel / Halton, outer
++  caledon: 1.06,
++  "halton-hills": 1.04,
++
++  // Hamilton
++  hamilton: 1.05,
++  ancaster: 1.06,
++  dundas: 1.07,
++
++  // Simcoe, Dufferin, Wellington — travel is the dominant term here
++  "bradford-west-gwillimbury": 1.06,
++  barrie: 1.1,
++  innisfil: 1.09,
++  orangeville: 1.08,
++  guelph: 1.07,
+ };
+ 
+ export type EstimateInput = {
+diff --git a/data/matrix.ts b/data/matrix.ts
+index b044cbd..ccdaaf6 100644
+--- a/data/matrix.ts
++++ b/data/matrix.ts
+@@ -1,4 +1,4 @@
+-import { cities, type City } from "@/data/areas";
++import { cities, titleNameOf, type City } from "@/data/areas";
+ import { calculateEstimate, type ServiceKind } from "@/data/estimate";
+ import { getService, seoNameOf, type Service } from "@/data/services";
+ import { clampDescription } from "@/lib/seo";
+@@ -159,7 +159,7 @@ function buildPages(): MatrixPage[] {
+ 
+     for (const city of cities) {
+       const b = band(slug, city);
+-      const title = `${seoNameOf(service)} in ${city.name}`;
++      const title = `${seoNameOf(service)} in ${titleNameOf(city)}`;
+ 
+       pages.push({
+         service,
+diff --git a/docs/HONEST-LIMITS.md b/docs/HONEST-LIMITS.md
+index a1f17e3..30812f9 100644
+--- a/docs/HONEST-LIMITS.md
++++ b/docs/HONEST-LIMITS.md
+@@ -6,6 +6,8 @@ You can own commercial intent in the GTA for hardwood stairs, stair retreads, ha
+ 
+ You cannot own national big-box queries, vinyl, laminate, every Ontario neighbourhood, or “best company” without Google reviews.
+ 
++The city list is now 32, twelve of which are marked `extended` — outside the core radius, worth the drive only on larger work. That tier exists so the site does not promise a free measure in Barrie that nobody intends to drive to. **If Green Hardwood does not in fact travel to a listed town, delete it from `data/areas.ts`.** A page ranking for a job you will not take is worse than no page.
++
+ Doorway domains and spun city pages produce the opposite of authority.
+ 
+ `data/company.ts` still lists 1,200 floors, Bona, NWFA, a Sterling Road studio, and (416) 847-3366. If any of that is not true, fix it before you scale URLs.
+diff --git a/docs/QUERY-INVENTORY.md b/docs/QUERY-INVENTORY.md
+index 3a28e84..1c400e4 100644
+--- a/docs/QUERY-INVENTORY.md
++++ b/docs/QUERY-INVENTORY.md
+@@ -4,92 +4,92 @@ Priority: 1 = own this year, 2 = support, 3 = only if a page already exists.
+ 
+ ## Stairs (wedge)
+ 
+-| Query | Priority | URL |
+-|---|---|---|
+-| hardwood stairs Toronto | 1 | /services/hardwood-stairs |
+-| hardwood stairs GTA | 1 | /services/hardwood-stairs |
+-| oak stair treads Toronto | 1 | /services/hardwood-stairs |
+-| carpet to hardwood stairs | 1 | /guides/carpet-to-hardwood-stairs-gta |
+-| hardwood stair retread cost | 1 | /guides/hardwood-stair-retread-cost-gta |
+-| hardwood stairs Vaughan | 1 | /services/hardwood-stairs/vaughan |
+-| hardwood stairs Markham | 1 | /services/hardwood-stairs/markham |
+-| hardwood stairs Mississauga | 1 | /services/hardwood-stairs/mississauga |
+-| hardwood stairs Oakville | 1 | /services/hardwood-stairs/oakville |
+-| hardwood stairs Milton | 2 | /services/hardwood-stairs/milton |
+-| open riser stairs Ontario code | 1 | /guides/open-riser-floating-hardwood-stairs |
+-| Ontario building code stairs hardwood | 1 | /guides/ontario-stair-code-hardwood |
+-| match stair stain to floor | 2 | /guides/matching-hardwood-stairs-to-existing-floor |
+-| builder grade stairs upgrade | 1 | /guides/builder-grade-stairs-upgrade-vaughan-markham |
+-| how much do hardwood stairs cost | 1 | /answers/how-much-hardwood-stairs-cost-gta |
+-| best hardwood stairs company Toronto | 1 | /answers/best-hardwood-stairs-company-toronto |
+-| will hardwood stairs pass inspection | 1 | /answers/will-hardwood-stairs-pass-inspection |
++| Query                                 | Priority | URL                                                  |
++| ------------------------------------- | -------- | ---------------------------------------------------- |
++| hardwood stairs Toronto               | 1        | /services/hardwood-stairs                            |
++| hardwood stairs GTA                   | 1        | /services/hardwood-stairs                            |
++| oak stair treads Toronto              | 1        | /services/hardwood-stairs                            |
++| carpet to hardwood stairs             | 1        | /guides/carpet-to-hardwood-stairs-gta                |
++| hardwood stair retread cost           | 1        | /guides/hardwood-stair-retread-cost-gta              |
++| hardwood stairs Vaughan               | 1        | /services/hardwood-stairs/vaughan                    |
++| hardwood stairs Markham               | 1        | /services/hardwood-stairs/markham                    |
++| hardwood stairs Mississauga           | 1        | /services/hardwood-stairs/mississauga                |
++| hardwood stairs Oakville              | 1        | /services/hardwood-stairs/oakville                   |
++| hardwood stairs Milton                | 2        | /services/hardwood-stairs/milton                     |
++| open riser stairs Ontario code        | 1        | /guides/open-riser-floating-hardwood-stairs          |
++| Ontario building code stairs hardwood | 1        | /guides/ontario-stair-code-hardwood                  |
++| match stair stain to floor            | 2        | /guides/matching-hardwood-stairs-to-existing-floor   |
++| builder grade stairs upgrade          | 1        | /guides/builder-grade-stairs-upgrade-vaughan-markham |
++| how much do hardwood stairs cost      | 1        | /answers/how-much-hardwood-stairs-cost-gta           |
++| best hardwood stairs company Toronto  | 1        | /answers/best-hardwood-stairs-company-toronto        |
++| will hardwood stairs pass inspection  | 1        | /answers/will-hardwood-stairs-pass-inspection        |
+ 
+ ## Installation (wedge)
+ 
+-| Query | Priority | URL |
+-|---|---|---|
+-| hardwood floor installation Toronto | 1 | /services/hardwood-installation |
+-| hardwood installation GTA | 1 | /services/hardwood-installation |
+-| solid hardwood install Toronto | 1 | /services/hardwood-installation |
+-| engineered hardwood condo Toronto | 1 | /guides/solid-vs-engineered-ontario |
+-| nail down vs glue down hardwood | 1 | /guides/nail-down-vs-glue-down-vs-floating-hardwood |
+-| hardwood over radiant heat Ontario | 1 | /guides/radiant-heat-hardwood-ontario |
+-| herringbone hardwood Toronto | 1 | /guides/herringbone-hardwood-installation-toronto |
+-| hardwood subfloor prep | 2 | /guides/hardwood-subfloor-prep-ontario |
+-| how long to acclimate hardwood | 2 | /guides/acclimation-hardwood-gta |
+-| hardwood installation cost Toronto 2026 | 1 | /guides/hardwood-flooring-cost-gta-2026 |
+-| hardwood installation Mississauga | 1 | /services/hardwood-installation/mississauga |
+-| hardwood installation Vaughan | 1 | /services/hardwood-installation/vaughan |
+-| best hardwood installer Toronto | 1 | /answers/best-hardwood-installation-toronto |
++| Query                                   | Priority | URL                                                 |
++| --------------------------------------- | -------- | --------------------------------------------------- |
++| hardwood floor installation Toronto     | 1        | /services/hardwood-installation                     |
++| hardwood installation GTA               | 1        | /services/hardwood-installation                     |
++| solid hardwood install Toronto          | 1        | /services/hardwood-installation                     |
++| engineered hardwood condo Toronto       | 1        | /guides/solid-vs-engineered-ontario                 |
++| nail down vs glue down hardwood         | 1        | /guides/nail-down-vs-glue-down-vs-floating-hardwood |
++| hardwood over radiant heat Ontario      | 1        | /guides/radiant-heat-hardwood-ontario               |
++| herringbone hardwood Toronto            | 1        | /guides/herringbone-hardwood-installation-toronto   |
++| hardwood subfloor prep                  | 2        | /guides/hardwood-subfloor-prep-ontario              |
++| how long to acclimate hardwood          | 2        | /guides/acclimation-hardwood-gta                    |
++| hardwood installation cost Toronto 2026 | 1        | /guides/hardwood-flooring-cost-gta-2026             |
++| hardwood installation Mississauga       | 1        | /services/hardwood-installation/mississauga         |
++| hardwood installation Vaughan           | 1        | /services/hardwood-installation/vaughan             |
++| best hardwood installer Toronto         | 1        | /answers/best-hardwood-installation-toronto         |
+ 
+ ## Railings + supporting
+ 
+-| Query | Priority | URL |
+-|---|---|---|
+-| hardwood railings Toronto | 1 | /services/hardwood-railings |
+-| oak handrail installation | 2 | /methods/hardwood-railing-through-bolt |
+-| dustless sanding Toronto | 1 | /guides/dust-free-sanding-toronto |
+-| hardwood vs vinyl GTA | 2 | /compare |
++| Query                     | Priority | URL                                    |
++| ------------------------- | -------- | -------------------------------------- |
++| hardwood railings Toronto | 1        | /services/hardwood-railings            |
++| oak handrail installation | 2        | /methods/hardwood-railing-through-bolt |
++| dustless sanding Toronto  | 1        | /guides/dust-free-sanding-toronto      |
++| hardwood vs vinyl GTA     | 2        | /compare                               |
+ 
+ If a query is not in this table, do not create a page for it this quarter.
+ 
+ ## Methods (added by the authority pack)
+ 
+-| Query | Priority | URL |
+-|---|---|---|
+-| how is hardwood installed | 1 | /methods/nail-down-solid-hardwood |
+-| glue down engineered hardwood concrete | 1 | /methods/glue-down-engineered-hardwood |
+-| carpet to hardwood stair retread method | 1 | /methods/carpet-to-hardwood-stair-retread |
+-| open riser stair construction | 1 | /methods/open-riser-steel-and-oak |
+-| subfloor moisture testing hardwood | 2 | /methods/moisture-mapping-subfloor |
+-| how to attach a stair railing | 2 | /methods (railings cluster) |
++| Query                                   | Priority | URL                                       |
++| --------------------------------------- | -------- | ----------------------------------------- |
++| how is hardwood installed               | 1        | /methods/nail-down-solid-hardwood         |
++| glue down engineered hardwood concrete  | 1        | /methods/glue-down-engineered-hardwood    |
++| carpet to hardwood stair retread method | 1        | /methods/carpet-to-hardwood-stair-retread |
++| open riser stair construction           | 1        | /methods/open-riser-steel-and-oak         |
++| subfloor moisture testing hardwood      | 2        | /methods/moisture-mapping-subfloor        |
++| how to attach a stair railing           | 2        | /methods (railings cluster)               |
+ 
+ ## Definitions (single page, anchored)
+ 
+ Every term resolves at `/glossary#slug`. Do **not** split these into separate
+ pages — twenty-two one-paragraph URLs is the definition of thin content.
+ 
+-| Query | URL |
+-|---|---|
+-| what is a stair nosing | /glossary#nosing |
+-| what is acclimation hardwood | /glossary#acclimation |
+-| what is a stringer stairs | /glossary#stringer |
+-| janka hardness meaning | /glossary#janka |
++| Query                         | URL                         |
++| ----------------------------- | --------------------------- |
++| what is a stair nosing        | /glossary#nosing            |
++| what is acclimation hardwood  | /glossary#acclimation       |
++| what is a stringer stairs     | /glossary#stringer          |
++| janka hardness meaning        | /glossary#janka             |
+ | screen and recoat vs refinish | /glossary#screen-and-recoat |
+ 
+ ## Coverage after this pack
+ 
+-| Surface | Pages |
+-|---|---|
+-| Services | 8 |
+-| Service x city | 84 |
+-| Cities | 12 |
+-| Guides | 19 |
+-| Methods | 8 |
+-| Answers | 28 |
+-| Glossary | 1 page, 22 anchored terms |
+-| Tools & company | ~19 |
+-| **Total prerendered** | **181** |
++| Surface               | Pages                     |
++| --------------------- | ------------------------- |
++| Services              | 8                         |
++| Service x city        | 224                       |
++| Cities                | 32 (20 core, 12 travel)   |
++| Guides                | 19                        |
++| Methods               | 8                         |
++| Answers               | 28                        |
++| Glossary              | 1 page, 22 anchored terms |
++| Tools & company       | ~19                       |
++| **Total prerendered** | **341**                   |
+ 
+ ## Rule for adding more
+ 
+@@ -97,3 +97,20 @@ A new URL earns its place if it answers a query that no existing URL answers
+ better. If the honest answer is "this is a paragraph on an existing page", it is
+ a paragraph on an existing page. `npm run audit:site` fails on duplicate titles
+ precisely to stop this from drifting.
++
++## Service tiers
++
++`data/areas.ts` marks each city `core` or `extended`.
++
++- **core** (20) — free on-site measure for any qualified job.
++- **extended** (12) — we travel, but the job has to justify the drive: stair
++  packages, whole-home installs, refinishing. Not a single-room repair.
++
++The distinction is published on the area page, the matrix page, and the areas
++index, and it is priced into `cityMult`. A test asserts extended-tier towns
++average above the core multiplier — a crew losing ninety minutes a day to travel
++costs more per square foot, and quoting otherwise means quoting a number we
++cannot hold.
++
++This is a commercial statement, not a formatting choice. Ranking for
++"hardwood stairs Barrie" and then declining the call is worse than not ranking.
+diff --git a/docs/SATELLITE-ARCHITECTURE.md b/docs/SATELLITE-ARCHITECTURE.md
+index 6a13733..6cb864f 100644
+--- a/docs/SATELLITE-ARCHITECTURE.md
++++ b/docs/SATELLITE-ARCHITECTURE.md
+@@ -25,14 +25,14 @@ Every satellite page points `rel=canonical` at the matching URL on the main site
+ 
+ ## Allowed properties
+ 
+-| Property | Purpose | Canonical target |
+-|---|---|---|
+-| `greenhardwood.ca` | System of record | itself |
+-| `stairs.greenhardwood.ca` | Stair-only narrative + studio CTA | `/services/hardwood-stairs` |
+-| `install.greenhardwood.ca` | Installation-only narrative | `/services/hardwood-installation` |
+-| `ai.greenhardwood.ca` | Machine-readable citation card | `/llms.txt` |
+-| Google Business Profile | Local pack | website field = `greenhardwood.ca` |
+-| Instagram / YouTube | Proof | link in bio = `greenhardwood.ca` |
++| Property                   | Purpose                           | Canonical target                   |
++| -------------------------- | --------------------------------- | ---------------------------------- |
++| `greenhardwood.ca`         | System of record                  | itself                             |
++| `stairs.greenhardwood.ca`  | Stair-only narrative + studio CTA | `/services/hardwood-stairs`        |
++| `install.greenhardwood.ca` | Installation-only narrative       | `/services/hardwood-installation`  |
++| `ai.greenhardwood.ca`      | Machine-readable citation card    | `/llms.txt`                        |
++| Google Business Profile    | Local pack                        | website field = `greenhardwood.ca` |
++| Instagram / YouTube        | Proof                             | link in bio = `greenhardwood.ca`   |
+ 
+ ## Forbidden
+ 
+diff --git a/docs/WORKFLOW.md b/docs/WORKFLOW.md
+index 2295995..f706ddd 100644
+--- a/docs/WORKFLOW.md
++++ b/docs/WORKFLOW.md
+@@ -30,7 +30,7 @@ prices, or new cities, `chore/` for tooling.
+ 
+ ### 2. Change one thing
+ 
+-A branch that adds three cities *and* redesigns the header is a branch nobody can
++A branch that adds three cities _and_ redesigns the header is a branch nobody can
+ review and nobody can revert cleanly. One intent per branch.
+ 
+ ### 3. Verify locally
+@@ -73,12 +73,12 @@ Merge from the GitHub UI once CI is green. Vercel deploys `main` automatically.
+ 
+ `.github/workflows/ci.yml` runs on every PR and every push to `main`.
+ 
+-| Step | Catches |
+-| --- | --- |
+-| `npm ci` | Lockfile drift — the thing that kills a Vercel deploy at install |
+-| `npm run typecheck` | Type errors, including `noUncheckedIndexedAccess` violations |
+-| `npm test` | Broken lead validation, wrong stair-code thresholds, a matrix that has gone thin, search that stopped ranking |
+-| `npm run build` | Anything that fails to prerender |
++| Step                 | Catches                                                                                                                              |
++| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
++| `npm ci`             | Lockfile drift — the thing that kills a Vercel deploy at install                                                                     |
++| `npm run typecheck`  | Type errors, including `noUncheckedIndexedAccess` violations                                                                         |
++| `npm test`           | Broken lead validation, wrong stair-code thresholds, a matrix that has gone thin, search that stopped ranking                        |
++| `npm run build`      | Anything that fails to prerender                                                                                                     |
+ | `npm run audit:site` | Dead internal links, duplicate titles or descriptions, missing canonicals, missing `h1` or `alt`, unparseable JSON-LD, missing media |
+ 
+ The audit is the one that repays itself. It has already caught a title collision
+@@ -113,7 +113,7 @@ It covers the pure logic where a silent bug is expensive:
+   boundaries, and a check that the prose in `obcRules` quotes the same numbers
+   `checkObc` enforces.
+ - **`tests/matrix.test.ts`** — 84 unique paths, titles, and descriptions; titles
+-  that fit a SERP; and, critically, that the same job prices *differently* in
++  that fit a SERP; and, critically, that the same job prices _differently_ in
+   different cities. If that assertion ever fails, the city multiplier has stopped
+   applying and all 84 pages have become the same page.
+ - **`tests/search.test.ts`** — all query tokens must match; a city name reaches
+@@ -130,15 +130,15 @@ When you fix a bug, add the test that would have caught it, in the same PR.
+ Most work on this site is content, not code. It still goes through a branch and a
+ PR, because content is what ranks.
+ 
+-| Change | File | Watch out for |
+-| --- | --- | --- |
+-| Edit a service | `data/services.ts` | Feeds 8 surfaces at once: service page, matrix pages, header, footer, homepage, JSON-LD offer catalogue, sitemap, `llms.txt` |
+-| Add a city | `data/areas.ts` | Also add a `cityMult` entry in `data/estimate.ts`, or the price silently falls back. `tests/matrix.test.ts` enforces this |
+-| Publish a guide | `data/guides.ts` | Appears in the sitemap and RSS automatically |
+-| Change price bands | `data/estimate.ts` | Updates the estimator, all 84 matrix bands, and `llms.txt` together |
+-| NAP, hours, warranty | `data/company.ts` | Must match the Google Business Profile **character for character** |
+-| Add or drop a matrix service | `matrixServices` in `data/matrix.ts` | Read a generated page before shipping. If it reads like a mad-lib, write a `localAngle` for it |
+-| Ontario stair thresholds | `OBC_LIMITS` in `data/obc.ts` | One constant drives the checker, the pages, and `llms-full.txt` |
++| Change                       | File                                 | Watch out for                                                                                                                |
++| ---------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
++| Edit a service               | `data/services.ts`                   | Feeds 8 surfaces at once: service page, matrix pages, header, footer, homepage, JSON-LD offer catalogue, sitemap, `llms.txt` |
++| Add a city                   | `data/areas.ts`                      | Also add a `cityMult` entry in `data/estimate.ts`, or the price silently falls back. `tests/matrix.test.ts` enforces this    |
++| Publish a guide              | `data/guides.ts`                     | Appears in the sitemap and RSS automatically                                                                                 |
++| Change price bands           | `data/estimate.ts`                   | Updates the estimator, all 84 matrix bands, and `llms.txt` together                                                          |
++| NAP, hours, warranty         | `data/company.ts`                    | Must match the Google Business Profile **character for character**                                                           |
++| Add or drop a matrix service | `matrixServices` in `data/matrix.ts` | Read a generated page before shipping. If it reads like a mad-lib, write a `localAngle` for it                               |
++| Ontario stair thresholds     | `OBC_LIMITS` in `data/obc.ts`        | One constant drives the checker, the pages, and `llms-full.txt`                                                              |
+ 
+ Content lives in `data/` so that a page, its structured data, its sitemap entry,
+ and its plain-text version for AI crawlers cannot drift apart. Editing copy
+@@ -152,7 +152,7 @@ directly into a `page.tsx` breaks that guarantee — do it in `data/`.
+ `Generating static pages (173/173)`.
+ 
+ **Rolling back is instant and does not need a commit.** Vercel → Deployments →
+-find the last good one → ⋯ → *Promote to Production*. Do that first, then fix the
++find the last good one → ⋯ → _Promote to Production_. Do that first, then fix the
+ cause on a branch. Never debug production by pushing to `main`.
+ 
+ ---
+@@ -161,13 +161,13 @@ cause on a branch. Never debug production by pushing to `main`.
+ 
+ Set in Vercel → Settings → Environment Variables. Nothing secret goes in the repo.
+ 
+-| Variable | Purpose | Set? |
+-| --- | --- | --- |
+-| `RESEND_API_KEY` | Emails the lead. Without it, leads are captured in the server log only | ❌ pending |
+-| `LEAD_TO_EMAIL` | Where leads land | ❌ |
+-| `LEAD_FROM_EMAIL` | Must be a Resend-verified domain | ❌ |
+-| `INDEXNOW_KEY` | Announces URL changes to Bing, Yandex, Naver | ❌ |
+-| `NEXT_PUBLIC_SITE_URL` | Only to override Vercel's own production domain | not needed |
++| Variable               | Purpose                                                                | Set?       |
++| ---------------------- | ---------------------------------------------------------------------- | ---------- |
++| `RESEND_API_KEY`       | Emails the lead. Without it, leads are captured in the server log only | ❌ pending |
++| `LEAD_TO_EMAIL`        | Where leads land                                                       | ❌         |
++| `LEAD_FROM_EMAIL`      | Must be a Resend-verified domain                                       | ❌         |
++| `INDEXNOW_KEY`         | Announces URL changes to Bing, Yandex, Naver                           | ❌         |
++| `NEXT_PUBLIC_SITE_URL` | Only to override Vercel's own production domain                        | not needed |
+ 
+ `SITE_URL` resolves automatically from Vercel's production domain, so attaching
+ `greenhardwood.ca` requires **no code change** — every canonical, JSON-LD `@id`,
+@@ -210,8 +210,7 @@ branch**:
+ - `gh pr create` says "could not find any commits between origin/main and ..."
+ 
+ It looks like it worked. It did not. This happened three times before the script
+-existed. The tell was always the test count: `main` had 75 tests, the patch had
+-94.
++existed. The tell was always the test count: `main` had 75 tests, the patch had 94.
+ 
+ If `git apply --check` fails, stop. Do not force it. A patch that will not apply
+ cleanly means the branch has moved underneath it, and the fix is a rebased patch,
+@@ -225,17 +224,17 @@ Worth knowing, because each cost real time:
+ 
+ 1. **Uncommitted `package-lock.json`.** `npm install` added a dependency, the
+    lockfile updated, nobody committed it. `npm ci` — and therefore Vercel —
+-   fails. *Fix: run `npm ci` before you push.*
++   fails. _Fix: run `npm ci` before you push._
+ 2. **A rename/delete merge conflict.** One branch renamed a file, the other
+-   deleted it, and git correctly refused to guess. *Fix: don't do cleanup commits
+-   directly on `main`; do them on the branch that is already changing the file.*
++   deleted it, and git correctly refused to guess. _Fix: don't do cleanup commits
++   directly on `main`; do them on the branch that is already changing the file._
+ 3. **A merge that stopped at a conflict and was never finished**, so `main` never
+-   got the work and the old site stayed live. *Fix: after any merge, check
+-   `git log --oneline -1` and `git status` before assuming it worked.*
++   got the work and the old site stayed live. _Fix: after any merge, check
++   `git log --oneline -1` and `git status` before assuming it worked._
+ 4. **A patch that silently did not apply** because the uploaded filename had been
+    rewritten, so every later command operated on the unchanged branch and
+-   appeared to succeed. *Fix: `scripts/apply-patch.sh`, which checks that commits
+-   were actually added.*
++   appeared to succeed. _Fix: `scripts/apply-patch.sh`, which checks that commits
++   were actually added._
+ 
+ The pattern in all four: **a command failed, the shell carried on, and a later
+ green checkmark was mistaken for proof.** When something in a sequence errors,
+diff --git a/tests/matrix.test.ts b/tests/matrix.test.ts
+index d715d53..fd3ca14 100644
+--- a/tests/matrix.test.ts
++++ b/tests/matrix.test.ts
+@@ -1,6 +1,6 @@
+ import { test, describe } from "node:test";
+ import assert from "node:assert/strict";
+-import { cities } from "@/data/areas";
++import { cities, coreCities, extendedCities, tierNote } from "@/data/areas";
+ import { matrixPages, matrixServices, getMatrixPage, MATRIX_COUNT } from "@/data/matrix";
+ import { cityMult } from "@/data/estimate";
+ 
+@@ -116,3 +116,48 @@ describe("page content", () => {
+     }
+   });
+ });
++
++describe("service tiers", () => {
++  test("every city declares a tier", () => {
++    for (const c of cities) {
++      assert.ok(c.tier === "core" || c.tier === "extended", `${c.slug} has no valid tier`);
++    }
++  });
++
++  test("core and extended partition the city list", () => {
++    assert.equal(coreCities.length + extendedCities.length, cities.length);
++    assert.ok(coreCities.length > 0 && extendedCities.length > 0);
++  });
++
++  test("the tier note tells a visitor what to expect before they call", () => {
++    for (const c of cities) {
++      const note = tierNote(c);
++      assert.ok(note.length > 40, `${c.slug} tier note is too vague`);
++      if (c.tier === "extended") {
++        assert.match(note, /not a single-room repair/i, "extended areas must state the limit");
++      }
++    }
++  });
++
++  test("travel is priced into the extended tier", () => {
++    // A crew losing 90 minutes a day to travel costs more per square foot.
++    // If this ever inverts, we are quoting numbers we cannot hold.
++    const avg = (list: typeof cities) =>
++      list.reduce((sum, c) => sum + (cityMult[c.slug] ?? 1), 0) / list.length;
++    assert.ok(
++      avg(extendedCities) > avg(coreCities),
++      "extended-tier towns should price above the core average",
++    );
++  });
++
++  test("titleName is only used where the full name would overflow a SERP", () => {
++    for (const c of cities) {
++      if (!c.titleName) continue;
++      assert.ok(
++        c.titleName.length < c.name.length,
++        `${c.slug} titleName is not shorter than its name`,
++      );
++      assert.ok(c.name.includes(c.titleName), `${c.slug} titleName is not part of its full name`);
++    }
++  });
++});
+-- 
+2.43.0
+
