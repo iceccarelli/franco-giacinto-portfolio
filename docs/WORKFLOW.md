@@ -175,22 +175,43 @@ sitemap URL, and `llms.txt` link follows it.
 
 ---
 
-## Working with a patch from Claude
+## Working with a patch
 
 Patches are transport for work done outside the repo. They are not source and are
 never committed.
 
+**Use the script. Do not run the steps by hand.**
+
 ```bash
-git checkout main && git pull --ff-only
-git checkout -b feat/whatever-the-patch-does
+scripts/apply-patch.sh feat/whatever-the-patch-does
+```
 
-git apply --check --verbose NNNN-name.patch   # dry run first, always
-git am --3way NNNN-name.patch
-rm -f NNNN-name.patch                          # delete it — it is not source
+It finds the patch (working tree first, then `origin/main`), dry-runs it, applies
+it, **verifies commits were actually added**, untracks any `.patch` files, and
+runs the full `npm ci && npm run verify`. It stops at the first failure.
 
-npm ci && npm run verify
+Then:
+
+```bash
 git push -u origin feat/whatever-the-patch-does && gh pr create --fill
 ```
+
+### Why the script exists
+
+Uploading a patch through the GitHub web UI rewrites the filename — hyphens get
+stripped, so `0006-assistant-and-agents.patch` arrives as
+`0006assistantandagents.patch`. Running `git am 0006-assistant-and-agents.patch`
+then fails with "No such file or directory", and because `set -e` is not in play
+in an interactive shell, **every following command runs against the unchanged
+branch**:
+
+- `npm run verify` passes — it is verifying `main`
+- `git push` pushes an empty branch
+- `gh pr create` says "could not find any commits between origin/main and ..."
+
+It looks like it worked. It did not. This happened three times before the script
+existed. The tell was always the test count: `main` had 75 tests, the patch had
+94.
 
 If `git apply --check` fails, stop. Do not force it. A patch that will not apply
 cleanly means the branch has moved underneath it, and the fix is a rebased patch,
@@ -211,3 +232,11 @@ Worth knowing, because each cost real time:
 3. **A merge that stopped at a conflict and was never finished**, so `main` never
    got the work and the old site stayed live. *Fix: after any merge, check
    `git log --oneline -1` and `git status` before assuming it worked.*
+4. **A patch that silently did not apply** because the uploaded filename had been
+   rewritten, so every later command operated on the unchanged branch and
+   appeared to succeed. *Fix: `scripts/apply-patch.sh`, which checks that commits
+   were actually added.*
+
+The pattern in all four: **a command failed, the shell carried on, and a later
+green checkmark was mistaken for proof.** When something in a sequence errors,
+stop and read it before running the next thing.
