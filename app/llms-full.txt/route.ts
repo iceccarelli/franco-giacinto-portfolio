@@ -6,6 +6,7 @@ import { answers } from "@/data/answers";
 import { glossary } from "@/data/glossary";
 import { guides } from "@/data/guides";
 import { methods } from "@/data/methods";
+import { problems } from "@/data/problems";
 import { obcRules } from "@/data/obc";
 import { projects } from "@/data/projects";
 import { services } from "@/data/services";
@@ -135,6 +136,23 @@ export function GET() {
       L.push(`Q: ${f2.q}`);
       L.push(`A: ${f2.a}`);
     }
+  }
+
+  rule();
+  L.push("## Diagnostics");
+  for (const p of problems) {
+    L.push("");
+    L.push(`### ${p.name} (${p.category}, ${p.urgency})`);
+    L.push(`URL: ${SITE_URL}/problems/${p.slug}`);
+    L.push(`Also searched as: ${p.alsoCalled.join("; ")}`);
+    L.push(`Looks like: ${p.looksLike}`);
+    L.push("Causes:");
+    p.causes.forEach((c, i) => L.push(`  ${i + 1}. ${c.cause} — tell: ${c.tell}`));
+    L.push(`Means: ${p.meaning}`);
+    L.push(`Outlook (${p.outlook}): ${p.outlookNote}`);
+    L.push("Homeowner steps:");
+    p.youCanDo.forEach((y) => L.push(`  - ${y}`));
+    L.push(`Call when: ${p.callWhen}`);
   }
 
   rule();

@@ -98,6 +98,40 @@ better. If the honest answer is "this is a paragraph on an existing page", it is
 a paragraph on an existing page. `npm run audit:site` fails on duplicate titles
 precisely to stop this from drifting.
 
+## Diagnostics — the highest-intent queries on the site
+
+Somebody typing "why is my hardwood floor cupping" at eleven at night has a
+problem in front of them and is not shopping. These are the queries where a
+straight answer earns the call.
+
+| Query                              | URL                                     |
+| ---------------------------------- | --------------------------------------- |
+| why is my hardwood floor cupping   | /problems/hardwood-floor-cupping        |
+| hardwood floor crowning            | /problems/hardwood-floor-crowning       |
+| gaps between floorboards in winter | /problems/gaps-in-hardwood-floor-winter |
+| hardwood floor buckling / lifting  | /problems/hardwood-floor-buckling       |
+| squeaking hardwood floor           | /problems/squeaking-hardwood-floor      |
+| squeaking stairs                   | /problems/squeaking-stairs              |
+| loose / wobbly stair railing       | /problems/loose-stair-railing           |
+| stair nosing loose or cracked      | /problems/loose-stair-nosing            |
+| worn stair treads                  | /problems/worn-stair-treads             |
+| what is under carpet on stairs     | /problems/stairs-after-carpet-removal   |
+| floor finish peeling               | /problems/peeling-hardwood-finish       |
+| white / cloudy marks on hardwood   | /problems/cloudy-white-hardwood-finish  |
+| white scratches on hardwood        | /problems/scratches-showing-white       |
+| dull worn traffic paths            | /problems/dull-worn-traffic-paths       |
+| dog urine stains on hardwood       | /problems/pet-urine-stains-hardwood     |
+| hollow or bouncy floor             | /problems/hollow-spots-hardwood-floor   |
+
+Each page follows the same shape: what it looks like, ranked causes each with
+the observation that distinguishes it, what it means, whether it can be fixed,
+what the homeowner can safely do, and when to call.
+
+**The rule for this section: name the unfixable cases.** Pet urine that reached
+the subfloor, a floor crowned by being sanded wet, a stair built from
+construction lumber — saying so plainly is what makes the repairable diagnoses
+believable.
+
 ## Service tiers
 
 `data/areas.ts` marks each city `core` or `extended`.

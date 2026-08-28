@@ -4,6 +4,7 @@ import { faqs } from "@/data/faq";
 import { glossary } from "@/data/glossary";
 import { guides } from "@/data/guides";
 import { methods } from "@/data/methods";
+import { problems } from "@/data/problems";
 import { projects } from "@/data/projects";
 import { services } from "@/data/services";
 import { species } from "@/data/species";
@@ -16,7 +17,17 @@ import { species } from "@/data/species";
  */
 
 export type SearchKind =
-  "Service" | "Area" | "Guide" | "Method" | "Term" | "Project" | "Species" | "Page" | "Question";
+  | "Problem"
+  | "Local"
+  | "Service"
+  | "Area"
+  | "Guide"
+  | "Method"
+  | "Term"
+  | "Project"
+  | "Species"
+  | "Page"
+  | "Question";
 
 export type SearchDoc = {
   id: string;
@@ -147,6 +158,15 @@ const staticPages: SearchDoc[] = [
     keywords: ["phone", "email", "address", "hours", "book", "call"],
   },
   {
+    id: "page-problems",
+    kind: "Page",
+    title: "Diagnose a problem",
+    primary: "Diagnose",
+    description: "Cupping, gaps, squeaks, peeling finish, loose railings — cause and outlook.",
+    path: "/problems",
+    keywords: ["problem", "wrong", "broken", "damage", "why is my", "help", "diagnose", "fix"],
+  },
+  {
     id: "page-methods",
     kind: "Page",
     title: "Installation & stair methods",
@@ -186,6 +206,15 @@ const staticPages: SearchDoc[] = [
 ];
 
 export const searchDocs: SearchDoc[] = [
+  ...problems.map<SearchDoc>((p) => ({
+    id: `problem-${p.slug}`,
+    kind: "Problem",
+    title: p.name,
+    description: p.looksLike,
+    path: `/problems/${p.slug}`,
+    primary: p.name,
+    keywords: [...p.alsoCalled, p.category, p.urgency, ...p.causes.map((c) => c.cause)],
+  })),
   ...methods.map<SearchDoc>((m) => ({
     id: `method-${m.slug}`,
     kind: "Method",
@@ -279,6 +308,11 @@ const haystacks = new Map(
 );
 
 const KIND_WEIGHT: Record<SearchKind, number> = {
+  // Symptom words (cupping, squeak, peeling) appear nowhere else, so a
+  // diagnosis wins those on token match alone. It does not need a weight that
+  // also beats the service page for a bare service word like "stairs".
+  Problem: 4,
+  Local: 7,
   Service: 6,
   Page: 5,
   Area: 4,
@@ -291,13 +325,137 @@ const KIND_WEIGHT: Record<SearchKind, number> = {
 };
 
 /**
- * Scores every token independently and requires all of them to appear, so
- * "stairs vaughan" finds the Vaughan page rather than everything about stairs.
+ * Words that carry no signal here. Every token must match for a document to
+ * qualify, so without this "my stairs squeak" finds nothing — "my" appears
+ * nowhere in a corpus about flooring. People type in sentences; the index has
+ * to meet them there.
+ */
+const STOP_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "are",
+  "as",
+  "at",
+  "be",
+  "can",
+  "do",
+  "does",
+  "for",
+  "from",
+  "get",
+  "has",
+  "have",
+  "how",
+  "i",
+  "if",
+  "in",
+  "is",
+  "it",
+  "me",
+  "my",
+  "of",
+  "on",
+  "or",
+  "our",
+  "should",
+  "so",
+  "than",
+  "that",
+  "the",
+  "their",
+  "there",
+  "they",
+  "this",
+  "to",
+  "was",
+  "we",
+  "what",
+  "when",
+  "where",
+  "which",
+  "who",
+  "why",
+  "will",
+  "with",
+  "would",
+  "you",
+  "your",
+]);
+
+/**
+ * Service slugs that have a page for every city.
+ *
+ * Held locally rather than imported from data/matrix.ts on purpose: this module
+ * ships to the browser, and importing the matrix would drag 224 fully-built
+ * page objects into the client bundle to read seven strings. `tests/search`
+ * asserts this list still matches `matrixServices`, so it cannot drift.
+ */
+const MATRIX_SERVICE_SLUGS = new Set([
+  "hardwood-stairs",
+  "hardwood-installation",
+  "sanding-refinishing",
+  "hardwood-railings",
+  "hardwood-repairs",
+  "hardwood-decks",
+  "commercial-hardwood",
+]);
+
+/**
+ * A service x city page, synthesised at query time.
+ *
+ * "stairs vaughan" should reach /services/hardwood-stairs/vaughan. Indexing all
+ * 224 of those would add roughly 60 KB to every page load for pages a visitor
+ * can only reach by naming both halves — so we detect both halves instead and
+ * build the one result.
+ */
+function matrixMatch(tokens: string[]): SearchDoc | null {
+  const city = cities.find((c) =>
+    tokens.some((t) => c.name.toLowerCase().includes(t) && t.length > 3),
+  );
+  if (!city) return null;
+
+  const service = services.find(
+    (sv) =>
+      MATRIX_SERVICE_SLUGS.has(sv.slug) &&
+      tokens.some(
+        (t) => t.length > 3 && (sv.shortName.toLowerCase().includes(t) || sv.slug.includes(t)),
+      ),
+  );
+  if (!service) return null;
+
+  return {
+    id: `matrix-${service.slug}-${city.slug}`,
+    kind: "Local",
+    title: `${service.shortName} in ${city.name}`,
+    description: `Local price band, housing stock, and FAQs for ${service.shortName.toLowerCase()} in ${city.name}.`,
+    path: `/services/${service.slug}/${city.slug}`,
+    primary: `${service.shortName} ${city.name}`,
+    keywords: [],
+  };
+}
+
+/**
+ * Ranking.
+ *
+ * A short query must match completely — "stairs vaughan" should find the
+ * Vaughan stair page, not every page mentioning stairs. But a sentence should
+ * tolerate a word the corpus happens not to contain: "how much are stairs in
+ * vaughan" reduces to three meaningful words, and demanding all three finds
+ * nothing because "much" appears nowhere.
+ *
+ * So the threshold scales: every token for one or two, a clear majority beyond
+ * that, with the match ratio folded into the score so completeness still wins.
  */
 export function searchSite(query: string, limit = 8): SearchDoc[] {
-  const tokens = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  const raw = query.toLowerCase().trim().split(/\s+/).filter(Boolean);
+  // Keep the meaningful words. If a query is nothing but stop words, fall back
+  // to the raw tokens rather than silently returning nothing.
+  const meaningful = raw.filter((t) => !STOP_WORDS.has(t));
+  const tokens = meaningful.length > 0 ? meaningful : raw;
   if (tokens.length === 0) return [];
 
+  const required = tokens.length <= 2 ? tokens.length : Math.ceil(tokens.length * 0.6);
   const scored: { doc: SearchDoc; score: number }[] = [];
 
   for (const doc of searchDocs) {
@@ -305,13 +463,11 @@ export function searchSite(query: string, limit = 8): SearchDoc[] {
     const title = doc.title.toLowerCase();
     const primary = doc.primary.toLowerCase();
     let score = 0;
-    let matchedAll = true;
+    let hits = 0;
 
     for (const token of tokens) {
-      if (!hay.includes(token)) {
-        matchedAll = false;
-        break;
-      }
+      if (!hay.includes(token)) continue;
+      hits++;
       // The name of the thing beats a mention of the thing. Typing "vaughan"
       // should reach the Vaughan page, not a project that starts with the word.
       if (primary === token) score += 40;
@@ -321,13 +477,24 @@ export function searchSite(query: string, limit = 8): SearchDoc[] {
       else score += 2;
     }
 
-    if (!matchedAll) continue;
+    if (hits < required) continue;
+    // Completeness still wins: a document matching every word outranks one
+    // matching the minimum, even where the partial match hit a stronger field.
+    score *= hits / tokens.length;
     score += KIND_WEIGHT[doc.kind];
     scored.push({ doc, score });
   }
 
-  return scored
+  const ranked = scored
     .sort((a, b) => b.score - a.score || a.doc.title.localeCompare(b.doc.title))
-    .slice(0, limit)
     .map((s) => s.doc);
+
+  // A query naming both a service and a city has one best answer, and it is
+  // the page written for exactly that pair.
+  const local = matrixMatch(tokens);
+  if (local) {
+    return [local, ...ranked.filter((d) => d.path !== local.path)].slice(0, limit);
+  }
+
+  return ranked.slice(0, limit);
 }

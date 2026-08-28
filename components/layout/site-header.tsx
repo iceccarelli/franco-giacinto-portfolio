@@ -36,7 +36,7 @@ const mega: { heading: string; items: { label: string; href: string }[] }[] = [
       { label: "Showroom", href: "/showroom" },
       { label: "Estimator", href: "/estimate" },
       { label: "Methods", href: "/methods" },
-      { label: "Answers", href: "/answers" },
+      { label: "Diagnose a problem", href: "/problems" },
     ],
   },
 ];
@@ -58,6 +58,7 @@ const mobile: { label: string; href: string }[] = [
   { label: "Areas", href: "/areas" },
   { label: "Guides", href: "/guides" },
   { label: "Methods", href: "/methods" },
+  { label: "Diagnose", href: "/problems" },
   { label: "Answers", href: "/answers" },
   { label: "Glossary", href: "/glossary" },
   { label: "About", href: "/about" },

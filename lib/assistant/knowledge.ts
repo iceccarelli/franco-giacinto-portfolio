@@ -7,6 +7,7 @@ import { guides } from "@/data/guides";
 import { matrixPages, formatCad } from "@/data/matrix";
 import { methods } from "@/data/methods";
 import { OBC_LIMITS, obcRules } from "@/data/obc";
+import { problems } from "@/data/problems";
 import { getService, services } from "@/data/services";
 import { species } from "@/data/species";
 
@@ -27,6 +28,7 @@ export type Passage = {
   id: string;
   /** What this passage is, for the citation chip. */
   kind:
+    | "Problem"
     | "Answer"
     | "Service"
     | "Method"
@@ -49,6 +51,20 @@ export type Passage = {
 
 function corpus(): Passage[] {
   const out: Passage[] = [];
+
+  // Diagnostics. Someone describing a symptom is the highest-intent visitor on
+  // the site, and the honest answer includes when the floor cannot be saved.
+  for (const p of problems) {
+    out.push({
+      id: `problem:${p.slug}`,
+      kind: "Problem",
+      title: p.name,
+      body: `${p.looksLike} Most likely cause: ${p.causes[0]?.cause ?? ""} — ${p.causes[0]?.tell ?? ""} ${p.outlookNote}`,
+      path: `/problems/${p.slug}`,
+      terms: [...p.alsoCalled, p.category, ...p.causes.map((c) => c.cause)],
+      weight: 12,
+    });
+  }
 
   // Direct question/answer pairs — the highest-confidence source there is.
   for (const a of answers) {
@@ -419,7 +435,7 @@ export function detectService(query: string) {
 }
 
 export type Intent =
-  "pricing" | "code" | "scope" | "contact" | "process" | "comparison" | "general";
+  "diagnosis" | "pricing" | "code" | "scope" | "contact" | "process" | "comparison" | "general";
 
 /** Materials Green Hardwood does not install. */
 const OTHER_MATERIAL = /\b(vinyl|laminate|lvp|luxury vinyl|carpet|carpeted|tile)\b/;
@@ -447,8 +463,15 @@ function isScopeQuestion(q: string) {
   return !(CONVERSION.test(q) && HARDWOOD_TERM.test(q));
 }
 
+/** Words that mean something has already gone wrong. */
+const SYMPTOM =
+  /\b(cupping|cupped|crowning|crowned|buckl|squeak|creak|gap|gaps|peel|flak|haze|hazy|cloudy|scratch|worn|wearing|stain|hollow|bouncy|spongy|loose|wobbl|lifting|splitting|cracked|damaged|broken|smell)\b/;
+
 export function detectIntent(query: string): Intent {
   const q = query.toLowerCase();
+  // A symptom outranks everything except an explicit price question — the
+  // visitor has a problem in front of them right now.
+  if (SYMPTOM.test(q) && !/\b(cost|price|how much|quote)\b/.test(q)) return "diagnosis";
   if (
     /\b(cost|price|pricing|how much|quote|estimate|budget|expensive|cheap|\$|per step|per square|per sq)\b/.test(
       q,

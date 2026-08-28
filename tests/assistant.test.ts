@@ -160,3 +160,38 @@ describe("retrieval", () => {
     assert.deepEqual(retrieve("the a of"), []);
   });
 });
+
+describe("symptom routing", () => {
+  test("a described symptom reaches its diagnosis page", () => {
+    const cases: [string, string][] = [
+      ["my floor is cupping", "/problems/hardwood-floor-cupping"],
+      ["the stairs squeak", "/problems/squeaking-stairs"],
+      ["my railing is wobbly", "/problems/loose-stair-railing"],
+      ["gaps appeared in winter", "/problems/gaps-in-hardwood-floor-winter"],
+      ["the finish is peeling", "/problems/peeling-hardwood-finish"],
+    ];
+    for (const [query, expected] of cases) {
+      const r = respond(query);
+      assert.equal(r.basis, "grounded", query);
+      assert.ok(
+        r.sources.some((s) => s.path === expected),
+        `"${query}" did not cite ${expected}`,
+      );
+    }
+  });
+
+  test("a price question still wins over a symptom word", () => {
+    // "how much to fix a cupped floor" is a pricing question, not a diagnosis.
+    assert.equal(detectIntent("how much does it cost to fix a cupped floor"), "pricing");
+  });
+
+  test("the diagnosis never promises a repair it cannot know about", () => {
+    for (const q of ["my floor is cupping", "the finish is peeling", "black stains from my dog"]) {
+      const r = respond(q);
+      assert.ok(
+        !/\bwe (can|will) (definitely|certainly) (fix|repair|save)\b/i.test(r.answer),
+        `"${q}" overpromised`,
+      );
+    }
+  });
+});
