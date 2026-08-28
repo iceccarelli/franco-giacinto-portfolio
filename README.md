@@ -10,14 +10,14 @@ A statically prerendered Next.js 15 App Router site built around one commercial 
 
 ## Stack
 
-| Concern | Choice | Why |
-| --- | --- | --- |
-| Framework | Next.js 15, App Router | Per-route `generateMetadata`, `generateStaticParams`, native `sitemap.ts` / `robots.ts` |
-| Rendering | 100% static prerender | 52 HTML documents at build time; no cold starts, no runtime data dependency |
-| Language | TypeScript, `strict` + `noUncheckedIndexedAccess` | Lookups are total by construction, not by assertion |
-| Styling | Tailwind CSS v4, `@theme` tokens | One palette, zero hard-coded hex in components |
-| Content | Typed modules in `data/` | Content is data, so pages, schema, sitemap, and `llms.txt` never drift apart |
-| Icons | lucide-react | Tree-shaken |
+| Concern   | Choice                                            | Why                                                                                     |
+| --------- | ------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Framework | Next.js 15, App Router                            | Per-route `generateMetadata`, `generateStaticParams`, native `sitemap.ts` / `robots.ts` |
+| Rendering | 100% static prerender                             | 52 HTML documents at build time; no cold starts, no runtime data dependency             |
+| Language  | TypeScript, `strict` + `noUncheckedIndexedAccess` | Lookups are total by construction, not by assertion                                     |
+| Styling   | Tailwind CSS v4, `@theme` tokens                  | One palette, zero hard-coded hex in components                                          |
+| Content   | Typed modules in `data/`                          | Content is data, so pages, schema, sitemap, and `llms.txt` never drift apart            |
+| Icons     | lucide-react                                      | Tree-shaken                                                                             |
 
 ## Architecture
 
@@ -55,6 +55,27 @@ public/llms.txt ai.txt      canonical facts for answer engines
 ### Why the content lives in `data/`
 
 `data/services.ts` feeds the service page, the header mega-menu, the footer, the homepage grid, `hasOfferCatalog` in LocalBusiness JSON-LD, and `sitemap.ts`. Adding a service is one object literal, and eight surfaces update together. This is the property that makes programmatic local SEO safe to scale.
+
+## The assistant
+
+`Ask Green Hardwood` is a chat widget on every page. It answers from this site's
+own content and nothing else — every reply is either verbatim from `data/` or a
+template whose variables come from `data/`, and every reply cites the internal
+pages it came from.
+
+| Question | What it does |
+| --- | --- |
+| "How much are stairs in Vaughan?" | Returns *that city's* computed band from `data/matrix.ts` |
+| "Will my stairs pass inspection?" | Quotes `OBC_LIMITS` and says the building department decides |
+| "Do you install vinyl?" | Declines plainly, as the brand does |
+| Anything undocumented | Says so and gives the phone number |
+
+Setting `ANTHROPIC_API_KEY` adds a phrasing layer over the same retrieved
+passages. It cannot introduce new facts, cannot cite a page retrieval did not
+return, and falls back to the grounded reply on any error. Without a key the
+assistant is fully functional, deterministic, and free.
+
+Contributing agents (Claude Code, Copilot, Gemini) read `AGENTS.md`.
 
 ## Working on this site
 
@@ -115,8 +136,8 @@ built from it. Resolution order:
 4. `company.website` — the intended final domain, for any other CI
 
 There is deliberately no hard-coded URL anywhere else. `company.website` stays
-in `data/company.ts` as a *business fact*; `SITE_URL` is an *infrastructure
-fact*. They converge once the domain is live.
+in `data/company.ts` as a _business fact_; `SITE_URL` is an _infrastructure
+fact_. They converge once the domain is live.
 
 Preview deployments (`VERCEL_ENV=preview`) are served `noindex, nofollow` and a
 `Disallow: /` robots.txt, so a preview never competes with production for its
@@ -127,12 +148,12 @@ own queries.
 Beyond the service and city pages, the site carries the reference material that
 makes it citable rather than just findable:
 
-| Surface | What it is | Why it exists |
-| --- | --- | --- |
-| `/methods` (8) | How each assembly is actually built, step by step, with when it is correct and when it is wrong | The question behind "who should install my floor" is "do they know what they are doing" |
-| `/answers` (28) | Short, direct answers, each also rendered in full on the index with FAQPage markup | Answer engines retrieve one page and can quote any of the 28 |
-| `/glossary` (22 terms) | One page, anchored per term, `DefinedTermSet` schema | Twenty-two one-paragraph URLs would be thin; one substantial page is not |
-| `/guides` (19) | Long-form specification and cost | Depth for the queries that convert |
+| Surface                | What it is                                                                                      | Why it exists                                                                           |
+| ---------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `/methods` (8)         | How each assembly is actually built, step by step, with when it is correct and when it is wrong | The question behind "who should install my floor" is "do they know what they are doing" |
+| `/answers` (28)        | Short, direct answers, each also rendered in full on the index with FAQPage markup              | Answer engines retrieve one page and can quote any of the 28                            |
+| `/glossary` (22 terms) | One page, anchored per term, `DefinedTermSet` schema                                            | Twenty-two one-paragraph URLs would be thin; one substantial page is not                |
+| `/guides` (19)         | Long-form specification and cost                                                                | Depth for the queries that convert                                                      |
 
 `docs/QUERY-INVENTORY.md` maps every target query to exactly one URL, which is
 what keeps two pages from competing for the same search.
@@ -158,17 +179,17 @@ project. See `.env.example`.
 
 ## Content operations
 
-| Task | File |
-| --- | --- |
-| Add or edit a service | `data/services.ts` |
-| Add a city landing page | `data/areas.ts` |
-| Publish a guide | `data/guides.ts` |
-| Change NAP, hours, warranty | `data/company.ts` |
-| Update 2026 price bands | `data/estimate.ts` **and** `public/llms.txt` |
-| Add a project | `data/projects.ts` |
-| Add or remove a service x city page | `matrixServices` in `data/matrix.ts` |
-| Ontario stair thresholds | `OBC_LIMITS` in `data/obc.ts` |
-| Ontario stair-code rules | `data/obc.ts` |
+| Task                                | File                                         |
+| ----------------------------------- | -------------------------------------------- |
+| Add or edit a service               | `data/services.ts`                           |
+| Add a city landing page             | `data/areas.ts`                              |
+| Publish a guide                     | `data/guides.ts`                             |
+| Change NAP, hours, warranty         | `data/company.ts`                            |
+| Update 2026 price bands             | `data/estimate.ts` **and** `public/llms.txt` |
+| Add a project                       | `data/projects.ts`                           |
+| Add or remove a service x city page | `matrixServices` in `data/matrix.ts`         |
+| Ontario stair thresholds            | `OBC_LIMITS` in `data/obc.ts`                |
+| Ontario stair-code rules            | `data/obc.ts`                                |
 
 Price bands appear in three places by design — the estimator, the guides, and `llms.txt`. Update all three in the same commit so answer engines never quote a stale number.
 

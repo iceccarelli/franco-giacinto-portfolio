@@ -12,7 +12,7 @@
     "verify": "npm run typecheck && npm run test && npm run build && npm run audit:site",
     "indexnow": "node --experimental-strip-types scripts/indexnow.mjs",
     "audit:site": "node --experimental-strip-types scripts/audit-site.mjs",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "tsx --conditions=react-server --test tests/*.test.ts"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
