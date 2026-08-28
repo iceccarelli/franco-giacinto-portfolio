@@ -1,0 +1,719 @@
+/**
+ * The diagnostic library.
+ *
+ * These are the searches people make when something has already gone wrong:
+ * "why is my hardwood floor cupping", "stairs squeaking", "gaps in winter".
+ * High intent, high anxiety, and almost always answered online by someone
+ * selling a product.
+ *
+ * The rule for every entry: say what it actually is, including when the honest
+ * answer is "this floor is finished, and anyone who tells you otherwise is
+ * selling you a sand you cannot afford to waste." A contractor who names the
+ * unfixable cases is the one worth calling for the fixable ones.
+ */
+
+export type Problem = {
+  slug: string;
+  /** The symptom as a homeowner would describe it. */
+  name: string;
+  /** Shorter form for <title>, where `name` would overflow a SERP. */
+  seoTitle?: string;
+  /** How people actually search for it. */
+  alsoCalled: string[];
+  category: "moisture" | "movement" | "finish" | "stairs" | "wear";
+  urgency: "monitor" | "act-soon" | "urgent";
+  /** How to recognise it, precisely enough to tell it from its neighbours. */
+  looksLike: string;
+  /** Ranked causes, each with the observation that distinguishes it. */
+  causes: { cause: string; tell: string }[];
+  /** What it means for the floor, not just what it is. */
+  meaning: string;
+  outlook: "repairable" | "sometimes" | "replace";
+  outlookNote: string;
+  /** Safe, genuinely useful homeowner steps. No upsell. */
+  youCanDo: string[];
+  callWhen: string;
+  relatedService: string;
+  relatedGuides: string[];
+};
+
+export const problems: Problem[] = [
+  {
+    slug: "hardwood-floor-cupping",
+    name: "Hardwood floor cupping — edges higher than the middle",
+    seoTitle: "Hardwood Floor Cupping",
+    alsoCalled: ["cupped floor", "boards curling up at the edges", "washboard floor"],
+    category: "moisture",
+    urgency: "act-soon",
+    looksLike:
+      "Each board's edges sit higher than its centre, so the floor reads as a series of shallow troughs. Low winter light across the floor shows it before your feet do. Run a straightedge across the grain — a cupped board rocks on its edges.",
+    causes: [
+      {
+        cause: "Moisture reaching the boards from underneath",
+        tell: "The cupping is worst over a crawlspace, an unconditioned basement, a bathroom below, or one end of the room. Underside moisture is the cause in the large majority of cases.",
+      },
+      {
+        cause: "A slow leak nobody has found yet",
+        tell: "Cupping concentrated around a dishwasher, fridge line, radiator, or exterior door, spreading over weeks rather than appearing overnight.",
+      },
+      {
+        cause: "Seasonal humidity swing in an unhumidified house",
+        tell: "It appears every summer and largely flattens by February. Mild, uniform across the whole floor, and it has done this for years.",
+      },
+      {
+        cause: "Installed before the material acclimated",
+        tell: "It showed up within the first few months of a new floor and has never fully settled. This is an installation failure, not a maintenance one.",
+      },
+    ],
+    meaning:
+      "Wood cups when the underside is wetter than the top. It is a symptom, not a disease — the floor is telling you where water is. Sanding a cupped floor flat while it is still wet is the single most expensive mistake in this whole list, because when it finally dries you get crowning and a floor with no wear layer left to fix it.",
+    outlook: "sometimes",
+    outlookNote:
+      "Find and stop the moisture, then wait. Mild cupping frequently flattens on its own over weeks or months once the moisture differential is gone. Only then does sanding make sense. If the boards have delaminated, split, or lifted, that section is done.",
+    youCanDo: [
+      "Find the water first. Check under sinks, behind the fridge, the dishwasher, and any basement or crawlspace below the affected area.",
+      "Get the room to normal indoor humidity — 35–50% relative humidity — and hold it there. A dehumidifier in the basement often does more than anything done to the floor itself.",
+      "Do not put fans or heat directly on the boards. Drying the top faster than the bottom makes the differential worse, not better.",
+      "Mark the edge of the affected area with tape and photograph it weekly. Whether it is spreading changes the diagnosis completely.",
+      "Do not sand it, and do not let anyone else sand it, until it has been dry and stable for weeks.",
+    ],
+    callWhen:
+      "The cupping is spreading, boards have started to split or lift, or you cannot find the moisture source. Bring us in before anyone sands.",
+    relatedService: "hardwood-repairs",
+    relatedGuides: ["water-damaged-hardwood-toronto", "hardwood-floor-maintenance-ontario"],
+  },
+  {
+    slug: "hardwood-floor-crowning",
+    name: "Hardwood floor crowning — middle higher than the edges",
+    seoTitle: "Hardwood Floor Crowning",
+    alsoCalled: ["crowned boards", "humped floor", "boards high in the middle"],
+    category: "moisture",
+    urgency: "act-soon",
+    looksLike:
+      "The opposite of cupping: each board's centre is proud and its edges drop away. Often you can see the sanding pattern still on the high centres while the edges kept their old finish.",
+    causes: [
+      {
+        cause: "A cupped floor that was sanded before it dried",
+        tell: "By far the most common cause. The sander took the high edges off while the board was still cupped; when it dried and tried to flatten, the centre became the high point. If the floor was refinished within the last year or two, this is almost certainly it.",
+      },
+      {
+        cause: "The moisture differential reversed",
+        tell: "The top of the boards became wetter than the underside — a spill left standing, or wet-mopping a floor whose finish is no longer sealing.",
+      },
+    ],
+    meaning:
+      "Crowning is usually not a moisture problem you can fix; it is a record of one that was sanded at the wrong time. The wood is now permanently the wrong shape, and you have less thickness left to correct it with.",
+    outlook: "sometimes",
+    outlookNote:
+      "Mild crowning on a solid floor with wear layer remaining can be sanded flat — once, and only once the moisture has been stable for months. On engineered flooring with a thin wear layer, or a solid floor already sanded two or three times, there is nothing left to take. We will measure the remaining thickness and tell you which case you are in.",
+    youCanDo: [
+      "Stabilise humidity at 35–50% and leave the floor alone for a full season before deciding anything.",
+      "Stop wet-mopping entirely. Damp microfibre and a hardwood-specific cleaner only.",
+      "Find out when it was last sanded and how many times. That number decides what is possible.",
+    ],
+    callWhen:
+      "Before you agree to another sanding. We will measure what wear layer is actually left rather than assume.",
+    relatedService: "sanding-refinishing",
+    relatedGuides: ["water-damaged-hardwood-toronto", "hardwood-flooring-cost-gta-2026"],
+  },
+  {
+    slug: "gaps-in-hardwood-floor-winter",
+    name: "Gaps opening between boards in winter",
+    seoTitle: "Winter Gaps Between Hardwood Boards",
+    alsoCalled: ["cracks between floorboards", "gaps in winter", "floor separating"],
+    category: "movement",
+    urgency: "monitor",
+    looksLike:
+      "Thin dark lines between boards that appear as the heating season sets in and close again by late spring. A credit card or a coin will slip into the worst of them.",
+    causes: [
+      {
+        cause: "Normal seasonal shrinkage",
+        tell: "They open in January and close by May, every year, and they are reasonably even across the floor. This is wood behaving exactly as wood behaves.",
+      },
+      {
+        cause: "Indoor humidity running too low",
+        tell: "Gaps noticeably wider than previous winters, alongside static shocks, cracking trim, and dry sinuses. Forced air without a humidifier in a Toronto February routinely drops a house below 20% RH.",
+      },
+      {
+        cause: "Installed too wet, now drying to equilibrium",
+        tell: "A newer floor with gaps that opened in the first heating season and did not close again in spring.",
+      },
+      {
+        cause: "A few very wide gaps rather than many small ones",
+        tell: "Board groups moving together, usually a fastening problem — the floor is anchored where it should float.",
+      },
+    ],
+    meaning:
+      "Solid hardwood in Ontario will always move a little between seasons. Gaps that open and close are the floor working. Gaps that stay open through summer, or a handful of very wide ones, are a different conversation.",
+    outlook: "repairable",
+    outlookNote:
+      "Seasonal gaps need no repair at all — filling them in winter causes damage in summer when the boards expand into filler that will not compress. Permanent gaps can be filled or, on a wide one, splined with a matched strip.",
+    youCanDo: [
+      "Put a cheap hygrometer on the floor in the worst room and read it for a week. Below 30% is the problem, and it is fixable.",
+      "Run a humidifier through the heating season and aim for 35–50%.",
+      "Wait until late summer before judging. Measure the same gap in February and August.",
+      "Do not fill seasonal gaps with wood filler, rope, or caulk. It will be pushed out or will split the board edge come summer.",
+    ],
+    callWhen:
+      "Gaps stay open through a humid August, one gap is wide enough to catch a heel, or boards have started to move as groups.",
+    relatedService: "hardwood-repairs",
+    relatedGuides: ["hardwood-floor-maintenance-ontario", "acclimation-hardwood-gta"],
+  },
+  {
+    slug: "hardwood-floor-buckling",
+    name: "Hardwood buckling or lifting off the subfloor",
+    seoTitle: "Hardwood Buckling & Lifting",
+    alsoCalled: ["floor lifting up", "boards popped up", "tenting hardwood"],
+    category: "moisture",
+    urgency: "urgent",
+    looksLike:
+      "Boards no longer in contact with the subfloor — a raised ridge, a tented seam, or a whole section standing proud. It is unmistakable and you will usually hear it before you see it.",
+    causes: [
+      {
+        cause: "A significant water event",
+        tell: "A burst line, an appliance failure, a basement flood. Buckling within days of water arriving.",
+      },
+      {
+        cause: "No expansion gap at the perimeter",
+        tell: "The floor is tight to the wall under the baseboard with nowhere to grow. Buckles in the field or lifts at one wall in a humid spell. An installation failure.",
+      },
+      {
+        cause: "Adhesive failure on a glue-down floor",
+        tell: "Hollow-sounding areas nearby, and the lifted section moves as a unit.",
+      },
+    ],
+    meaning:
+      "The floor has run out of room or lost its bond. Unlike cupping, this rarely resolves on its own, and the affected boards have usually been stressed past recovery.",
+    outlook: "sometimes",
+    outlookNote:
+      "Where the cause was a one-off leak and the area is contained, the affected boards can be lifted out and replaced with matched material, then blended. Where the whole floor had no expansion gap, it is a re-lay. Insurance often covers the first case — document everything before anyone touches it.",
+    youCanDo: [
+      "Stop the water. Everything else waits behind this.",
+      "Photograph everything before any cleanup, from several angles, with something in frame for scale. Insurers ask.",
+      "Lift area rugs and open the room up, but do not aim heaters at the boards.",
+      "Do not screw or nail the lifted boards back down. It traps the moisture and guarantees replacement.",
+    ],
+    callWhen:
+      "Immediately. Buckling from an active leak gets worse by the hour, and the size of the eventual repair depends on how fast the moisture is stopped.",
+    relatedService: "hardwood-repairs",
+    relatedGuides: ["water-damaged-hardwood-toronto"],
+  },
+  {
+    slug: "squeaking-hardwood-floor",
+    name: "Squeaking or creaking hardwood floor",
+    seoTitle: "Squeaking Hardwood Floors",
+    alsoCalled: ["creaky floorboards", "noisy floor", "floor pops when I walk"],
+    category: "movement",
+    urgency: "monitor",
+    looksLike:
+      "Noise underfoot in specific spots, usually worse in the dry months. Wood-on-nail is a sharp chirp; wood-on-wood is a lower groan; a hollow knock is the subfloor moving against the joist.",
+    causes: [
+      {
+        cause: "The subfloor moving against a joist",
+        tell: "A deeper knock rather than a chirp, along a line rather than at a point, and it moves underfoot when someone else walks past.",
+      },
+      {
+        cause: "Fasteners that have lost their grip",
+        tell: "A sharp chirp at a specific spot, worst in winter when everything has shrunk.",
+      },
+      {
+        cause: "Boards rubbing at their tongue and groove",
+        tell: "A dry rasp that appears in the heating season and eases in summer. Often just low humidity.",
+      },
+      {
+        cause: "Inadequate subfloor prep at installation",
+        tell: "A newer floor that squeaked from the first winter, over a wider area than a single joist would explain.",
+      },
+    ],
+    meaning:
+      "Almost every squeak is movement between two pieces of wood, or between wood and a fastener. On a century house it is largely cosmetic. On a five-year-old floor it usually points at what was under the boards when they went down.",
+    outlook: "repairable",
+    outlookNote:
+      "Most squeaks can be quietened. From below, through the subfloor, is the right way where there is access — nothing shows in the finished floor. From above means face-screwing and plugging, which is visible, so we only do it where there is no other route.",
+    youCanDo: [
+      "Raise winter humidity to 35–50% first. A surprising number of squeaks go quiet on their own.",
+      "Mark the exact spots with tape while they are noisy. They are much harder to find on the day.",
+      "If there is access from below, look for a visible gap between subfloor and joist while someone walks above.",
+      "Do not pour talc or powder into the seams. It is a two-week fix that contaminates the boards for any future refinish.",
+    ],
+    callWhen:
+      "The floor is newer than ten years, the noise is spreading, or you feel movement rather than just hearing noise.",
+    relatedService: "hardwood-repairs",
+    relatedGuides: ["hardwood-subfloor-prep-ontario"],
+  },
+  {
+    slug: "squeaking-stairs",
+    name: "Squeaking or creaking stairs",
+    seoTitle: "Squeaking Stairs",
+    alsoCalled: ["creaky stairs", "noisy staircase", "stairs squeak when I walk up"],
+    category: "stairs",
+    urgency: "monitor",
+    looksLike:
+      "Noise on particular steps, usually when weight moves to the front or back of the tread rather than the moment you step on it. Often the same three or four steps every time.",
+    causes: [
+      {
+        cause: "The tread has separated slightly from the riser",
+        tell: "Noise when weight shifts forward, at the front edge of the tread. The most common cause by a distance.",
+      },
+      {
+        cause: "Dried-out or missing glue blocks underneath",
+        tell: "Visible from below on an open-backed stair: small triangular blocks in the tread-riser corner, loose or gone entirely.",
+      },
+      {
+        cause: "Loose wedges in a housed stringer",
+        tell: "Noise at the ends of the tread near the wall or the outer string rather than in the middle.",
+      },
+      {
+        cause: "A retread laid over the original without bonding",
+        tell: "A newer hardwood surface that has squeaked since it was installed. Capping a carpeted stair without addressing what is underneath causes exactly this.",
+      },
+    ],
+    meaning:
+      "A squeaking stair is two components that were meant to move as one and no longer do. It is rarely structural on its own — but it is a reliable sign that the flight was built or retreaded without the joints being properly secured.",
+    outlook: "repairable",
+    outlookNote:
+      "With access from below, gluing and blocking fixes most squeaks permanently and invisibly. Closed underneath, the honest options are face-fixing with plugged screws or lifting the tread. Where the noise came with a bad retread, the right fix is redoing the retread properly.",
+    youCanDo: [
+      "Note which part of each tread triggers it — front edge, middle, or the ends. That alone narrows the cause.",
+      "If the underside is open, look for missing or loose glue blocks in the corners.",
+      "Do not drive screws down through the tread face hoping to catch something. Miss the riser and you have a hole and a squeak.",
+    ],
+    callWhen:
+      "You feel any flex in a tread, the noise is new on a recently retreaded flight, or it is happening on most of the steps rather than a few.",
+    relatedService: "hardwood-stairs",
+    relatedGuides: ["carpet-to-hardwood-stairs-gta", "hardwood-stair-retread-cost-gta"],
+  },
+  {
+    slug: "loose-stair-railing",
+    name: "Loose or wobbly stair railing",
+    seoTitle: "Loose or Wobbly Stair Railing",
+    alsoCalled: ["wobbly handrail", "shaky banister", "newel post moves"],
+    category: "stairs",
+    urgency: "urgent",
+    looksLike:
+      "The handrail, a newel post, or the whole guard moves when you lean on it. Test it the way someone would use it in a fall — firm sideways pressure at the top, not a gentle push.",
+    causes: [
+      {
+        cause: "The newel post was never fastened into structure",
+        tell: "The whole assembly rocks at its base. Extremely common where a rail was fitted to trim, to a tread nosing, or to a stringer with nothing behind it.",
+      },
+      {
+        cause: "The rail-to-newel connection has worked loose",
+        tell: "The post is solid but the rail moves relative to it. Usually a rail bolt that has never been re-tightened.",
+      },
+      {
+        cause: "Balusters bottomed into finish flooring rather than framing",
+        tell: "Individual balusters spin or rattle; the rail feels springy between posts.",
+      },
+      {
+        cause: "Seasonal shrinkage on a joint that was tight but not mechanical",
+        tell: "It appears each winter and eases in summer, on an otherwise well-built stair.",
+      },
+    ],
+    meaning:
+      "This is the one item on this list that is genuinely a safety matter. A guard exists to stop a fall, and a rail that moves under sideways load is not doing that. It also means the original installer did not reach structure — which is worth knowing before someone leans on it hard.",
+    outlook: "repairable",
+    outlookNote:
+      "Almost always fixable, but properly means through-bolting the newel into framing, not tightening what is there and hoping. Where the post was set on finish flooring with nothing beneath, the fix reaches below the floor.",
+    youCanDo: [
+      "Test it honestly, and keep children off the stair until it is sorted if it moves.",
+      "Look for a small wooden plug in the underside or side of the rail — that is a rail bolt, and it may only need tightening.",
+      "Do not add brackets or angle iron to the visible face. It rarely holds and it makes the proper repair harder and more expensive.",
+    ],
+    callWhen:
+      "Straight away if a guard moves under normal sideways load. This is the failure mode with a real consequence.",
+    relatedService: "hardwood-railings",
+    relatedGuides: ["ontario-stair-code-hardwood"],
+  },
+  {
+    slug: "loose-stair-nosing",
+    name: "Loose, lifting, or cracked stair nosing",
+    seoTitle: "Loose or Cracked Stair Nosing",
+    alsoCalled: ["stair edge lifting", "broken nose on step", "tread edge cracked"],
+    category: "stairs",
+    urgency: "act-soon",
+    looksLike:
+      "The front edge of a tread has lifted, split along its length, or moves when pressed. On a retreaded flight it is often a separate nosing strip pulling away from the tread behind it.",
+    causes: [
+      {
+        cause: "A retread capped with flooring plus a separate nosing strip",
+        tell: "You can see a joint line a couple of inches back from the front edge. This assembly relies entirely on adhesive and it is the most common failure we are called to.",
+      },
+      {
+        cause: "The nosing overhangs too far",
+        tell: "More than about 25 mm of projection. Unsupported leverage, every step, until it splits. It is also the reason the flight would fail an inspection.",
+      },
+      {
+        cause: "Adhesive failure under a glued nosing",
+        tell: "A hollow sound when tapped along the front edge.",
+      },
+      {
+        cause: "The tread itself has split at a fastener",
+        tell: "A crack running with the grain from a nail or screw.",
+      },
+    ],
+    meaning:
+      "The nosing takes more load than any other part of a stair, on the smallest bearing area. When it moves, it is the front edge of the step someone is standing on. It is also the detail that most often reveals a flight was capped rather than rebuilt.",
+    outlook: "sometimes",
+    outlookNote:
+      "A single failed nosing can be replaced. When several are going on a capped flight, the assembly is the problem, not the individual pieces, and rebuilding with solid treads costs less than replacing nosings one at a time for the next five years.",
+    youCanDo: [
+      "Tap along the front edge of every tread and listen. Hollow means the bond has gone even where nothing is visibly loose.",
+      "Measure the projection. Much past 25 mm and it is both a trip hazard and a code problem.",
+      "Do not screw a lifting nosing back down through the face. It splits, and the hole becomes the next failure.",
+    ],
+    callWhen:
+      "Any nosing moves underfoot, more than one is loose, or you can see a joint line behind the front edge on a flight that was capped rather than rebuilt.",
+    relatedService: "hardwood-stairs",
+    relatedGuides: ["hardwood-stair-nosing-and-transitions", "ontario-stair-code-hardwood"],
+  },
+  {
+    slug: "worn-stair-treads",
+    name: "Worn or bare patches on stair treads",
+    seoTitle: "Worn Stair Treads",
+    alsoCalled: ["stairs worn in the middle", "finish gone on steps", "bare wood on stairs"],
+    category: "wear",
+    urgency: "act-soon",
+    looksLike:
+      "A pale path down the centre of each tread where the finish has gone, sharpest on the middle steps of the flight. Water beads on the edges of the tread but soaks into the middle.",
+    causes: [
+      {
+        cause: "Ordinary traffic wearing through the finish",
+        tell: "Even wear centred on each tread, worse on the flight everyone actually uses.",
+      },
+      {
+        cause: "Grit acting as an abrasive",
+        tell: "Fine scratching alongside the wear, usually where the stair is close to an entry.",
+      },
+      {
+        cause: "The finish was never rated for stair traffic",
+        tell: "Wear appearing within two or three years. A stair takes several times the punishment of a floor and needs a finish specified for it.",
+      },
+    ],
+    meaning:
+      "Once the finish is gone, the wood underneath is taking the wear directly, and it will grey and absorb dirt. Caught at the pale-path stage the fix is cheap. Left another two winters it becomes a full sand — or a retread.",
+    outlook: "repairable",
+    outlookNote:
+      "Bare wood with no staining and no cupping can often be screened and recoated rather than fully sanded — a fraction of the cost and one day rather than several. That window closes once dirt gets into open grain or the wood greys.",
+    youCanDo: [
+      "Put a mat at the entry nearest the stair. Grit is the main abrasive and this genuinely helps.",
+      "Stop using anything wet on bare patches — the wood is unsealed there and will darken.",
+      "Photograph it now and again in three months. Whether it is spreading determines screen-and-recoat versus a full sand.",
+    ],
+    callWhen:
+      "There is bare wood on any tread. The cost difference between recoating and refinishing is large, and it is decided by how early you call.",
+    relatedService: "sanding-refinishing",
+    relatedGuides: ["hardwood-floor-maintenance-ontario", "hardwood-stair-retread-cost-gta"],
+  },
+  {
+    slug: "stairs-after-carpet-removal",
+    name: "What is under the carpet on your stairs",
+    seoTitle: "Under the Carpet on Your Stairs",
+    alsoCalled: [
+      "removed carpet from stairs",
+      "staples in stair treads",
+      "can I refinish stairs under carpet",
+    ],
+    category: "stairs",
+    urgency: "monitor",
+    looksLike:
+      "Carpet and underlay off, and underneath: hundreds of staples, tack strip holes at the back of each tread, a painted or bare riser, and a front edge that may be construction-grade lumber rather than anything meant to be seen.",
+    causes: [
+      {
+        cause: "The stair was built to be carpeted",
+        tell: "Treads in plywood, spruce, or poplar; risers in MDF; and no returned edge on the open side. Standard in almost anything built after about 1980.",
+      },
+      {
+        cause: "A hardwood stair that was carpeted over later",
+        tell: "Solid oak or maple treads with a proper nosing profile and a mitred return on the open side. Worth restoring, and more common in pre-1960 houses than people expect.",
+      },
+    ],
+    meaning:
+      "This is the fork in the road for every carpet-to-hardwood project, and it decides the budget. A stair built to be carpeted cannot be sanded into a finished stair — the material was never chosen to be seen. A hardwood stair that was carpeted over usually can be brought back.",
+    outlook: "sometimes",
+    outlookNote:
+      "Original hardwood treads: pull the staples, fill, sand, and finish — the least expensive good outcome available. Construction-grade treads: retread with solid hardwood, or rebuild. Anyone who offers to sand and finish a plywood tread is not going to be there in two years.",
+    youCanDo: [
+      "Pull one tread's worth of staples and look at the wood at the back where nothing has worn. Species and grain tell you which case you are in.",
+      "Check the open side for a mitred return. Its presence usually means a real hardwood stair.",
+      "Photograph a tread end-on so the layers are visible. It answers the question faster than a description.",
+      "Do not start sanding to find out. If it is construction lumber you have spent a day learning what a photograph would have told you.",
+    ],
+    callWhen:
+      "Before committing either way. This one photograph decides a several-thousand-dollar fork, and we will tell you honestly which side you are on.",
+    relatedService: "hardwood-stairs",
+    relatedGuides: ["carpet-to-hardwood-stairs-gta", "hardwood-stair-retread-cost-gta"],
+  },
+  {
+    slug: "peeling-hardwood-finish",
+    name: "Finish peeling or flaking off the floor",
+    seoTitle: "Peeling or Flaking Floor Finish",
+    alsoCalled: ["finish coming off", "floor finish flaking", "varnish peeling"],
+    category: "finish",
+    urgency: "act-soon",
+    looksLike:
+      "Sheets or flakes of finish lifting away and leaving bare wood, with a clear edge between coated and uncoated. Distinct from wear, which thins gradually with no lifting edge.",
+    causes: [
+      {
+        cause: "A recoat applied over a contaminated surface",
+        tell: "Peeling within months of a refinish. Residue from an acrylic or oil-soap polish is the usual culprit — nothing bonds to it.",
+      },
+      {
+        cause: "The floor was not abraded before the new coat",
+        tell: "Peeling in sheets across a wide area on a recently recoated floor. Finish needs mechanical key, not just a clean surface.",
+      },
+      {
+        cause: "Incompatible products stacked on each other",
+        tell: "An oil-modified coat over a waterborne, or a different manufacturer's system, and it began lifting within the first year.",
+      },
+      {
+        cause: "Moisture pushing up from below",
+        tell: "Peeling alongside cupping or dark staining. The finish is not the problem here; the water is.",
+      },
+    ],
+    meaning:
+      "Peeling is an adhesion failure, not a wear problem. Nothing you put on top will stick either, because the layer beneath it is what has failed.",
+    outlook: "repairable",
+    outlookNote:
+      "The failed finish has to come off entirely — every trace — and the floor recoated properly. It is a full sand, not a screen-and-recoat, and pretending otherwise just repeats the failure. The good news is the wood underneath is usually fine.",
+    youCanDo: [
+      "Stop using any polish, restorer, or 'rejuvenator' product immediately. These cause more of this than anything else.",
+      "Clean with a hardwood-specific cleaner only, and keep bare areas dry.",
+      "Find out what was applied and when — the product and the date change the diagnosis.",
+      "Do not spot-patch. New finish over a failing layer lifts with it.",
+    ],
+    callWhen:
+      "As soon as bare wood is exposed. Once dirt gets into open grain the sanding gets deeper and more expensive.",
+    relatedService: "sanding-refinishing",
+    relatedGuides: ["hardwood-floor-maintenance-ontario"],
+  },
+  {
+    slug: "cloudy-white-hardwood-finish",
+    name: "Cloudy, hazy, or white patches in the finish",
+    seoTitle: "Cloudy or Hazy Floor Finish",
+    alsoCalled: ["white marks on hardwood", "milky finish", "hazy floor after mopping"],
+    category: "finish",
+    urgency: "monitor",
+    looksLike:
+      "A milky bloom in the finish rather than on top of it — you cannot wipe it away. Sometimes a ring where something wet stood, sometimes a haze across a whole area.",
+    causes: [
+      {
+        cause: "Moisture trapped in the finish film",
+        tell: "A white ring or patch where a plant pot, a pet bowl, or a wet mat sat. The most common cause by far.",
+      },
+      {
+        cause: "Wet-mopping a floor whose finish no longer seals",
+        tell: "Haze spread across the routinely mopped area rather than in one spot.",
+      },
+      {
+        cause: "Finish applied over a damp floor or in high humidity",
+        tell: "Present from the day the refinish was done and evenly distributed.",
+      },
+      {
+        cause: "Residue build-up from polish products",
+        tell: "A dull film that gets worse each time the floor is 'restored'.",
+      },
+    ],
+    meaning:
+      "White means water where it should not be — usually inside the finish layer rather than in the wood. Caught early it is often reversible. Left long enough, water reaches the wood and the mark turns grey or black, which is a different and much worse problem.",
+    outlook: "sometimes",
+    outlookNote:
+      "A recent haze in the film can sometimes be drawn out with gentle heat or solvent, depending on the finish type. A patch that has darkened means water reached the wood, and that is a board replacement rather than a finish repair.",
+    youCanDo: [
+      "Remove whatever caused it and let the area dry completely for several days before judging.",
+      "Stop wet-mopping. Damp microfibre and a hardwood cleaner only.",
+      "Put saucers under plant pots and waterproof mats under pet bowls. Both cause this constantly.",
+      "Do not attack it with heat or solvent without knowing your finish type. The wrong choice melts it.",
+    ],
+    callWhen:
+      "The mark is darkening rather than fading, or the haze covers a large area. Grey or black means the water is in the wood.",
+    relatedService: "sanding-refinishing",
+    relatedGuides: ["hardwood-floor-maintenance-ontario"],
+  },
+  {
+    slug: "scratches-showing-white",
+    name: "Scratches that show up white",
+    seoTitle: "Scratches Showing White",
+    alsoCalled: ["white scratches on hardwood", "dog scratches", "scratched floor"],
+    category: "wear",
+    urgency: "monitor",
+    looksLike:
+      "Fine pale lines catching the light, most visible on darker stains. Run a fingernail across: if it does not catch, the scratch is in the finish only.",
+    causes: [
+      {
+        cause: "Scratching in the finish layer only",
+        tell: "A fingernail glides over it, and it largely disappears when the floor is damp. This is the good case.",
+      },
+      {
+        cause: "Grit tracked in from outside",
+        tell: "Concentrated in traffic paths and near entries. Winter sand and salt are abrasive.",
+      },
+      {
+        cause: "Pet claws",
+        tell: "Clusters of parallel lines, worst near doors and at the bottom of the stairs.",
+      },
+      {
+        cause: "The scratch has gone into the wood",
+        tell: "A fingernail catches, and it stays visible when damp. Deeper than a recoat will fix.",
+      },
+    ],
+    meaning:
+      "White is light scattering in a scratch. Whether it is in the finish or in the wood decides whether this costs a few hundred dollars or a few thousand — and the fingernail test answers it in ten seconds.",
+    outlook: "repairable",
+    outlookNote:
+      "Finish-only scratching across a whole floor is the textbook case for a screen-and-recoat: one day, no dust of a full sand, and a fraction of the cost. Scratches into the wood need sanding. Isolated deep ones can sometimes be blended rather than doing the whole floor.",
+    youCanDo: [
+      "Do the fingernail test in several places. It is the whole diagnosis.",
+      "Mats at every entry, felt pads under everything that moves, and keep dogs' nails trimmed.",
+      "Do not use a scratch-cover or restorer product. It masks the problem for a month and contaminates the floor for the recoat that would actually have fixed it.",
+    ],
+    callWhen:
+      "Scratching is general rather than isolated. Recoating while the wear is still in the finish is the cheapest maintenance available on a hardwood floor, and the window does close.",
+    relatedService: "sanding-refinishing",
+    relatedGuides: ["hardwood-floor-maintenance-ontario"],
+  },
+  {
+    slug: "dull-worn-traffic-paths",
+    name: "Dull worn paths through the middle of the room",
+    seoTitle: "Dull Worn Traffic Paths",
+    alsoCalled: ["worn path in floor", "dull hardwood", "floor lost its shine"],
+    category: "wear",
+    urgency: "act-soon",
+    looksLike:
+      "A visibly duller lane where everyone walks — hall to kitchen, door to stairs — while the floor under the furniture still has its original sheen. Hold a light low across the floor and the boundary is obvious.",
+    causes: [
+      {
+        cause: "The finish is thinning in the traffic lane",
+        tell: "Duller but still sealed — water beads rather than soaks in.",
+      },
+      {
+        cause: "The finish is gone and the wood is exposed",
+        tell: "Water darkens the wood instead of beading. Different problem, more expensive.",
+      },
+      {
+        cause: "Residue build-up making it look dull",
+        tell: "A cloudy film across the whole floor rather than a defined path, usually after repeated 'restorer' use.",
+      },
+    ],
+    meaning:
+      "This is the most useful early warning a hardwood floor gives you. While the finish is thin but intact, the fix is a screen-and-recoat. Once it is through to bare wood, dirt gets into open grain and it becomes a full sand — several times the cost and disruption.",
+    outlook: "repairable",
+    outlookNote:
+      "Caught at the dull-but-sealed stage: abrade and one or two coats, one day, no dust, and the floor is good for years. That is the difference the water test decides.",
+    youCanDo: [
+      "Do the water test: a few drops in the dull area. Beads means you are in the cheap window. Soaks in and darkens means you are not.",
+      "Mats at entries and a rug over the worst lane while you decide.",
+      "Stop using polish. It builds a layer nothing will bond to and turns a recoat into a full sand.",
+    ],
+    callWhen:
+      "The water test still beads. That is exactly the moment a recoat is worth it, and it is the single cheapest thing you can do for a hardwood floor.",
+    relatedService: "sanding-refinishing",
+    relatedGuides: ["hardwood-floor-maintenance-ontario", "hardwood-flooring-cost-gta-2026"],
+  },
+  {
+    slug: "pet-urine-stains-hardwood",
+    name: "Black or grey pet stains on hardwood",
+    seoTitle: "Pet Urine Stains on Hardwood",
+    alsoCalled: ["dog urine stain wood floor", "black spots on hardwood", "cat pee floor smell"],
+    category: "moisture",
+    urgency: "act-soon",
+    looksLike:
+      "Dark grey to black patches, often ringed, frequently near a door, a favourite corner, or under furniture. Usually a smell that gets worse in humid weather.",
+    causes: [
+      {
+        cause: "Urine that reached the wood through failed finish",
+        tell: "Black staining rather than surface marking. The colour is a chemical reaction with tannins in the wood, and it goes as deep as the liquid did.",
+      },
+      {
+        cause: "Repeated wetting of the same spot over time",
+        tell: "A large, spreading, very dark area, often with a cupped or lifted board at its centre.",
+      },
+      {
+        cause: "Urine that soaked into the subfloor",
+        tell: "The smell persists after the boards are cleaned and gets stronger in humidity. This is the hard case.",
+      },
+    ],
+    meaning:
+      "The colour is not on the wood, it is in it, and it is frequently all the way through the board. Sanding removes a millimetre or two; a serious stain goes deeper than that. This is one of the few problems where replacement is often genuinely the right answer, and being told that early saves money.",
+    outlook: "sometimes",
+    outlookNote:
+      "Light surface staining sometimes sands out. Anything deep, and anything with a persistent smell, means board replacement — and if the subfloor is contaminated, sealing or replacing that too. Refinishing over a contaminated subfloor puts the smell straight back into a brand-new floor.",
+    youCanDo: [
+      "Deal with fresh accidents immediately. Blot, do not rub, and dry thoroughly — speed genuinely changes the outcome.",
+      "An enzymatic pet cleaner on fresh incidents; ordinary cleaners do not break down the compounds that cause both the stain and the smell.",
+      "Map every affected spot before anyone quotes. They are easy to miss under rugs and furniture.",
+      "Do not bleach or use hydrogen peroxide on the boards. It lightens unevenly and complicates every future repair.",
+    ],
+    callWhen:
+      "Before agreeing to a refinish. A quote that does not mention the subfloor has not accounted for the part that causes the smell to come back.",
+    relatedService: "hardwood-repairs",
+    relatedGuides: ["water-damaged-hardwood-toronto", "hardwood-floor-maintenance-ontario"],
+  },
+  {
+    slug: "hollow-spots-hardwood-floor",
+    name: "Hollow-sounding or bouncy spots underfoot",
+    seoTitle: "Hollow or Bouncy Spots Underfoot",
+    alsoCalled: ["floor sounds hollow", "spongy floor", "floor gives when I walk"],
+    category: "movement",
+    urgency: "act-soon",
+    looksLike:
+      "A drum-like note when tapped, or a slight give underfoot, over a defined area. Tap along with a knuckle and the boundary is usually sharp.",
+    causes: [
+      {
+        cause: "Adhesive failure on a glue-down floor",
+        tell: "A defined hollow area on engineered flooring over concrete. The bond has let go and the area will grow.",
+      },
+      {
+        cause: "The subfloor was not flat enough at installation",
+        tell: "Hollow spots present from the beginning, at the high and low points of a wavy subfloor. An installation failure.",
+      },
+      {
+        cause: "Normal behaviour of a floating floor",
+        tell: "Mild hollowness across the whole floor on a click-together installation. Expected, not a defect.",
+      },
+      {
+        cause: "Subfloor deterioration underneath",
+        tell: "Genuine softness rather than just noise, particularly near a bathroom or an exterior wall. This one is structural.",
+      },
+    ],
+    meaning:
+      "Hollow means a gap between the floor and what should be supporting it. On a glue-down floor it spreads, because every footstep works the edges of the debonded area. Softness rather than sound is a different and more serious matter — that is the subfloor, not the finish floor.",
+    outlook: "sometimes",
+    outlookNote:
+      "Small debonded areas can be injected and weighted. Large ones mean lifting and re-laying that section. Where the subfloor itself has gone soft, the floor comes up regardless — and finding that out before you refinish rather than after is the difference between one job and two.",
+    youCanDo: [
+      "Tap out the area with a knuckle and mark the boundary with tape. Whether it grows over a month is the key diagnostic.",
+      "Note whether it sounds hollow or actually feels soft. Those are different problems with different costs.",
+      "Keep heavy rolling loads off it — a debonded area spreads fastest under wheels.",
+    ],
+    callWhen:
+      "The area is growing, it feels soft rather than just sounding hollow, or it is anywhere near a bathroom or exterior wall.",
+    relatedService: "hardwood-repairs",
+    relatedGuides: ["hardwood-subfloor-prep-ontario", "water-damaged-hardwood-toronto"],
+  },
+];
+
+export function getProblem(slug: string) {
+  return problems.find((p) => p.slug === slug);
+}
+
+/** The title to use in a <title> tag. Falls back to the full symptom name. */
+export function problemTitle(problem: Problem) {
+  return problem.seoTitle ?? problem.name;
+}
+
+export const problemCategories = [
+  {
+    id: "moisture",
+    label: "Water & moisture",
+    blurb: "Cupping, buckling, stains — where the floor is telling you about water.",
+  },
+  {
+    id: "movement",
+    label: "Movement & noise",
+    blurb: "Squeaks, gaps, hollow spots, and what is actually moving.",
+  },
+  { id: "stairs", label: "Stairs & railings", blurb: "Treads, nosings, and guards that move." },
+  { id: "finish", label: "Finish problems", blurb: "Peeling, hazing, and clouding." },
+  { id: "wear", label: "Wear", blurb: "Scratches and worn paths — and the recoat window." },
+] as const;

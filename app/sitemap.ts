@@ -4,6 +4,7 @@ import { cities } from "@/data/areas";
 import { SITE_URL } from "@/lib/site-url";
 import { guides } from "@/data/guides";
 import { methods } from "@/data/methods";
+import { problems } from "@/data/problems";
 import { matrixPages } from "@/data/matrix";
 import { services } from "@/data/services";
 
@@ -29,6 +30,7 @@ const staticRoutes: {
   { path: "/guides", priority: 0.75, changeFrequency: "weekly" },
   { path: "/methods", priority: 0.85, changeFrequency: "monthly" },
   { path: "/answers", priority: 0.8, changeFrequency: "weekly" },
+  { path: "/problems", priority: 0.85, changeFrequency: "monthly" },
   { path: "/glossary", priority: 0.7, changeFrequency: "monthly" },
   { path: "/compare", priority: 0.7, changeFrequency: "monthly" },
   { path: "/process", priority: 0.7, changeFrequency: "monthly" },
@@ -78,6 +80,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly" as const,
       priority: m.cluster === "stairs" || m.cluster === "installation" ? 0.8 : 0.7,
       images: [`${BASE}${m.image}`],
+    })),
+    ...problems.map((p) => ({
+      url: `${BASE}/problems/${p.slug}`,
+      lastModified,
+      changeFrequency: "monthly" as const,
+      priority: p.category === "stairs" ? 0.8 : 0.75,
     })),
     ...answers.map((a) => ({
       url: `${BASE}/answers/${a.slug}`,

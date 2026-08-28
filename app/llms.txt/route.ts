@@ -5,6 +5,7 @@ import { glossary } from "@/data/glossary";
 import { guides } from "@/data/guides";
 import { matrixServices } from "@/data/matrix";
 import { methods } from "@/data/methods";
+import { problems } from "@/data/problems";
 import { services } from "@/data/services";
 import { SITE_URL } from "@/lib/site-url";
 
@@ -100,6 +101,18 @@ export function GET() {
   for (const m of methods) L.push(`- [${m.name}](${SITE_URL}/methods/${m.slug}): ${m.summary}`);
 
   L.push("");
+  L.push("## Diagnostics — what has gone wrong and whether it can be fixed");
+  L.push("");
+  for (const p of problems) {
+    L.push(`### ${p.name}`);
+    L.push(`Also searched as: ${p.alsoCalled.join("; ")}`);
+    L.push(`Looks like: ${p.looksLike}`);
+    L.push(`Most likely cause: ${p.causes[0]?.cause ?? ""} — ${p.causes[0]?.tell ?? ""}`);
+    L.push(`Outlook: ${p.outlookNote}`);
+    L.push(`Source: ${SITE_URL}/problems/${p.slug}`);
+    L.push("");
+  }
+
   L.push("## Direct answers");
   L.push("");
   L.push(
@@ -143,6 +156,7 @@ export function GET() {
     ["Work", "/portfolio", "completed GTA projects"],
     ["Guides", "/guides", "long-form hardwood guidance"],
     ["Methods", "/methods", "how each assembly is actually built"],
+    ["Diagnose", "/problems", "symptom, cause, outlook, and when to call"],
     ["Answers", "/answers", "direct answers to the common questions"],
     ["Glossary", "/glossary", "every term on a hardwood quote"],
     ["About Franco Giacinto", "/about", "founder, credentials, and the shop"],

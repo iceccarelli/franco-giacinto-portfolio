@@ -117,6 +117,31 @@ export function respond(query: string): AssistantReply {
     };
   }
 
+  // ----------------------------------------------------------------- symptom
+  // A described symptom gets the diagnosis page, its most likely cause, and an
+  // honest outlook — including when the answer is that the floor is finished.
+  if (intent === "diagnosis") {
+    const diagnostic = hits.find((h) => h.passage.kind === "Problem");
+    if (diagnostic) {
+      return {
+        answer: `${diagnostic.passage.body} The full diagnosis page walks through every likely cause and the observation that tells them apart — worth reading before anyone sands anything.`,
+        sources: [
+          toSource(diagnostic.passage),
+          ...hits
+            .filter((h) => h.passage.id !== diagnostic.passage.id)
+            .slice(0, 2)
+            .map((h) => toSource(h.passage)),
+        ],
+        followUps: hits
+          .filter((h) => h.passage.kind === "Problem" && h.passage.id !== diagnostic.passage.id)
+          .slice(0, 3)
+          .map((h) => h.passage.title),
+        cta: CALL_CTA,
+        basis: "grounded",
+      };
+    }
+  }
+
   // ------------------------------------------------------------------- code
   // Code questions get the thresholds and an explicit disclaimer. We do not
   // tell anyone their specific stair passes.

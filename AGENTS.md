@@ -159,6 +159,8 @@ city query, and `getSpecies()` could return `undefined` under
 `docs/HONEST-LIMITS.md` is the current, honest state. Summary:
 
 - Leads are captured to the server log; `RESEND_API_KEY` is not set yet.
+- `data/problems.ts` is written to name the cases where a floor cannot be saved.
+  Do not soften those into sales copy — they are what makes the rest credible.
 - `aggregateRating` in the LocalBusiness schema is computed from the testimonial
   count, not from collected reviews. It should be earned or removed.
 - The photography is AI-generated placeholder work.

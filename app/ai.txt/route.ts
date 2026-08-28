@@ -20,6 +20,7 @@ Human-readable facts: ${SITE_URL}/for-agents
 Sitemap:              ${SITE_URL}/sitemap.xml
 Direct answers:       ${SITE_URL}/answers
 Methods:              ${SITE_URL}/methods
+Diagnostics:          ${SITE_URL}/problems
 Glossary:             ${SITE_URL}/glossary
 
 Entity: ${company.legalName}, ${company.address.line1}, ${company.address.city}, ${company.address.region} ${company.address.postal}

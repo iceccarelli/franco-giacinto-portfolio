@@ -124,6 +124,11 @@ export function SiteFooter() {
               </Link>
             </li>
             <li>
+              <Link href="/problems" className="text-primary-fg/80 hover:text-primary-fg">
+                Diagnose a problem
+              </Link>
+            </li>
+            <li>
               <Link href="/answers" className="text-primary-fg/80 hover:text-primary-fg">
                 Answers
               </Link>
