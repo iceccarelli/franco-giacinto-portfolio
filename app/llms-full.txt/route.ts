@@ -2,7 +2,10 @@ import { cities } from "@/data/areas";
 import { company } from "@/data/company";
 import { SITE_URL } from "@/lib/site-url";
 import { faqs } from "@/data/faq";
+import { answers } from "@/data/answers";
+import { glossary } from "@/data/glossary";
 import { guides } from "@/data/guides";
+import { methods } from "@/data/methods";
 import { obcRules } from "@/data/obc";
 import { projects } from "@/data/projects";
 import { services } from "@/data/services";
@@ -113,6 +116,46 @@ export function GET() {
   L.push(
     "This is Green Hardwood's working summary for private dwelling stairs and is not a substitute for the Ontario Building Code itself or for your municipal building department.",
   );
+
+  rule();
+  L.push("## Methods — step by step");
+  for (const m of methods) {
+    L.push("");
+    L.push(`### ${m.name} (${m.cluster})`);
+    L.push(`URL: ${SITE_URL}/methods/${m.slug}`);
+    L.push(m.headline);
+    L.push(m.summary);
+    L.push("");
+    m.steps.forEach((s2, i) => L.push(`${i + 1}. ${s2.heading} — ${s2.body}`));
+    L.push("");
+    L.push(`Correct when: ${m.when}`);
+    L.push(`Wrong when: ${m.whenNot}`);
+    for (const f2 of m.faqs) {
+      L.push("");
+      L.push(`Q: ${f2.q}`);
+      L.push(`A: ${f2.a}`);
+    }
+  }
+
+  rule();
+  L.push("## Direct answers");
+  for (const a of answers) {
+    L.push("");
+    L.push(`Q: ${a.q}`);
+    L.push(`A: ${a.a}`);
+    L.push(`Intent: ${a.intent} · Service: ${a.primaryService}`);
+    L.push(`URL: ${SITE_URL}/answers/${a.slug}`);
+  }
+
+  rule();
+  L.push("## Glossary");
+  L.push(`URL: ${SITE_URL}/glossary`);
+  for (const t of glossary) {
+    L.push("");
+    L.push(`### ${t.term} (${t.cluster})`);
+    L.push(t.definition);
+    if (t.seeAlso.length) L.push(`See also: ${t.seeAlso.join(", ")}`);
+  }
 
   rule();
   L.push("## Guides");

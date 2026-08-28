@@ -122,6 +122,21 @@ Preview deployments (`VERCEL_ENV=preview`) are served `noindex, nofollow` and a
 `Disallow: /` robots.txt, so a preview never competes with production for its
 own queries.
 
+## The authority layer
+
+Beyond the service and city pages, the site carries the reference material that
+makes it citable rather than just findable:
+
+| Surface | What it is | Why it exists |
+| --- | --- | --- |
+| `/methods` (8) | How each assembly is actually built, step by step, with when it is correct and when it is wrong | The question behind "who should install my floor" is "do they know what they are doing" |
+| `/answers` (28) | Short, direct answers, each also rendered in full on the index with FAQPage markup | Answer engines retrieve one page and can quote any of the 28 |
+| `/glossary` (22 terms) | One page, anchored per term, `DefinedTermSet` schema | Twenty-two one-paragraph URLs would be thin; one substantial page is not |
+| `/guides` (19) | Long-form specification and cost | Depth for the queries that convert |
+
+`docs/QUERY-INVENTORY.md` maps every target query to exactly one URL, which is
+what keeps two pages from competing for the same search.
+
 ## The AI-facing surface
 
 `/llms.txt`, `/ai.txt`, and `/llms-full.txt` are generated routes, not static

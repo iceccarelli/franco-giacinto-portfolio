@@ -1,6 +1,9 @@
+import { answers } from "@/data/answers";
 import { cities } from "@/data/areas";
 import { faqs } from "@/data/faq";
+import { glossary } from "@/data/glossary";
 import { guides } from "@/data/guides";
+import { methods } from "@/data/methods";
 import { projects } from "@/data/projects";
 import { services } from "@/data/services";
 import { species } from "@/data/species";
@@ -12,7 +15,8 @@ import { species } from "@/data/species";
  * local index means search works instantly and offline, with no query logging.
  */
 
-export type SearchKind = "Service" | "Area" | "Guide" | "Project" | "Species" | "Page" | "Question";
+export type SearchKind =
+  "Service" | "Area" | "Guide" | "Method" | "Term" | "Project" | "Species" | "Page" | "Question";
 
 export type SearchDoc = {
   id: string;
@@ -143,6 +147,34 @@ const staticPages: SearchDoc[] = [
     keywords: ["phone", "email", "address", "hours", "book", "call"],
   },
   {
+    id: "page-methods",
+    kind: "Page",
+    title: "Installation & stair methods",
+    description:
+      "Nail-down, glue-down, floating, retreads, open risers — how each assembly is built.",
+    path: "/methods",
+    primary: "Methods",
+    keywords: ["how to install hardwood", "method", "assembly", "process", "technique"],
+  },
+  {
+    id: "page-answers",
+    kind: "Page",
+    title: "Hardwood questions, answered",
+    description: "Short, direct answers on stairs, installation, cost, and code.",
+    path: "/answers",
+    primary: "Answers",
+    keywords: ["questions", "answers", "ask", "how much", "can you"],
+  },
+  {
+    id: "page-glossary",
+    kind: "Page",
+    title: "Hardwood glossary",
+    description: "Every term on a hardwood quote, defined in plain English.",
+    path: "/glossary",
+    primary: "Glossary",
+    keywords: ["terms", "definitions", "vocabulary", "jargon", "what is"],
+  },
+  {
     id: "page-faq",
     kind: "Page",
     title: "Hardwood FAQ",
@@ -154,6 +186,33 @@ const staticPages: SearchDoc[] = [
 ];
 
 export const searchDocs: SearchDoc[] = [
+  ...methods.map<SearchDoc>((m) => ({
+    id: `method-${m.slug}`,
+    kind: "Method",
+    title: m.name,
+    description: m.summary,
+    path: `/methods/${m.slug}`,
+    primary: m.name,
+    keywords: [m.cluster, m.headline, m.when],
+  })),
+  ...answers.map<SearchDoc>((a) => ({
+    id: `answer-${a.slug}`,
+    kind: "Question",
+    title: a.q,
+    description: a.a,
+    path: `/answers/${a.slug}`,
+    primary: a.q,
+    keywords: [a.intent, a.primaryService],
+  })),
+  ...glossary.map<SearchDoc>((t) => ({
+    id: `term-${t.slug}`,
+    kind: "Term",
+    title: t.term,
+    description: t.short,
+    path: `/glossary#${t.slug}`,
+    primary: t.term,
+    keywords: [t.cluster, ...t.seeAlso],
+  })),
   ...services.map<SearchDoc>((s) => ({
     id: `service-${s.slug}`,
     kind: "Service",
@@ -223,7 +282,9 @@ const KIND_WEIGHT: Record<SearchKind, number> = {
   Service: 6,
   Page: 5,
   Area: 4,
+  Method: 4,
   Guide: 3,
+  Term: 3,
   Species: 2,
   Project: 2,
   Question: 1,

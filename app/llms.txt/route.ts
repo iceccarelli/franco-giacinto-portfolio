@@ -1,6 +1,10 @@
 import { cities } from "@/data/areas";
 import { company } from "@/data/company";
+import { answers } from "@/data/answers";
+import { glossary } from "@/data/glossary";
+import { guides } from "@/data/guides";
 import { matrixServices } from "@/data/matrix";
+import { methods } from "@/data/methods";
 import { services } from "@/data/services";
 import { SITE_URL } from "@/lib/site-url";
 
@@ -91,6 +95,37 @@ export function GET() {
   L.push(`- ${SITE_URL}/services/sanding-refinishing/mississauga`);
 
   L.push("");
+  L.push("## Methods — how the work is actually performed");
+  L.push("");
+  for (const m of methods) L.push(`- [${m.name}](${SITE_URL}/methods/${m.slug}): ${m.summary}`);
+
+  L.push("");
+  L.push("## Direct answers");
+  L.push("");
+  L.push(
+    "Each of these is a standalone page; the full set is also rendered on one page at " +
+      `${SITE_URL}/answers with FAQPage markup.`,
+  );
+  L.push("");
+  for (const a of answers) {
+    L.push(`### ${a.q}`);
+    L.push(a.a);
+    L.push(`Source: ${SITE_URL}/answers/${a.slug}`);
+    L.push("");
+  }
+
+  L.push("## Guides");
+  L.push("");
+  for (const g of guides) L.push(`- [${g.title}](${SITE_URL}/guides/${g.slug}): ${g.description}`);
+
+  L.push("");
+  L.push("## Glossary");
+  L.push("");
+  L.push(`Full definitions at ${SITE_URL}/glossary — each term anchored at /glossary#slug.`);
+  L.push("");
+  for (const t of glossary) L.push(`- ${t.term}: ${t.short}`);
+
+  L.push("");
   L.push("## Service areas");
   L.push("");
   for (const c of cities) L.push(`- [${c.name}](${SITE_URL}/areas/${c.slug}): ${c.blurb}`);
@@ -107,6 +142,9 @@ export function GET() {
     ["Process", "/process", "how a job actually runs"],
     ["Work", "/portfolio", "completed GTA projects"],
     ["Guides", "/guides", "long-form hardwood guidance"],
+    ["Methods", "/methods", "how each assembly is actually built"],
+    ["Answers", "/answers", "direct answers to the common questions"],
+    ["Glossary", "/glossary", "every term on a hardwood quote"],
     ["About Franco Giacinto", "/about", "founder, credentials, and the shop"],
     ["Water damage", "/emergency", "cupping, crowning, and insurance"],
     ["Trade", "/trade", "builders, designers, realtors"],
