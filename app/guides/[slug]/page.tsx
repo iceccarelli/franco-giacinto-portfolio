@@ -3,8 +3,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { JsonLd } from "@/components/json-ld";
 import { Button } from "@/components/ui/button";
-import { getGuide, guides } from "@/data/guides";
+import { getGuide, guides, updatedIso } from "@/data/guides";
 import { breadcrumbLd, clampDescription } from "@/lib/seo";
+import { SITE_URL } from "@/lib/site-url";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 
 type Params = { slug: string };
@@ -55,10 +56,17 @@ export default async function GuidePage({ params }: { params: Promise<Params> })
         data={{
           "@context": "https://schema.org",
           "@type": "Article",
+          "@id": `${SITE_URL}/guides/${guide.slug}#article`,
           headline: guide.title,
           description: guide.description,
-          dateModified: "2026-08-27",
-          author: { "@type": "Organization", name: "Green Hardwood" },
+          // Was the string "2026-08-27" on all nineteen guides. Now derived
+          // from the date the page itself shows the reader.
+          dateModified: updatedIso(guide),
+          datePublished: updatedIso(guide),
+          mainEntityOfPage: { "@type": "WebPage", "@id": `${SITE_URL}/guides/${guide.slug}` },
+          inLanguage: "en-CA",
+          publisher: { "@id": `${SITE_URL}/#business` },
+          author: { "@id": `${SITE_URL}/#business` },
         }}
       />
       <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6 sm:py-16">

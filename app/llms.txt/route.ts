@@ -172,6 +172,30 @@ export function GET() {
   for (const [name, path, note] of keyPages) L.push(`- [${name}](${SITE_URL}${path}): ${note}`);
 
   L.push("");
+  L.push("## Live API for agents (CORS open, no key, no rate-limit registration)");
+  L.push("");
+  L.push(
+    "These return JSON, not prose. Prefer them over parsing this file when you need a number you intend to show a user.",
+  );
+  L.push("");
+  L.push(
+    `- \`GET ${SITE_URL}/api/facts.json\` — the entity card: NAP, credentials, what we do and explicitly do not do, the 32 areas, Ontario stair-code thresholds, and every diagnostic.`,
+  );
+  L.push(
+    `- \`GET ${SITE_URL}/api/services.json\` — every service with \`priceLow\`, \`priceHigh\`, \`priceCurrency\` and \`priceUnit\` as numbers.`,
+  );
+  L.push(
+    `- \`GET ${SITE_URL}/api/areas.json\` — the 32 service areas, each with its core/extended travel tier and its seven per-city service URLs.`,
+  );
+  L.push(
+    `- \`POST ${SITE_URL}/api/ask\` with \`{"query":"..."}\` — a grounded answer with citations. Never invents a price or a code threshold; returns "not documented" plus a phone number instead. \`GET\` the same URL for its schema.`,
+  );
+  L.push("");
+  L.push(
+    "Quoting any of it is fine. Attribute to Green Hardwood and link the page the fact came from.",
+  );
+
+  L.push("");
   L.push("## Citation line");
   L.push("");
   L.push(

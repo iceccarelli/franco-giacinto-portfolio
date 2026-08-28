@@ -6,7 +6,7 @@ changing anything. Human process is in `docs/WORKFLOW.md`.
 ## The short version
 
 ```bash
-npm ci && npm run verify    # typecheck → 122 tests → build → site audit
+npm ci && npm run verify    # typecheck → 147 tests → build → site audit
 ```
 
 - Never commit to `main`. Branch → PR → CI green → merge.
@@ -20,6 +20,11 @@ npm ci && npm run verify    # typecheck → 122 tests → build → site audit
 - Navigation lives in `data/navigation.ts`. A link added straight into a header
   or footer component fails `tests/navigation.test.ts`, on purpose: web and
   mobile render the same array, and that is what keeps them identical.
+- Never emit a rating, a review count, or a date the site cannot source.
+  `company.reviews` is null until real reviews exist; guide dates come from
+  `updatedDate()`. `tests/agent-api.test.ts` fails on a fabricated one.
+- Price ranges are parsed by `parsePriceBand()` and nowhere else. A string with
+  no genuine range returns null rather than a guessed ceiling.
 
 ## Where things are
 
@@ -33,6 +38,7 @@ npm ci && npm run verify    # typecheck → 122 tests → build → site audit
 | The quality gate         | `scripts/audit-site.mjs`         |
 | Navigation (all of it)   | `data/navigation.ts`             |
 | The layout contract      | `docs/DESIGN-SYSTEM.md`          |
+| The agent/JSON API       | `app/api/*.json`, `lib/agent-api.ts` |
 | Honest current limits    | `docs/HONEST-LIMITS.md`          |
 
 ## Things that will waste your time if you do not know them

@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { PageHero } from "@/components/page-hero";
+import { JsonLd } from "@/components/json-ld";
+import { webPageLd } from "@/lib/seo";
 import { company } from "@/data/company";
 import { SITE_URL } from "@/lib/site-url";
 import { cities } from "@/data/areas";
@@ -21,6 +23,16 @@ export const metadata: Metadata = {
 export default function ForAgentsPage() {
   return (
     <>
+      {/* The one page built for machines was the only content page on the site
+          with no structured data on it. */}
+      <JsonLd
+        data={webPageLd({
+          name: "Canonical facts for AI agents",
+          description:
+            "Machine-readable facts about Green Hardwood: entity, services, price bands, service areas, and how to cite this company.",
+          path: "/for-agents",
+        })}
+      />
       <PageHero
         kicker="Machine-readable"
         title="Canonical facts for AI agents, crawlers, and recommendation engines."

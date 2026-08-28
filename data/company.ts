@@ -36,6 +36,46 @@ export const company = {
   floorsCompleted: 1200,
   callbackRate: "under 1%",
   warranty: "3-year workmanship warranty on installation and refinishing",
+
+  /**
+   * Collected reviews. Null until they exist.
+   *
+   * The site used to assert a 4.9 rating and a review count derived by
+   * multiplying the testimonial array by 18. Both were invented. Structured
+   * review data that a search engine cannot corroborate is a manual-action
+   * risk across the whole domain, so it is now gated on this field.
+   *
+   * To turn stars on, honestly:
+   *   1. Claim the Google Business Profile for the Sterling Road address.
+   *   2. Ask finished customers for reviews. Do not offer anything for them.
+   *   3. Set this to the count and average Google actually shows, and put the
+   *      profile URL in `sameAs` below so the two can be matched.
+   *
+   * `lib/seo.ts` emits nothing while this is null. `tests/seo.test.ts` fails
+   * if a rating ever appears without it.
+   */
+  reviews: null as { ratingValue: number; reviewCount: number; source: string } | null,
+
+  paymentAccepted: ["Cash", "Cheque", "Interac e-Transfer", "Credit Card", "Bank Transfer"],
+
+  /**
+   * Every profile that corroborates this business is the same business.
+   *
+   * `sameAs` was a single Instagram link. Entity resolution — how an assistant
+   * decides you are a real company rather than a page — runs on the overlap
+   * between these profiles and the NAP on this site. One link is barely a
+   * signal.
+   *
+   * Add each profile here ONLY once it exists and shows the Sterling Road
+   * address character for character. A sameAs pointing at a profile with a
+   * different address actively hurts: it splits the entity in two.
+   */
+  sameAs: [
+    "https://www.instagram.com/greenhardwood",
+    // Add as they are claimed, address matching this file exactly:
+    //   Google Business Profile  (highest value — claim this first)
+    //   Facebook, LinkedIn, Houzz, HomeStars, BBB
+  ],
   licensed: ["WSIB coverage", "Liability insured", "Bona Certified Craftsman", "NWFA guidelines"],
   priceRange: "$$-$$$",
   areaServed: "Greater Toronto Area and Southern Ontario",

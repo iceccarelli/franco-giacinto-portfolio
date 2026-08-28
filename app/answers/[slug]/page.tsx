@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/site-url";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -80,7 +81,10 @@ export default async function AnswerPage({ params }: { params: Promise<Params> }
             acceptedAnswer: {
               "@type": "Answer",
               text: item.a,
-              author: { "@id": `${company.website}/#business` },
+              // SITE_URL, not company.website. Until the domain cuts over the
+              // two differ, and company.website built an @id for a node that
+              // does not exist in the deployed graph — on all 28 answer pages.
+              author: { "@id": `${SITE_URL}/#business` },
             },
           },
         }}

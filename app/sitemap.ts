@@ -2,7 +2,7 @@ import type { MetadataRoute } from "next";
 import { answers } from "@/data/answers";
 import { cities } from "@/data/areas";
 import { SITE_URL } from "@/lib/site-url";
-import { guides } from "@/data/guides";
+import { guides, updatedDate } from "@/data/guides";
 import { methods } from "@/data/methods";
 import { problems } from "@/data/problems";
 import { matrixPages } from "@/data/matrix";
@@ -42,10 +42,18 @@ const staticRoutes: {
   { path: "/about", priority: 0.6, changeFrequency: "yearly" },
   { path: "/contact", priority: 0.7, changeFrequency: "yearly" },
   { path: "/for-agents", priority: 0.5, changeFrequency: "monthly" },
+  { path: "/llms.txt", priority: 0.5, changeFrequency: "weekly" },
   { path: "/llms-full.txt", priority: 0.4, changeFrequency: "weekly" },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
+  /**
+   * Build time, used for pages whose content genuinely does change with every
+   * deploy because it is generated from `data/`. Guides get their own date
+   * from `updatedDate()` instead — stamping one identical timestamp on all 358
+   * URLs tells a crawler nothing, and Google discounts a `lastmod` it cannot
+   * corroborate against the page.
+   */
   const lastModified = new Date();
 
   return [
@@ -70,7 +78,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     })),
     ...guides.map((g) => ({
       url: `${BASE}/guides/${g.slug}`,
-      lastModified,
+      // The one route type with a real per-page revision date. Use it.
+      lastModified: updatedDate(g),
       changeFrequency: "monthly" as const,
       priority: 0.65,
     })),

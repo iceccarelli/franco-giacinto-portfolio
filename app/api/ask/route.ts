@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { SITE_URL } from "@/lib/site-url";
 import { company } from "@/data/company";
 import { contextFor, respond, type AssistantReply } from "@/lib/assistant/respond";
+import { AGENT_CORS, agentPreflight } from "@/lib/agent-api";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -136,18 +138,56 @@ export async function POST(request: Request) {
   const reply = grounded.basis === "grounded" ? await withClaude(query, grounded) : grounded;
 
   return NextResponse.json(reply, {
-    headers: { "Cache-Control": "no-store" },
+    // CORS is open on purpose. This endpoint reads nothing about the caller,
+    // returns only content already published on the site, and exists to be
+    // called by other people's agents. Without these headers a browser-based
+    // agent is blocked from the one endpoint built for it.
+    headers: { ...AGENT_CORS, "Cache-Control": "no-store" },
   });
+}
+
+/** Preflight, so a browser-based agent can reach the POST. */
+export function OPTIONS() {
+  return agentPreflight();
 }
 
 /** GET returns the assistant's own description, for humans and for crawlers. */
 export function GET() {
-  return NextResponse.json({
-    name: `${company.name} assistant`,
-    description:
-      "Answers questions about hardwood installation, stairs, railings, refinishing, local pricing across the GTA, and Ontario stair code. Every answer is drawn from this site's published content.",
-    usage: { method: "POST", body: { query: "string" } },
-    grounding: `${company.website}/llms-full.txt`,
-    escalation: company.phoneDisplay,
-  });
+  return NextResponse.json(
+    {
+      name: `${company.name} assistant`,
+      description:
+        "Answers questions about hardwood installation, stairs, railings, refinishing, local pricing across the GTA, and Ontario stair code. Every answer is drawn from this site's published content.",
+      usage: {
+        method: "POST",
+        url: `${SITE_URL}/api/ask`,
+        contentType: "application/json",
+        body: { query: "string, max 500 characters" },
+        returns: {
+          answer: "string",
+          sources: "array of { title, path, kind }",
+          followUps: "array of string",
+          cta: "{ label, href } or null",
+          basis: '"grounded" | "fallback"',
+        },
+      },
+      guarantees: [
+        "Every answer is drawn verbatim from published pages on this site or from a template whose values come from the same data.",
+        "Prices are estimate bands, never firm quotes.",
+        "The assistant will not state whether a specific staircase passes inspection; it quotes the Ontario Building Code thresholds and defers to the municipal building department.",
+        "An undocumented question returns an explicit 'not documented' plus a phone number, never a guess.",
+      ],
+      related: {
+        services: `${SITE_URL}/api/services.json`,
+        areas: `${SITE_URL}/api/areas.json`,
+        facts: `${SITE_URL}/api/facts.json`,
+        grounding: `${SITE_URL}/llms-full.txt`,
+        index: `${SITE_URL}/llms.txt`,
+      },
+      rateLimit: `${MAX_PER_WINDOW} requests per ${WINDOW_MS / 1000}s per IP`,
+      escalation: { phone: company.phoneDisplay, tel: `tel:${company.phone}` },
+      license: "Facts about this business may be quoted and cited freely.",
+    },
+    { headers: { ...AGENT_CORS, "Cache-Control": "public, s-maxage=3600" } },
+  );
 }

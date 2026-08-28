@@ -16,6 +16,25 @@ The live host is still franco-giacinto-portfolio.vercel.app. Answer engines will
 
 Leads are still captured to the server log, not emailed. `RESEND_API_KEY` is unset. Ranking for a query you cannot answer the phone for is worse than not ranking.
 
-The photography is AI-generated. 181 pages now attach specific local claims to it. One real job photo is worth more than the whole set.
+The photography is AI-generated. 358 pages now attach specific local claims to it. One real job photo is worth more than the whole set.
 
-`aggregateRating` in the LocalBusiness schema is computed from the testimonial count, not from collected reviews. Either collect real reviews or remove it — a rating Google cannot corroborate is a liability, not an asset.
+**Resolved.** `aggregateRating` used to be `ratingValue: "4.9"` with a review
+count derived by multiplying the testimonial array by 18. Neither number had a
+source, and it shipped on all 358 pages. It has been removed.
+
+The site now emits no rating at all. `company.reviews` in `data/company.ts` is
+`null`, and `reviewsLd()` in `lib/seo.ts` returns nothing while it stays that
+way. `tests/agent-api.test.ts` fails the build if a rating ever appears without
+that field being set.
+
+**What remains for you:** the site has no stars because it has not earned any
+yet. Claim the Google Business Profile for the Sterling Road address, ask
+finished customers for reviews without offering them anything in return, then
+set `company.reviews` to the count and average Google actually shows and add the
+profile URL to `company.sameAs`. That is the only honest path to a rating, and
+it is worth more than the fabricated one was — a corroborated 4.6 outranks an
+invented 4.9, because the invented one risks a manual action that would strip
+every rich result from the domain.
+
+The testimonials still render on the page as ordinary copy. They are simply no
+longer asserted to a search engine as verified review data.
