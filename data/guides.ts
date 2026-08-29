@@ -1,4 +1,38 @@
 import { guideExpansions } from "./guides-expansion";
+import { calculateEstimate, cityMult, type EstimateInput } from "./estimate";
+
+/**
+ * A worked example in a guide must come from the same estimator that prices
+ * real jobs, or the two will drift and an answer engine will quote whichever
+ * it read first. This scans every city multiplier so the band honestly spans
+ * "in the GTA" rather than silently assuming Toronto.
+ *
+ * The bug this replaces: the cost guide said a 1,000 sq ft site-finished
+ * white-oak main floor "lands around $13,000–$18,000" while /estimate computed
+ * $16,900–$24,000 for the identical job. Same site, two answers.
+ */
+function gtaBand(input: Omit<EstimateInput, "city">) {
+  let low = Infinity;
+  let high = 0;
+  for (const city of Object.keys(cityMult)) {
+    const r = calculateEstimate({ ...input, city });
+    low = Math.min(low, r.low);
+    high = Math.max(high, r.high);
+  }
+  return { low, high };
+}
+
+const cadRounded = (n: number) => `$${(Math.round(n / 100) * 100).toLocaleString("en-CA")}`;
+
+const mainFloorExample = gtaBand({
+  service: "install",
+  sqft: 1000,
+  species: "white-oak",
+  pattern: "straight",
+  finish: "matte",
+  stairs: 0,
+  railingFt: 0,
+});
 
 export type Guide = {
   slug: string;
@@ -30,7 +64,7 @@ const coreGuides: Guide[] = [
       {
         heading: "The short version",
         paragraphs: [
-          "In the Greater Toronto Area in 2026, most homeowners should budget $11–$22 per square foot for a hardwood install (material + labour) and $4.50–$8.50 per square foot for a professional dust-contained refinish. Stairs are $380–$850 per step. Railings are $180–$420 per linear foot. A typical 1,000 sq ft main floor in white oak, straight lay, site-finished, lands around $13,000–$18,000 before HST and before the stair.",
+          `In the Greater Toronto Area in 2026, most homeowners should budget $11–$22 per square foot for a hardwood install (material + labour) and $4.50–$8.50 per square foot for a professional dust-contained refinish. Stairs are $380–$850 per step. Railings are $180–$420 per linear foot. A typical 1,000 sq ft main floor in white oak, straight lay, site-finished, lands around ${cadRounded(mainFloorExample.low)}–${cadRounded(mainFloorExample.high)} before HST and before the stair — the estimator computes the same number, city by city.`,
           "Anyone quoting $6/sq ft installed for solid oak in Toronto is either omitting material, omitting prep, or omitting the truth. Anyone quoting $40/sq ft for a straight white-oak field without herringbone or walnut is testing whether you will pay for atmosphere.",
         ],
       },

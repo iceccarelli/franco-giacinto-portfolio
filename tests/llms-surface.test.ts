@@ -98,3 +98,40 @@ describe("llms.txt never promises a 404", () => {
     }
   });
 });
+
+describe("price bands agree across surfaces", () => {
+  test("the cost guide quotes the same catalogue bands as data/services.ts", async () => {
+    const { guides } = await import("@/data/guides");
+    const { services, parsePriceBand } = await import("@/data/services");
+    const guide = guides.find((g) => g.slug === "hardwood-flooring-cost-gta-2026");
+    assert.ok(guide, "the 2026 cost guide is gone");
+    const prose = guide.sections.map((s) => s.paragraphs.join(" ")).join(" ");
+
+    for (const slug of ["hardwood-installation", "sanding-refinishing", "hardwood-stairs", "hardwood-railings"]) {
+      const service = services.find((s) => s.slug === slug);
+      assert.ok(service, `service ${slug} is gone`);
+      const band = parsePriceBand(service.priceFrom);
+      assert.ok(band, `service ${slug} has no parseable band`);
+      assert.ok(
+        prose.includes(`$${band.low}`) && prose.includes(`$${band.high}`),
+        `the cost guide's band for ${slug} no longer matches priceFrom (${service.priceFrom})`,
+      );
+    }
+  });
+
+  test("the guide's worked example is computed by the estimator, not retyped", async () => {
+    const { readFileSync } = await import("node:fs");
+    // Comments stripped, so the test cannot match its own explanation of the fix.
+    const src = readFileSync("data/guides.ts", "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
+    assert.ok(
+      /calculateEstimate/.test(src),
+      "the worked example in the cost guide must derive from data/estimate.ts",
+    );
+    assert.ok(
+      !/lands around \$1[0-9],000–\$1[0-9],000/.test(src),
+      "a hard-coded worked-example band is back in data/guides.ts",
+    );
+  });
+});
