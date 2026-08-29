@@ -48,6 +48,14 @@ focus are the wrong changes, even when they add pages.
 6. **Never state that a specific staircase passes inspection.** Quote the
    thresholds from `OBC_LIMITS` and say the municipal building department
    decides. This is a liability boundary, not a stylistic preference.
+7. **Only `greenhardwood.ca` may be indexed.** Every `*.vercel.app` host —
+   previews and the production alias alike — gets `X-Robots-Tag: noindex`
+   from `next.config.mjs`. `tests/host-noindex.test.ts` fails if that rule is
+   removed or loosened.
+8. **Machine surfaces never promise a 404 and never contradict `data/`.**
+   `/llms.txt` and `/ai.txt` are generated; every URL they emit must resolve,
+   and worked price examples derive from the estimator rather than being
+   retyped. `tests/llms-surface.test.ts` is the gate.
 
 ---
 
