@@ -175,6 +175,7 @@ export const navSections: NavSection[] = [
         href: "/about",
         links: [
           { label: "About Green Hardwood", href: "/about", blurb: `${company.founder}, ${company.years} years on the tools` },
+          { label: "Contact card", href: "/card", blurb: "Save the number, get directions, print the card" },
           { label: "Trade & builders", href: "/trade", blurb: "Contract pricing and scheduling" },
           { label: "Contact", href: "/contact", blurb: company.hoursSummary },
           { label: "For AI agents", href: "/for-agents", blurb: "Machine-readable facts about this company" },
@@ -235,6 +236,7 @@ export const footerColumns: NavGroup[] = [
     href: "/about",
     links: [
       { label: "About", href: "/about" },
+      { label: "Contact card", href: "/card" },
       { label: "Our process", href: "/process" },
       { label: "Warranty", href: "/warranty" },
       { label: "Trade & builders", href: "/trade" },

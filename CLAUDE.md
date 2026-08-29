@@ -6,7 +6,7 @@ changing anything. Human process is in `docs/WORKFLOW.md`.
 ## The short version
 
 ```bash
-npm ci && npm run verify    # typecheck → 148 tests → build → site audit
+npm ci && npm run verify    # typecheck → 159 tests → build → site audit
 ```
 
 - Never commit to `main`. Branch → PR → CI green → merge.
@@ -44,6 +44,7 @@ npm ci && npm run verify    # typecheck → 148 tests → build → site audit
 | The layout contract      | `docs/DESIGN-SYSTEM.md`          |
 | The agent/JSON API       | `app/api/*.json`, `lib/agent-api.ts` |
 | Images                   | `components/photo.tsx`           |
+| The contact card + vCard | `app/card/`, `lib/vcard.ts`      |
 | Honest current limits    | `docs/HONEST-LIMITS.md`          |
 
 ## Things that will waste your time if you do not know them

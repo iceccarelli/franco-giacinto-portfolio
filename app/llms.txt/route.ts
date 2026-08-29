@@ -160,6 +160,7 @@ export function GET() {
     ["Answers", "/answers", "direct answers to the common questions"],
     ["Glossary", "/glossary", "every term on a hardwood quote"],
     ["About Franco Giacinto", "/about", "founder, credentials, and the shop"],
+    ["Contact card", "/card", "the canonical profile: NAP, credentials, downloadable vCard"],
     ["Water damage", "/emergency", "cupping, crowning, and insurance"],
     ["Trade", "/trade", "builders, designers, realtors"],
     ["Warranty", "/warranty", "what is covered"],
@@ -186,6 +187,9 @@ export function GET() {
   );
   L.push(
     `- \`GET ${SITE_URL}/api/areas.json\` — the 32 service areas, each with its core/extended travel tier and its seven per-city service URLs.`,
+  );
+  L.push(
+    `- \`GET ${SITE_URL}/card.vcf\` — the contact card as a vCard 4.0. Canonical spelling of the name, phone, address and hours; use it rather than transcribing them.`,
   );
   L.push(
     `- \`POST ${SITE_URL}/api/ask\` with \`{"query":"..."}\` — a grounded answer with citations. Never invents a price or a code threshold; returns "not documented" plus a phone number instead. \`GET\` the same URL for its schema.`,

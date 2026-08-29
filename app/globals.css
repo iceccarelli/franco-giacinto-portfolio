@@ -138,3 +138,87 @@ details[data-footer-column][open] > summary > span::after {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Printing /card.
+
+   Two 3.5in x 2in rectangles — the North American standard business card — so
+   the page is genuinely printable rather than a web page that happens to be
+   shaped like a card. `print:hidden` on the surrounding sections strips
+   everything else; these rules fix the geometry.
+
+   Colours are forced with `print-color-adjust`, because the default in every
+   browser is to drop backgrounds when printing, and a card whose forest-green
+   front prints as a white rectangle with white text is a blank card.
+--------------------------------------------------------------------------- */
+
+@media print {
+  @page {
+    size: auto;
+    margin: 12mm;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+  }
+
+  /* The header, footer, mobile CTA bar and assistant are chrome, not content. */
+  /* Chrome, not content. The assistant bubble and the mobile CTA bar are
+     `fixed`, so they print on top of the card unless they are removed by name —
+     the first print of this page had a chat bubble in the corner. */
+  header,
+  footer,
+  [data-footer-column],
+  [data-mobile-cta],
+  [data-assistant],
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* One card per row, so each prints at true size and neither is clipped by a
+     narrow page. Two 3.5in cards side by side plus a gap overflow US Letter
+     portrait once margins are taken. */
+  .print-cards {
+    display: block !important;
+  }
+
+  .print-card {
+    /* Exact card geometry. `aspect-ratio` is ignored by some print engines, so
+       both dimensions are stated. */
+    width: 3.5in !important;
+    height: 2in !important;
+    max-width: none !important;
+    aspect-ratio: auto !important;
+    padding: 0.17in !important;
+    border-radius: 0.06in !important;
+    box-shadow: none !important;
+    outline: 1px solid rgb(0 0 0 / 0.15);
+    outline-offset: 0;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .print-card + .print-card {
+    margin-top: 0.3in;
+  }
+
+  /* The card is 19% narrower and 19% shorter on paper than on screen, so blocks
+     that only just fitted on screen no longer do. The services line goes (the
+     QR points at the site that lists them) and the credentials tighten. */
+  .print-card [data-card-services] {
+    display: none !important;
+  }
+
+  .print-card [data-card-credentials] {
+    font-size: 0.5rem;
+    line-height: 1.35;
+  }
+
+  /* An href printed after every link would wrap a 3.5in card into nonsense. */
+  .print-card a::after {
+    content: none !important;
+  }
+}
