@@ -51,8 +51,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
   /**
    * Build time, used for pages whose content genuinely does change with every
    * deploy because it is generated from `data/`. Guides get their own date
-   * from `updatedDate()` instead — stamping one identical timestamp on all 358
-   * URLs tells a crawler nothing, and Google discounts a `lastmod` it cannot
+   * from `updatedDate()` instead — stamping one identical timestamp on every
+   * URL tells a crawler nothing, and Google discounts a `lastmod` it cannot
    * corroborate against the page.
    */
   const lastModified = new Date();

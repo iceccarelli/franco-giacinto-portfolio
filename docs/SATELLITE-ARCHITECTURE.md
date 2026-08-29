@@ -2,7 +2,7 @@
 
 > **Status: not deployed, and deliberately so.**
 >
-> The routes in this repo (`/methods`, `/answers`, `/glossary`, the 84 service x
+> The routes in this repo (`/methods`, `/answers`, `/glossary`, the 224 service x
 > city pages) already capture the queries these subdomains were meant to catch,
 > from a single domain that accumulates authority instead of splitting it.
 >
@@ -36,7 +36,7 @@ Every satellite page points `rel=canonical` at the matching URL on the main site
 
 ## Forbidden
 
-- A new root domain that repeats the same 12 city pages.
+- A new root domain that repeats the same 32 city pages.
 - `greenhardwoodtoronto.com`, `hardwoodstairstoronto.net`, etc. unless they 301 to the canonical.
 - Different phone numbers on different sites.
 - Auto-generated city doorway pages on a satellite.

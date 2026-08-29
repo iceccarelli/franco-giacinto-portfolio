@@ -13,9 +13,10 @@ more length.
 ## What this repository is
 
 The production website of **Green Hardwood**, a hardwood flooring, stairs, and
-railings company in Toronto. Live at the Vercel production domain.
+railings company in Toronto. Live at **https://greenhardwood.ca** — the
+`*.vercel.app` alias serves the same bytes and is deliberately noindexed.
 
-It is a statically prerendered Next.js 15 App Router site: **181 pages**, all
+It is a statically prerendered Next.js 15 App Router site: **359 pages**, all
 generated at build time from typed content modules in `data/`. TypeScript is
 `strict` with `noUncheckedIndexedAccess`.
 
@@ -30,10 +31,10 @@ focus are the wrong changes, even when they add pages.
 1. **Never commit to `main`.** Branch, open a PR, let CI pass. `main` deploys to
    production within about a minute of a push.
 2. **Run `npm ci && npm run verify` before proposing a change is done.**
-   `verify` is typecheck → 92 tests → build → site audit. If the audit fails, the
+   `verify` is typecheck → tests → build → site audit. If the audit fails, the
    change is not ready, no matter how good the diff looks.
 3. **Content belongs in `data/`, never inline in a `page.tsx`.** A service
-   description in `data/services.ts` feeds the service page, 12 city pages, the
+   description in `data/services.ts` feeds the service page, 32 city pages, the
    header, the footer, the homepage, the JSON-LD offer catalogue, the sitemap,
    the search index, `llms.txt`, and the assistant. Inlining copy breaks that
    guarantee silently.
@@ -56,7 +57,7 @@ focus are the wrong changes, even when they add pages.
 npm ci              # exactly what Vercel runs; fails on lockfile drift
 npm run dev         # http://localhost:3000
 npm run typecheck   # tsc --noEmit
-npm test            # 92 unit tests, ~2s
+npm test            # unit tests, ~4s
 npm run build       # prerenders every route
 npm run audit:site  # post-build gate, reads the generated HTML
 npm run verify      # all four, in order
@@ -72,7 +73,7 @@ modules guarded by `server-only` can load outside a Server Component.
 
 ```
 app/                        route segments; every page exports metadata + JSON-LD
-  services/[slug]/[city]/   84 service x city pages, generated from data/matrix.ts
+  services/[slug]/[city]/   224 service x city pages, generated from data/matrix.ts
   answers/ methods/         the authority layer
   glossary/                 ONE page, anchored per term — not one page per term
   api/ask/                  the assistant endpoint
@@ -88,7 +89,7 @@ lib/
   assistant/                grounded retrieval for /api/ask
   leads.ts lead-delivery.ts
 scripts/audit-site.mjs      the quality gate
-tests/                      92 tests over the pure logic and the content
+tests/                      unit tests over the pure logic and the content
 docs/                       WORKFLOW, QUERY-INVENTORY, DISCOVERY, HONEST-LIMITS
 ```
 
@@ -161,8 +162,12 @@ city query, and `getSpecies()` could return `undefined` under
 - Leads are captured to the server log; `RESEND_API_KEY` is not set yet.
 - `data/problems.ts` is written to name the cases where a floor cannot be saved.
   Do not soften those into sales copy — they are what makes the rest credible.
-- `aggregateRating` in the LocalBusiness schema is computed from the testimonial
-  count, not from collected reviews. It should be earned or removed.
+- The site emits **no rating at all**: `company.reviews` is `null` and
+  `lib/seo.ts` emits nothing while it stays that way. A previous version
+  invented a 4.9 from the testimonial count; `tests/agent-api.test.ts` fails
+  the build if a rating ever reappears without a real source. Stars turn on
+  only when the owner claims the Google Business Profile and writes the live
+  count into `company.reviews`.
 - The photography is AI-generated placeholder work.
 - Satellite domains and subdomains are deliberately **not** deployed. See
   `docs/SATELLITE-ARCHITECTURE.md`. Do not propose them.
