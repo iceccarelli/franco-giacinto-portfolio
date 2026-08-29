@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Photo } from "@/components/photo";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Check } from "lucide-react";
@@ -113,11 +114,13 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
               </Button>
             </div>
           </div>
-          <img
+          <Photo
             src={service.image}
             alt={service.imageAlt}
-            className="aspect-[4/3] w-full rounded-xl object-cover shadow-[var(--shadow-card)]"
-           fetchPriority="high" decoding="async"
+            ratio="4/3"
+            slot="half"
+            priority
+            className="rounded-xl shadow-[var(--shadow-card)]"
           />
         </div>
       </section>
@@ -145,11 +148,11 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
                     key={p.slug}
                     className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
                   >
-                    <img
-                      src={p.image}
-                      alt={p.imageAlt}
-                      className="aspect-[16/10] w-full object-cover"
-           loading="lazy" decoding="async"
+                    <Photo
+            src={p.image}
+            alt={p.imageAlt}
+            ratio="16/10"
+            slot="card"
           />
                     <div className="p-4">
                       <h3 className="font-display text-lg">{p.title}</h3>

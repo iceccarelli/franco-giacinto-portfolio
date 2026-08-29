@@ -200,17 +200,46 @@ describe("layout system", () => {
     assert.deepEqual(offenders, [], `page rails outside the two-width system:\n${offenders.join("\n")}`);
   });
 
-  test("every raw <img> declares how it loads", () => {
+  test("photography goes through the optimizer, not a raw <img>", () => {
+    /**
+     * next.config.mjs has declared AVIF/WebP output and seven deviceSizes since
+     * the first patch — and that configuration only applies to next/image,
+     * which the site used in exactly one file while shipping nineteen raw
+     * <img> elements. The measured cost was 10.79 MB of media on the homepage
+     * alone, because a 1,792px JPEG was being sent to a 360px card.
+     *
+     * <Photo> is the sanctioned wrapper. components/before-after.tsx uses
+     * next/image directly because its slider needs two absolutely positioned
+     * siblings, and components/photo.tsx is the wrapper itself.
+     */
+    const ALLOWED = new Set(["components/photo.tsx", "components/before-after.tsx"]);
     const offenders: string[] = [];
     for (const file of sourceFiles) {
+      if (ALLOWED.has(file)) continue;
       const src = readFileSync(file, "utf8");
       for (const m of src.matchAll(/<img\b[\s\S]*?\/>/g)) {
-        if (!/\bloading=|\bfetchPriority=/.test(m[0])) {
-          offenders.push(`${file}:${src.slice(0, m.index).split("\n").length}`);
-        }
+        offenders.push(`${file}:${src.slice(0, m.index).split("\n").length}`);
       }
     }
-    assert.deepEqual(offenders, [], `images with no loading hint:\n${offenders.join("\n")}`);
+    assert.deepEqual(
+      offenders,
+      [],
+      `raw <img> bypasses the image optimizer — use <Photo>:\n${offenders.join("\n")}`,
+    );
+  });
+
+  test("exactly one image per page is marked priority", () => {
+    // priority implies eager. Marking several defeats it: the browser fetches
+    // them all up front and the real LCP element arrives later than it would.
+    for (const file of sourceFiles) {
+      // photo.tsx declares the prop; it does not use it.
+      if (file === "components/photo.tsx") continue;
+      const src = readFileSync(file, "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/^\s*\/\/.*$/gm, "");
+      const count = [...src.matchAll(/^\s+priority$/gm)].length;
+      assert.ok(count <= 1, `${file} marks ${count} images priority; at most one is the LCP element`);
+    }
   });
 
   test("h1 elements share one scale", () => {

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Photo } from "@/components/photo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowUpRight, Check, Clock, MapPin, Wallet } from "lucide-react";
@@ -139,14 +140,13 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
               </Button>
             </div>
           </div>
-          <img
+          <Photo
             src={service.image}
             alt={service.imageAlt}
-            width={1600}
-            height={1200}
-            loading="eager"
-            fetchPriority="high"
-            className="aspect-[4/3] w-full rounded-xl object-cover shadow-[var(--shadow-card)]"
+            ratio="4/3"
+            slot="half"
+            priority
+            className="rounded-xl shadow-[var(--shadow-card)]"
           />
         </div>
       </section>
@@ -230,12 +230,12 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
                     key={p.slug}
                     className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
                   >
-                    <img
-                      src={p.image}
-                      alt={p.imageAlt}
-                      loading="lazy"
-                      className="aspect-[16/10] w-full object-cover"
-                    />
+                    <Photo
+            src={p.image}
+            alt={p.imageAlt}
+            ratio="16/10"
+            slot="card"
+          />
                     <div className="p-4">
                       <h3 className="font-display text-lg">{p.title}</h3>
                       <p className="mt-1 text-sm text-muted">{p.summary}</p>

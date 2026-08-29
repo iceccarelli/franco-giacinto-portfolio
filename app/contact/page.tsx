@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Photo } from "@/components/photo";
 import { type ReactNode } from "react";
 import { QuoteForm } from "@/components/estimate/quote-form";
 import { PageHero } from "@/components/page-hero";
@@ -63,11 +64,12 @@ export default function ContactPage() {
             <Item label="Hours">{company.hoursSummary}</Item>
             <Item label="Coverage">{company.areaServed}</Item>
           </dl>
-          <img
+          <Photo
             src="/images/service-install.jpg"
             alt="Hardwood installation in progress with white oak planks and a pneumatic nailer."
-            className="mt-8 aspect-[16/10] w-full rounded-xl object-cover"
-           loading="lazy" decoding="async"
+            ratio="16/10"
+            slot="half"
+            className="mt-8 rounded-xl"
           />
         </div>
         <div className="rounded-xl bg-surface p-6 shadow-[var(--shadow-card)] sm:p-8">

@@ -243,11 +243,12 @@ for (const file of sourceFiles) {
     }
   }
 
-  // 6c. Every raw <img> declares how it loads.
-  for (const m of src.matchAll(/<img\b[\s\S]*?\/>/g)) {
-    if (!/\bloading=|\bfetchPriority=/.test(m[0])) {
+  // 6c. Photography goes through next/image, so the AVIF/WebP + srcset
+  //     pipeline configured in next.config.mjs actually applies to it.
+  if (!["components/photo.tsx", "components/before-after.tsx"].includes(file)) {
+    for (const m of src.matchAll(/<img\b[\s\S]*?\/>/g)) {
       const line = src.slice(0, m.index).split("\n").length;
-      fail(`${file}:${line} — <img> with no loading or fetchPriority hint`);
+      fail(`${file}:${line} — raw <img> bypasses the image optimizer; use <Photo>`);
     }
   }
 }

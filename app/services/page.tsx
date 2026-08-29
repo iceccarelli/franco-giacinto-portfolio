@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Photo } from "@/components/photo";
 import Link from "next/link";
 import { PageHero } from "@/components/page-hero";
 import { JsonLd } from "@/components/json-ld";
@@ -39,7 +40,12 @@ export default function ServicesIndex() {
             href={`/services/${s.slug}`}
             className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
           >
-            <img src={s.image} alt={s.imageAlt} className="aspect-[16/9] w-full object-cover" loading="lazy" decoding="async"/>
+            <Photo
+            src={s.image}
+            alt={s.imageAlt}
+            ratio="16/9"
+            slot="card"
+          />
             <div className="p-6">
               <p className="text-xs text-accent">{s.priceFrom}</p>
               <h2 className="mt-1 font-display text-2xl">{s.name}</h2>

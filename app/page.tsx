@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Photo } from "@/components/photo";
 import Link from "next/link";
 import { ArrowRight, MapPin } from "lucide-react";
 import { BeforeAfter } from "@/components/before-after";
@@ -91,11 +92,12 @@ export default function Home() {
               href={`/services/${s.slug}`}
               className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
             >
-              <img
-                src={s.image}
-                alt={s.imageAlt}
-                className="aspect-[16/10] w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
-           loading="lazy" decoding="async"
+              <Photo
+            src={s.image}
+            alt={s.imageAlt}
+            ratio="16/10"
+            slot="card"
+            imageClassName="transition-transform duration-300 group-hover:scale-[1.03]"
           />
               <div className="p-5">
                 <p className="text-xs text-accent">{s.priceFrom}</p>
@@ -134,11 +136,12 @@ export default function Home() {
               </Button>
             </div>
           </div>
-          <img
+          <Photo
             src="/images/stair-studio.jpg"
             alt="Custom white oak staircase with black metal balusters in a Greater Toronto home."
-            className="aspect-[3/2] w-full rounded-xl object-cover"
-           loading="lazy" decoding="async"
+            ratio="3/2"
+            slot="half"
+            className="rounded-xl"
           />
         </div>
       </section>
@@ -182,7 +185,12 @@ export default function Home() {
               key={p.slug}
               className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
             >
-              <img src={p.image} alt={p.imageAlt} className="aspect-[4/3] w-full object-cover" loading="lazy" decoding="async"/>
+              <Photo
+            src={p.image}
+            alt={p.imageAlt}
+            ratio="4/3"
+            slot="card"
+          />
               <div className="p-5">
                 <Badge>{p.location}</Badge>
                 <h3 className="mt-3 font-display text-xl">{p.title}</h3>

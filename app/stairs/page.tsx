@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Photo } from "@/components/photo";
 import Link from "next/link";
 import { JsonLd } from "@/components/json-ld";
 import { StairStudio } from "@/components/tools/stair-studio";
@@ -90,11 +91,13 @@ export default function StairsHub() {
               </Button>
             </div>
           </div>
-          <img
+          <Photo
             src="/images/stair-studio.jpg"
             alt="Custom white oak staircase with black steel balusters and a graspable oak handrail in a Toronto home."
-            className="aspect-[3/2] w-full rounded-xl object-cover shadow-[var(--shadow-card)]"
-           fetchPriority="high" decoding="async"
+            ratio="3/2"
+            slot="half"
+            priority
+            className="rounded-xl shadow-[var(--shadow-card)]"
           />
         </div>
       </section>
@@ -151,11 +154,11 @@ export default function StairsHub() {
                 key={p.slug}
                 className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
               >
-                <img
-                  src={p.image}
-                  alt={p.imageAlt}
-                  className="aspect-[16/10] w-full object-cover"
-           loading="lazy" decoding="async"
+                <Photo
+            src={p.image}
+            alt={p.imageAlt}
+            ratio="16/10"
+            slot="card"
           />
                 <div className="p-5">
                   <h3 className="font-display text-xl">{p.title}</h3>

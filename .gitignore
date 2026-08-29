@@ -6,3 +6,10 @@ out
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
+
+# Patches are transport, not source. Every patch uploaded through the GitHub
+# web UI has landed on main as a committed file — four times so far — and
+# scripts/apply-patch.sh has been quietly removing them on the next branch.
+# Ignoring them stops the round trip at the source.
+*.patch
+*.diff

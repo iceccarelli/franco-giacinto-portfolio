@@ -2,25 +2,57 @@
 
 import Link from "next/link";
 import { Check } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { company } from "@/data/company";
+
+type NetworkInfo = { saveData?: boolean; effectiveType?: string };
 
 export function HomeHero() {
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  /**
+   * The hero loop is 2.7 MB, and it is decoration — the poster frame carries
+   * the same information. It used to download for everyone, including the
+   * homeowner reading this on LTE in a driveway, which is a large share of the
+   * people this page is written for.
+   *
+   * So the <source> is only mounted once the client has said it is worth it.
+   * Server-rendered HTML therefore ships the poster and no video at all, which
+   * is also what a crawler gets. Three ways to decline:
+   *
+   *   - the OS asks for reduced motion
+   *   - the browser reports Data Saver on
+   *   - the connection reports itself as 2g or slow-3g
+   *
+   * There is no loading state to design around: the poster is the first frame,
+   * so a visitor who never gets the video sees a still photograph rather than
+   * a gap.
+   */
+  const [playVideo, setPlayVideo] = useState(false);
+
+  useEffect(() => {
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const net = (navigator as Navigator & { connection?: NetworkInfo }).connection;
+
+    const decide = () => {
+      const slow =
+        net?.saveData === true || (net?.effectiveType ?? "").match(/^(slow-)?2g$/) !== null;
+      setPlayVideo(!reduced.matches && !slow);
+    };
+
+    decide();
+    reduced.addEventListener("change", decide);
+    return () => reduced.removeEventListener("change", decide);
+  }, []);
+
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const sync = () => {
-      if (mq.matches) video.pause();
-      else void video.play();
-    };
-    sync();
-    mq.addEventListener("change", sync);
-    return () => mq.removeEventListener("change", sync);
-  }, []);
+    if (!video || !playVideo) return;
+    void video.play().catch(() => {
+      /* Autoplay refused. The poster stands on its own. */
+    });
+  }, [playVideo]);
 
   return (
     <section className="relative overflow-hidden">
@@ -62,10 +94,11 @@ export function HomeHero() {
             muted
             loop
             playsInline
+            preload={playVideo ? "auto" : "none"}
             poster="/images/stair-studio.jpg"
             aria-label="Custom white oak staircase in a Toronto home"
           >
-            <source src="/videos/stairs-hero.mp4" type="video/mp4" />
+            {playVideo ? <source src="/videos/stairs-hero.mp4" type="video/mp4" /> : null}
           </video>
           <div className="absolute right-4 bottom-4 left-4 rounded-lg bg-bg/92 p-4 shadow-[var(--shadow-card)] backdrop-blur sm:right-auto sm:max-w-xs">
             <p className="text-xs tracking-[0.16em] text-accent uppercase">On the stair now</p>

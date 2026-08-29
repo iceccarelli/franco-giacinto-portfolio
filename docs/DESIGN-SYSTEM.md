@@ -87,15 +87,30 @@ All fifteen of them. The three `<article>` detail routes had forked to
 
 ## 5. Images
 
-Every raw `<img>` declares how it loads:
+Every photograph renders through **`components/photo.tsx`**. A raw `<img>` fails
+the audit.
 
-- the one hero image per page: `fetchPriority="high" decoding="async"`
-- everything else: `loading="lazy" decoding="async"`
+`next.config.mjs` has declared `formats: ["image/avif", "image/webp"]` and seven
+`deviceSizes` since the first patch — and that configuration only applies to
+`next/image`, which the site used in exactly one file while shipping nineteen
+raw `<img>` elements. The optimizer was configured and reaching one photograph.
 
-Before this, **none of the sixteen images on the site had a loading hint**, so
-`/services` fetched eight images before the fold. On the LTE connection a
-homeowner actually browses from, that is the difference between a fast page and
-a slow one.
+Measured on the homepage:
+
+| | Before | After |
+| --- | --- | --- |
+| Imagery | 8.12 MB | **0.33 MB** |
+| Hero video | 2.7 MB, always | not fetched on Data Saver / 2g / reduced-motion |
+| Total media | **10.79 MB** | **0.33 MB** |
+
+`<Photo>` takes a `slot`, not a free-form `sizes` string, because a too-generous
+`sizes` makes the browser fetch the largest variant and undoes the exercise. The
+four slots are defined once against the real container widths of a `max-w-6xl`
+rail.
+
+At most one image per page carries `priority`. It is the LCP element or nothing
+— marking several makes the browser fetch them all eagerly and the real one
+arrives later than it would have.
 
 ## 6. The assistant dock
 
