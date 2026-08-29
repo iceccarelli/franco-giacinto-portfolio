@@ -23,6 +23,22 @@ const nextConfig = {
   async headers() {
     return [
       {
+        /**
+         * greenhardwood.ca is the only host that may enter an index.
+         *
+         * The meta-level noindex in lib/site-url.ts only covers
+         * VERCEL_ENV=preview. The production deployment is ALSO reachable at
+         * its own *.vercel.app alias, where VERCEL_ENV is "production" — same
+         * bytes, second host, and it has been observed serving
+         * "index, follow". A crawler that indexes it splits the entity in
+         * two. This header closes that hole for every *.vercel.app host,
+         * previews included, without touching the canonical domain.
+         */
+        source: "/:path*",
+        has: [{ type: "host", value: "(?<host>.*\\.vercel\\.app)" }],
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      },
+      {
         source: "/:path*",
         headers: [
           { key: "X-Content-Type-Options", value: "nosniff" },
