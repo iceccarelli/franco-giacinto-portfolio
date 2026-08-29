@@ -4,7 +4,7 @@ Full rules: **[AGENTS.md](./AGENTS.md)**. Review style guide: `.gemini/styleguid
 
 Production website of a Toronto hardwood flooring, stairs, and railings company.
 Next.js 15 App Router, TypeScript strict + `noUncheckedIndexedAccess`,
-Tailwind v4, 181 prerendered pages, no database, deployed on Vercel from `main`.
+Tailwind v4, 359 prerendered pages, no database, deployed on Vercel from `main`.
 
 ## Before proposing a change
 
@@ -28,4 +28,4 @@ Tailwind v4, 181 prerendered pages, no database, deployed on Vercel from `main`.
 npm ci && npm run verify
 ```
 
-typecheck → 92 tests → build (181 pages) → site audit.
+typecheck → tests → build (359 pages) → site audit.

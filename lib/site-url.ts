@@ -4,7 +4,7 @@
  * Every canonical tag, every JSON-LD `@id`, `metadataBase`, the sitemap, the
  * RSS feed, and llms.txt are built from this one value. Hard-coding it means a
  * deployment on a different host tells search engines the real content is
- * somewhere else — which, on a site with 132 pages, is 132 wrong signals.
+ * somewhere else — which, on a site with 359 pages, is 359 wrong signals.
  *
  * Resolution order, most specific first:
  *
@@ -50,8 +50,13 @@ export const SITE_URL = resolve();
  * True on a Vercel preview deployment.
  *
  * Preview builds are real, crawlable, publicly-addressable copies of the whole
- * site. Left alone they compete with production for the same 132 queries and
- * split the ranking signal. Every page on a preview is marked noindex and
- * robots.txt disallows everything.
+ * site. Left alone they compete with production for the same queries and split
+ * the ranking signal. Every page on a preview is marked noindex and robots.txt
+ * disallows everything.
+ *
+ * Note the gap this flag does NOT cover: the production deployment is also
+ * reachable at the project's *.vercel.app alias, where VERCEL_ENV is
+ * "production". That host is noindexed by a host-matched X-Robots-Tag header
+ * in next.config.mjs instead.
  */
 export const IS_PREVIEW = process.env.VERCEL_ENV === "preview";

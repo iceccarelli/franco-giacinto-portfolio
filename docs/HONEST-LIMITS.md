@@ -12,11 +12,11 @@ Doorway domains and spun city pages produce the opposite of authority.
 
 `data/company.ts` still lists 1,200 floors, Bona, NWFA, a Sterling Road studio, and (416) 847-3366. If any of that is not true, fix it before you scale URLs.
 
-The live host is still franco-giacinto-portfolio.vercel.app. Answer engines will treat that as a preview brand until greenhardwood.ca is attached. `lib/site-url.ts` means the cutover needs no code change — but until it happens, every canonical names a host that is not the brand.
+**Resolved.** greenhardwood.ca is attached and is the canonical host; every canonical, `@id`, and sitemap entry names it. The old risk inverted: the production deployment stayed reachable at franco-giacinto-portfolio.vercel.app with `index, follow`, so a host-matched header in `next.config.mjs` now serves `X-Robots-Tag: noindex, nofollow` on every `*.vercel.app` host. If the alias ever shows up in an index anyway, request removal — do not let two hosts carry the same entity.
 
 Leads are still captured to the server log, not emailed. `RESEND_API_KEY` is unset. Ranking for a query you cannot answer the phone for is worse than not ranking.
 
-The photography is AI-generated. 358 pages now attach specific local claims to it. One real job photo is worth more than the whole set.
+The photography is AI-generated. 359 pages now attach specific local claims to it. One real job photo is worth more than the whole set.
 
 **Resolved.** `aggregateRating` used to be `ratingValue: "4.9"` with a review
 count derived by multiplying the testimonial array by 18. Neither number had a

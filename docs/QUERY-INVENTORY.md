@@ -51,6 +51,29 @@ Priority: 1 = own this year, 2 = support, 3 = only if a page already exists.
 | dustless sanding Toronto  | 1        | /guides/dust-free-sanding-toronto      |
 | hardwood vs vinyl GTA     | 2        | /compare                               |
 
+## Entity — someone checking who we are
+
+These already resolve; no new pages. The job is that every one of these
+answers with the same NAP, and never with the inactive federal namesake.
+
+| Query                          | URL                    |
+| ------------------------------ | ---------------------- |
+| Green Hardwood                 | / (and /about, /card)  |
+| Green Hardwood Toronto reviews | /about (no stars until `company.reviews` is real) |
+| Franco Giacinto                | /about, /card          |
+| 88 Sterling Road hardwood      | /contact, /card        |
+| (416) 847-3366                 | /card, /card.vcf       |
+
+## Refuse — queries we deliberately do not chase
+
+A page for these would be a lie about what the company sells. The assistant
+and /for-agents decline them and offer the hardwood alternative.
+
+| Query                     | Response                                        |
+| ------------------------- | ----------------------------------------------- |
+| vinyl plank installer GTA | decline — /compare explains when vinyl wins     |
+| laminate installer Toronto| decline — no /services/vinyl or laminate, ever  |
+
 If a query is not in this table, do not create a page for it this quarter.
 
 ## Methods (added by the authority pack)
@@ -89,7 +112,7 @@ pages — twenty-two one-paragraph URLs is the definition of thin content.
 | Answers               | 28                        |
 | Glossary              | 1 page, 22 anchored terms |
 | Tools & company       | ~19                       |
-| **Total prerendered** | **341**                   |
+| **Total prerendered** | **359** (the audit prints the exact count) |
 
 ## Rule for adding more
 

@@ -13,3 +13,4 @@ next-env.d.ts
 # Ignoring them stops the round trip at the source.
 *.patch
 *.diff
+.env*

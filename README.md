@@ -13,7 +13,7 @@ A statically prerendered Next.js 15 App Router site built around one commercial 
 | Concern   | Choice                                            | Why                                                                                     |
 | --------- | ------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | Framework | Next.js 15, App Router                            | Per-route `generateMetadata`, `generateStaticParams`, native `sitemap.ts` / `robots.ts` |
-| Rendering | 100% static prerender                             | 52 HTML documents at build time; no cold starts, no runtime data dependency             |
+| Rendering | 100% static prerender                             | 359 HTML documents at build time; no cold starts, no runtime data dependency            |
 | Language  | TypeScript, `strict` + `noUncheckedIndexedAccess` | Lookups are total by construction, not by assertion                                     |
 | Styling   | Tailwind CSS v4, `@theme` tokens                  | One palette, zero hard-coded hex in components                                          |
 | Content   | Typed modules in `data/`                          | Content is data, so pages, schema, sitemap, and `llms.txt` never drift apart            |
@@ -49,7 +49,7 @@ lib/leads.ts                dependency-free lead validation
 lib/lead-delivery.ts        Resend adapter; never silently drops a lead
 scripts/audit-site.mjs      post-build quality gate (npm run audit:site)
 scripts/indexnow.mjs        announce URL changes to Bing, Yandex, and friends
-public/llms.txt ai.txt      canonical facts for answer engines
+app/llms.txt/ ai.txt/       canonical facts for answer engines, generated from data/
 ```
 
 ### Why the content lives in `data/`
@@ -99,7 +99,7 @@ npm install
 npm run dev          # http://localhost:3000
 npm run typecheck    # tsc --noEmit
 npm run build        # prerenders every route
-npm test             # 57 unit tests over the pure logic, ~2s
+npm test             # unit tests over the pure logic and the content, ~4s
 npm run verify       # typecheck + tests + build + audit
 npm run audit:site   # post-build: links, titles, canonicals, alt text, JSON-LD
 ```
@@ -119,7 +119,7 @@ that would quietly cost rankings or break a visitor:
 - a JSON-LD block that does not parse
 
 It also warns about SERP truncation and orphaned pages. Run it before every
-merge; it is the reason the site currently has 132 pages and 132 unique titles.
+merge; it is the reason the site currently has 359 pages and 359 unique titles.
 
 `npm run build` fetches and self-hosts Google Fonts, so the build machine needs network access.
 
@@ -140,8 +140,10 @@ in `data/company.ts` as a _business fact_; `SITE_URL` is an _infrastructure
 fact_. They converge once the domain is live.
 
 Preview deployments (`VERCEL_ENV=preview`) are served `noindex, nofollow` and a
-`Disallow: /` robots.txt, so a preview never competes with production for its
-own queries.
+`Disallow: /` robots.txt. The production deployment's own `*.vercel.app` alias
+runs with `VERCEL_ENV=production`, so it is caught separately: a host-matched
+header rule in `next.config.mjs` sends `X-Robots-Tag: noindex, nofollow` on
+every `*.vercel.app` host. Only `greenhardwood.ca` can enter an index.
 
 ## The authority layer
 
@@ -185,13 +187,13 @@ project. See `.env.example`.
 | Add a city landing page             | `data/areas.ts`                              |
 | Publish a guide                     | `data/guides.ts`                             |
 | Change NAP, hours, warranty         | `data/company.ts`                            |
-| Update 2026 price bands             | `data/estimate.ts` **and** `public/llms.txt` |
+| Update 2026 price bands             | `data/estimate.ts` **and** `priceFrom` in `data/services.ts` |
 | Add a project                       | `data/projects.ts`                           |
 | Add or remove a service x city page | `matrixServices` in `data/matrix.ts`         |
 | Ontario stair thresholds            | `OBC_LIMITS` in `data/obc.ts`                |
 | Ontario stair-code rules            | `data/obc.ts`                                |
 
-Price bands appear in three places by design — the estimator, the guides, and `llms.txt`. Update all three in the same commit so answer engines never quote a stale number.
+Price bands have exactly two sources: the numeric estimator model in `data/estimate.ts` (which computes the 224 per-city bands) and the published catalogue ranges in `data/services.ts` (`priceFrom`, parsed by `parsePriceBand()`). The service pages, the city FAQs, `/for-agents`, `llms.txt`, and `/api/services.json` all derive from those two files, so update both in the same commit and every surface moves together — answer engines never quote a stale number.
 
 ## Structured data
 
