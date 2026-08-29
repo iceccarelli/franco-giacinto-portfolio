@@ -56,6 +56,19 @@ export const company = {
    */
   reviews: null as { ratingValue: number; reviewCount: number; source: string } | null,
 
+  /**
+   * Entity disambiguation, stated on the machine surfaces (/ai.txt, /llms.txt).
+   *
+   * There is an unrelated federal corporation named "GREEN HARDWOOD FLOORING
+   * INC." that stopped existing independently in 2012. Answer engines have a
+   * habit of merging same-named entities and borrowing their incorporation
+   * dates. This line exists so a model that reads our own surfaces has the
+   * denial in writing. Do not derive a founding year from that corporation —
+   * this company's number is `years` above, and only `years`.
+   */
+  notToBeConfusedWith:
+    'Green Hardwood Flooring Inc., an unrelated and inactive federally incorporated company — its records, incorporation date, and business number are not this company\'s.',
+
   paymentAccepted: ["Cash", "Cheque", "Interac e-Transfer", "Credit Card", "Bank Transfer"],
 
   /**

@@ -14,6 +14,7 @@ import assert from "node:assert/strict";
 describe("the vercel.app alias can never be indexed", () => {
   test("next.config.mjs sends X-Robots-Tag noindex for every *.vercel.app host", async () => {
     const config = (await import("../next.config.mjs")).default;
+    assert.ok(config.headers, "next.config.mjs no longer defines headers()");
     const rules = await config.headers();
 
     const rule = rules.find(
@@ -32,6 +33,7 @@ describe("the vercel.app alias can never be indexed", () => {
 
   test("the canonical host is not caught by the noindex rule", async () => {
     const config = (await import("../next.config.mjs")).default;
+    assert.ok(config.headers, "next.config.mjs no longer defines headers()");
     const rules = await config.headers();
 
     for (const r of rules) {

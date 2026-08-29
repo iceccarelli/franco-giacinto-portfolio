@@ -45,6 +45,7 @@ const staticRoutes: {
   { path: "/for-agents", priority: 0.5, changeFrequency: "monthly" },
   { path: "/llms.txt", priority: 0.5, changeFrequency: "weekly" },
   { path: "/llms-full.txt", priority: 0.4, changeFrequency: "weekly" },
+  { path: "/ai.txt", priority: 0.4, changeFrequency: "monthly" },
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {
