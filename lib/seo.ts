@@ -2,8 +2,7 @@ import { company } from "@/data/company";
 import { SITE_URL } from "@/lib/site-url";
 import { cities } from "@/data/areas";
 import { faqs } from "@/data/faq";
-import { services } from "@/data/services";
-import { testimonials } from "@/data/testimonials";
+import { parsePriceBand, services } from "@/data/services";
 
 /**
  * Trims a description to a length search engines will actually display, cutting
@@ -44,7 +43,17 @@ export function websiteLd() {
     },
     potentialAction: {
       "@type": "SearchAction",
-      target: `${SITE_URL}/guides/{search_term_string}`,
+      /**
+       * This pointed at `/guides/{search_term_string}`. `/guides/[slug]` sets
+       * `dynamicParams = false` and calls `notFound()`, so every expansion of
+       * that template returned a 404 — a sitelinks searchbox that 404s is
+       * worse than no searchbox. `/search` is the route that accepts `?q=`.
+       * `tests/seo.test.ts` now asserts the target resolves to a real route.
+       */
+      target: {
+        "@type": "EntryPoint",
+        urlTemplate: `${SITE_URL}/search?q={search_term_string}`,
+      },
       "query-input": "required name=search_term_string",
     },
   };
@@ -140,18 +149,29 @@ export function localBusinessLd() {
         opens: h.open,
         closes: h.close,
       })),
-    aggregateRating: {
-      "@type": "AggregateRating",
-      ratingValue: "4.9",
-      reviewCount: String(testimonials.length * 18),
-      bestRating: "5",
-    },
-    review: testimonials.slice(0, 3).map((t) => ({
-      "@type": "Review",
-      author: { "@type": "Person", name: t.name },
-      reviewBody: t.quote,
-      reviewRating: { "@type": "Rating", ratingValue: t.rating, bestRating: 5 },
-    })),
+    /**
+     * No aggregateRating. No review nodes. Deliberately.
+     *
+     * This block used to emit ratingValue "4.9" — a number with no source —
+     * and reviewCount `testimonials.length * 18`, which is a multiplication,
+     * not a count. It shipped on all 358 pages.
+     *
+     * Google's review-snippet policy requires ratings to come from real,
+     * collected reviews, and self-serving reviews marked up on the business's
+     * own site are disallowed for LocalBusiness outright. The penalty is not
+     * losing the stars: a manual action strips EVERY rich result from the
+     * domain — the HowTo, the FAQ, the QAPage, the AggregateOffer on 224 city
+     * pages. Fabricating one number risks all of it.
+     *
+     * The testimonials still render on the page as ordinary copy. They are
+     * simply not asserted to a search engine as verified review data.
+     *
+     * To turn this back on: collect real reviews on Google Business Profile,
+     * then set `company.reviews` in data/company.ts to the real count and
+     * average, and `reviewsLd()` below will emit them. tests/seo.test.ts fails
+     * if a rating ever appears without that source.
+     */
+    ...reviewsLd(),
     knowsAbout: [
       "Hardwood floor installation",
       "Hardwood stairs",
@@ -167,7 +187,18 @@ export function localBusinessLd() {
       name: "Hardwood services",
       itemListElement: services.map((s) => ({
         "@type": "Offer",
+        ...(offersFromBand(s.priceFrom, `${SITE_URL}/services/${s.slug}`).offers
+          ? {
+              priceCurrency: "CAD",
+              priceSpecification: (
+                offersFromBand(s.priceFrom, `${SITE_URL}/services/${s.slug}`) as {
+                  offers: { lowPrice: string; highPrice?: string };
+                }
+              ).offers,
+            }
+          : {}),
         itemOffered: {
+          "@id": `${SITE_URL}/services/${s.slug}#service`,
           "@type": "Service",
           name: s.name,
           description: s.summary,
@@ -177,12 +208,69 @@ export function localBusinessLd() {
         },
       })),
     },
-    sameAs: [company.instagram],
+    sameAs: company.sameAs,
+    /**
+     * `additionalType` points the entity at an external vocabulary so an
+     * assistant resolving "hardwood flooring contractor in Toronto" can match
+     * this business to the concept rather than to a string. It is the cheapest
+     * entity-disambiguation signal available and almost nobody in the trades
+     * emits it.
+     */
+    additionalType: [
+      "https://www.wikidata.org/wiki/Q1195942",
+      "https://en.wikipedia.org/wiki/Wood_flooring",
+    ],
+    contactPoint: [
+      {
+        "@type": "ContactPoint",
+        telephone: company.phone,
+        email: company.email,
+        contactType: "sales",
+        areaServed: "CA-ON",
+        availableLanguage: ["en"],
+        hoursAvailable: company.hours
+          .filter((h) => h.open && h.close)
+          .map((h) => ({
+            "@type": "OpeningHoursSpecification",
+            dayOfWeek: h.day,
+            opens: h.open,
+            closes: h.close,
+          })),
+      },
+    ],
+    paymentAccepted: company.paymentAccepted.join(", "),
+    currenciesAccepted: "CAD",
     slogan: company.tagline,
     description: company.description,
     speakable: {
       "@type": "SpeakableSpecification",
       cssSelector: ["h1"],
+    },
+  };
+}
+
+/**
+ * Review markup, emitted only when there is something real behind it.
+ *
+ * `company.reviews` is null until reviews are actually collected on a platform
+ * that can corroborate them. While it is null this returns `{}` and the
+ * LocalBusiness node carries no rating at all — which is the honest state, and
+ * costs nothing except stars the site had not earned.
+ *
+ * Once it is populated, the numbers here are the numbers on the profile named
+ * in `company.reviews.source`. They are never derived, never rounded up, and
+ * never computed from the testimonial array.
+ */
+export function reviewsLd(): Record<string, unknown> {
+  const r = company.reviews;
+  if (!r) return {};
+  return {
+    aggregateRating: {
+      "@type": "AggregateRating",
+      ratingValue: String(r.ratingValue),
+      reviewCount: String(r.reviewCount),
+      bestRating: "5",
+      worstRating: "1",
     },
   };
 }
@@ -212,10 +300,16 @@ export function breadcrumbLd(items: { name: string; path: string }[]) {
   };
 }
 
-export function serviceLd(service: { name: string; summary: string; slug: string }) {
+export function serviceLd(service: {
+  name: string;
+  summary: string;
+  slug: string;
+  priceFrom?: string;
+}) {
   return {
     "@context": "https://schema.org",
     "@type": "Service",
+    "@id": `${SITE_URL}/services/${service.slug}#service`,
     name: service.name,
     description: service.summary,
     url: `${SITE_URL}/services/${service.slug}`,
@@ -225,6 +319,36 @@ export function serviceLd(service: { name: string; summary: string; slug: string
       name: "Greater Toronto Area",
     },
     serviceType: service.name,
+    /**
+     * Structured pricing existed on the 224 service x city pages and on none
+     * of the eight canonical service pages — the pages most likely to be the
+     * one an assistant cites when comparing contractors. Price is among the
+     * first facts extracted in that comparison, so leaving it unstructured
+     * here meant competing on prose against competitors publishing numbers.
+     *
+     * The band is parsed from `priceFrom` in data/services.ts, so it cannot
+     * drift from what the page displays. Services quoted per project have no
+     * parseable band and correctly emit no offer rather than a fake one.
+     */
+    ...offersFromBand(service.priceFrom, `${SITE_URL}/services/${service.slug}`),
+  };
+}
+
+/** An AggregateOffer, or nothing. Range parsing lives in data/services.ts. */
+export function offersFromBand(band: string | undefined, url: string): Record<string, unknown> {
+  const parsed = parsePriceBand(band);
+  if (!parsed) return {};
+  return {
+    offers: {
+      "@type": "AggregateOffer",
+      priceCurrency: "CAD",
+      lowPrice: String(parsed.low),
+      highPrice: String(parsed.high),
+      offerCount: 1,
+      availability: "https://schema.org/InStock",
+      url,
+      description: parsed.unit ? `${band} (per ${parsed.unit}, before HST)` : String(band),
+    },
   };
 }
 

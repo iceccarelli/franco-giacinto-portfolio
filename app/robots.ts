@@ -33,6 +33,14 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: "Timpibot", allow: "/" },
       { userAgent: "omgili", allow: "/" },
     ],
+    /**
+     * Only real sitemaps go here. Listing /llms.txt under `Sitemap:` would
+     * advertise it to every crawler in one line — and would also make Search
+     * Console and Bing Webmaster Tools fetch it, fail to parse XML, and show a
+     * standing "sitemap could not be read" error. llms.txt is advertised on
+     * /.well-known/agents.json, on /for-agents, and via <link rel="alternate">
+     * instead.
+     */
     sitemap: `${SITE_URL}/sitemap.xml`,
     host: SITE_URL,
   };

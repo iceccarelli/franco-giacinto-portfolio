@@ -353,6 +353,50 @@ export function seoNameOf(service: Service) {
  * Throws on an unknown slug rather than returning a placeholder: a build that
  * fails loudly beats 358 pages quoting an empty string.
  */
+/**
+ * Parse a genuine price RANGE out of a `priceFrom` string.
+ *
+ * The first version of this took the first two dollar figures it found. On
+ * "From $650 minimum · $18–$35 / sq ft affected" that produced lowPrice 650
+ * and highPrice 18 — a high below the low, published to every agent and into
+ * the AggregateOffer JSON-LD, where it is simply invalid.
+ *
+ * So: match the range pattern itself (`$A–$B`, en dash or hyphen), not loose
+ * dollar figures. A string with no range — "Quoted per project", "medallions
+ * from $2,800" — yields nothing, because a floor price is not a range and
+ * inventing a ceiling for it would be worse than staying silent.
+ *
+ * `tests/agent-api.test.ts` asserts low < high for every band this returns.
+ */
+export type PriceBand = {
+  low: number;
+  high: number;
+  unit: "square foot" | "step" | "linear foot" | null;
+};
+
+const RANGE = /\$\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)\s*[–—-]\s*\$?\s*([0-9][0-9,]*(?:\.[0-9]{1,2})?)/;
+
+export function parsePriceBand(priceFrom: string | undefined): PriceBand | null {
+  if (!priceFrom) return null;
+  const m = RANGE.exec(priceFrom);
+  if (!m) return null;
+  const low = Number((m[1] ?? "").replace(/,/g, ""));
+  const high = Number((m[2] ?? "").replace(/,/g, ""));
+  if (!Number.isFinite(low) || !Number.isFinite(high)) return null;
+  // A range whose high is not above its low is a parse failure, not a price.
+  if (high <= low) return null;
+
+  const unit = /sq ft/i.test(priceFrom)
+    ? ("square foot" as const)
+    : /per step|\/\s*step/i.test(priceFrom)
+      ? ("step" as const)
+      : /linear foot/i.test(priceFrom)
+        ? ("linear foot" as const)
+        : null;
+
+  return { low, high, unit };
+}
+
 export function priceBandOf(slug: string): string {
   const service = getService(slug);
   if (!service) throw new Error(`priceBandOf: no service with slug "${slug}"`);

@@ -6,7 +6,14 @@ export type Guide = {
   description: string;
   kicker: string;
   read: string;
+  /** Display form shown on the page, e.g. "August 2026". */
   updated: string;
+  /**
+   * Optional exact revision date, ISO 8601. Set this when a guide is edited on
+   * a known day; otherwise `updatedDate()` derives the first of the month named
+   * in `updated`, which is the conservative reading of what the page claims.
+   */
+  updatedOn?: string;
   sections: { heading: string; paragraphs: string[] }[];
 };
 
@@ -272,6 +279,47 @@ const coreGuides: Guide[] = [
  * exists only to keep either file from becoming unreadable.
  */
 export const guides: Guide[] = [...coreGuides, ...guideExpansions];
+
+const MONTHS = [
+  "january", "february", "march", "april", "may", "june",
+  "july", "august", "september", "october", "november", "december",
+];
+
+/**
+ * The one place a guide's date is decided.
+ *
+ * Before this, three surfaces each invented their own answer: the sitemap
+ * stamped `new Date()` on all 358 URLs at build time (so every deploy claimed
+ * all 358 pages changed at once, which is noise a crawler discounts), the
+ * Article node carried the string "2026-08-27" hardcoded onto all 19 guides,
+ * and the RSS feed had no date at all — while `guide.updated` sat on the page,
+ * unused by any of them.
+ *
+ * This derives from what the page already tells a reader. "August 2026"
+ * becomes 2026-08-01: the earliest day consistent with the claim, so the date
+ * is never newer than what is stated. `updatedOn` overrides it when a real one
+ * is known. Nothing here asserts a freshness the page does not.
+ */
+export function updatedDate(guide: Pick<Guide, "updated" | "updatedOn">): Date {
+  if (guide.updatedOn) {
+    const exact = new Date(`${guide.updatedOn}T00:00:00Z`);
+    if (!Number.isNaN(exact.getTime())) return exact;
+  }
+  const match = /^([A-Za-z]+)\s+(\d{4})$/.exec(guide.updated.trim());
+  const monthName = match?.[1]?.toLowerCase();
+  const year = match?.[2];
+  const monthIndex = monthName ? MONTHS.indexOf(monthName) : -1;
+  if (monthIndex >= 0 && year) return new Date(Date.UTC(Number(year), monthIndex, 1));
+  // An unparseable string is a data error, not a reason to invent today's date.
+  throw new Error(
+    `updatedDate: guide "${guide.updated}" is neither an ISO updatedOn nor "Month YYYY"`,
+  );
+}
+
+/** ISO calendar date, the form schema.org and sitemaps want. */
+export function updatedIso(guide: Pick<Guide, "updated" | "updatedOn">): string {
+  return updatedDate(guide).toISOString().slice(0, 10);
+}
 
 export function getGuide(slug: string) {
   return guides.find((g) => g.slug === slug);

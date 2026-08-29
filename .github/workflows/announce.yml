@@ -1,0 +1,44 @@
+# Announce new and changed URLs to the search engines that accept a push.
+#
+# This exists because `npm run indexnow` was built and then left as a manual
+# chore, which means it never ran. IndexNow reaches Bing, Yandex, Seznam and
+# Naver — and through them several answer engines. Google does not participate
+# and reads the sitemap instead, so between the two every page is announced
+# rather than waited on.
+#
+# Runs only after CI passes on main, and only when the deploy is real: the
+# script refuses to submit a *.vercel.app host, and exits 0 without failing the
+# workflow when INDEXNOW_KEY is not configured.
+name: Announce
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: announce
+  cancel-in-progress: false
+
+jobs:
+  indexnow:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # The script submits what was actually built, not what the source says
+      # should exist, so the sitemap has to exist first.
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
+      - run: npm run indexnow
+        env:
+          INDEXNOW_KEY: ${{ secrets.INDEXNOW_KEY }}
+          NEXT_PUBLIC_SITE_URL: ${{ vars.NEXT_PUBLIC_SITE_URL }}
