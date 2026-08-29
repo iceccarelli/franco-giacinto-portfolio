@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Photo } from "@/components/photo";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { JsonLd } from "@/components/json-ld";
@@ -154,11 +155,11 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
                     key={p.slug}
                     className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
                   >
-                    <img
-                      src={p.image}
-                      alt={p.imageAlt}
-                      className="aspect-[16/8] w-full object-cover"
-           loading="lazy" decoding="async"
+                    <Photo
+            src={p.image}
+            alt={p.imageAlt}
+            ratio="16/8"
+            slot="half"
           />
                     <div className="p-4">
                       <h3 className="font-display text-xl">{p.title}</h3>

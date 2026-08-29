@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Photo } from "@/components/photo";
 import { BeforeAfter } from "@/components/before-after";
 import { Badge } from "@/components/ui/badge";
 import { projectFilters, projects } from "@/data/projects";
@@ -49,12 +50,12 @@ export function ProjectGrid() {
                 afterAlt={p.imageAlt}
               />
             ) : (
-              <img
-                src={p.image}
-                alt={p.imageAlt}
-                loading="lazy"
-                className="aspect-[4/3] w-full object-cover"
-              />
+              <Photo
+            src={p.image}
+            alt={p.imageAlt}
+            ratio="4/3"
+            slot="card"
+          />
             )}
             <div className="p-6">
               <div className="flex flex-wrap gap-2">

@@ -1,4 +1,5 @@
 "use client";
+import NextImage from "next/image";
 
 import { useState } from "react";
 
@@ -18,20 +19,24 @@ export function BeforeAfter({
   return (
     <div className="relative overflow-hidden rounded-xl bg-bg-warm shadow-[var(--shadow-card)]">
       <div className="relative aspect-[4/3] w-full select-none">
-        <img
+        {/* next/image directly rather than <Photo>: the slider clips the
+            "before" image with a percentage width, so these two need to be
+            absolutely positioned siblings without a frame wrapper between
+            them. Both still go through the optimizer. */}
+        <NextImage
           src={after}
           alt={afterAlt}
-          loading="lazy"
-          decoding="async"
-          className="absolute inset-0 h-full w-full object-cover"
+          fill
+          sizes="(min-width: 1024px) 592px, 100vw"
+          className="object-cover"
         />
         <div className="absolute inset-0 overflow-hidden" style={{ width: `${pos}%` }}>
-          <img
+          <NextImage
             src={before}
             alt={beforeAlt}
-            loading="lazy"
-            decoding="async"
-            className="absolute inset-0 h-full max-w-none object-cover"
+            fill
+            sizes="(min-width: 1024px) 592px, 100vw"
+            className="max-w-none object-cover"
             style={{ width: `${10000 / pos}%` }}
           />
         </div>

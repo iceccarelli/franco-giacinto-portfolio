@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Photo } from "@/components/photo";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Check, X } from "lucide-react";
@@ -123,13 +124,13 @@ export default async function MethodPage({ params }: { params: Promise<Params> }
               </Button>
             </div>
           </div>
-          <img
+          <Photo
             src={method.image}
             alt={method.imageAlt}
-            width={1600}
-            height={900}
-            className="aspect-[16/10] w-full rounded-xl object-cover shadow-[var(--shadow-card)]"
-           fetchPriority="high" decoding="async"
+            ratio="16/10"
+            slot="half"
+            priority
+            className="rounded-xl shadow-[var(--shadow-card)]"
           />
         </div>
       </section>

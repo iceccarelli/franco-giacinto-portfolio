@@ -6,7 +6,7 @@ changing anything. Human process is in `docs/WORKFLOW.md`.
 ## The short version
 
 ```bash
-npm ci && npm run verify    # typecheck → 147 tests → build → site audit
+npm ci && npm run verify    # typecheck → 148 tests → build → site audit
 ```
 
 - Never commit to `main`. Branch → PR → CI green → merge.
@@ -25,6 +25,10 @@ npm ci && npm run verify    # typecheck → 147 tests → build → site audit
   `updatedDate()`. `tests/agent-api.test.ts` fails on a fabricated one.
 - Price ranges are parsed by `parsePriceBand()` and nowhere else. A string with
   no genuine range returns null rather than a guessed ceiling.
+- Photography goes through `<Photo>`. A raw `<img>` bypasses the AVIF/srcset
+  pipeline `next.config.mjs` configures, and the audit fails on one. Pick the
+  `slot` that matches the layout; a wrong `sizes` undoes the whole optimisation.
+- At most one image per page is `priority`. It is the LCP element or nothing.
 
 ## Where things are
 
@@ -39,6 +43,7 @@ npm ci && npm run verify    # typecheck → 147 tests → build → site audit
 | Navigation (all of it)   | `data/navigation.ts`             |
 | The layout contract      | `docs/DESIGN-SYSTEM.md`          |
 | The agent/JSON API       | `app/api/*.json`, `lib/agent-api.ts` |
+| Images                   | `components/photo.tsx`           |
 | Honest current limits    | `docs/HONEST-LIMITS.md`          |
 
 ## Things that will waste your time if you do not know them

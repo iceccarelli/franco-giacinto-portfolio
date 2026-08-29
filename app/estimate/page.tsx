@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Photo } from "@/components/photo";
 import { QuoteEstimator } from "@/components/estimate/quote-estimator";
 import { QuoteForm } from "@/components/estimate/quote-form";
 import { PageHero } from "@/components/page-hero";
@@ -38,11 +39,12 @@ export default function EstimatePage() {
               <QuoteForm />
             </div>
           </div>
-          <img
+          <Photo
             src="/images/workshop.jpg"
             alt="Green Hardwood workshop with racks of oak, walnut, and maple planks and stain sample boards."
-            className="h-fit w-full rounded-xl object-cover shadow-[var(--shadow-card)]"
-           loading="lazy" decoding="async"
+            ratio="4/3"
+            slot="half"
+            className="h-fit rounded-xl shadow-[var(--shadow-card)]"
           />
         </div>
       </div>

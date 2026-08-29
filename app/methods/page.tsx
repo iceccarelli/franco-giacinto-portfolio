@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Photo } from "@/components/photo";
 import Link from "next/link";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { JsonLd } from "@/components/json-ld";
@@ -95,12 +96,12 @@ export default function MethodsIndex() {
                     href={`/methods/${m.slug}`}
                     className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
                   >
-                    <img
-                      src={m.image}
-                      alt={m.imageAlt}
-                      loading="lazy"
-                      className="aspect-[16/9] w-full object-cover"
-                    />
+                    <Photo
+            src={m.image}
+            alt={m.imageAlt}
+            ratio="16/9"
+            slot="card"
+          />
                     <div className="p-5">
                       <h3 className="font-display text-2xl">{m.name}</h3>
                       <p className="mt-1 text-sm text-accent">{m.headline}</p>
