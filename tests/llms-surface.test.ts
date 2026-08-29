@@ -135,3 +135,16 @@ describe("price bands agree across surfaces", () => {
     );
   });
 });
+
+describe("no invented founding year", () => {
+  test("the business schema emits no foundingDate while data/company.ts has no sourced year", async () => {
+    const { localBusinessLd } = await import("@/lib/seo");
+    const json = JSON.stringify(localBusinessLd());
+    assert.ok(
+      !json.includes("foundingDate"),
+      "foundingDate is back in the LocalBusiness schema with no source in data/company.ts. " +
+        "2011 in particular is the dead federal namesake's incorporation year — see company.notToBeConfusedWith.",
+    );
+    assert.ok(!json.includes("2011"), "the year 2011 must not appear in the business schema");
+  });
+});

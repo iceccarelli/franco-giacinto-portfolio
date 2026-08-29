@@ -117,7 +117,15 @@ export function localBusinessLd() {
     telephone: company.phone,
     email: company.email,
     priceRange: company.priceRange,
-    foundingDate: "2011",
+    /*
+     * No foundingDate. data/company.ts deliberately carries no founding year —
+     * `years: 15` is the only tenure figure — and a previous version asserted
+     * foundingDate "2011" here, which is the incorporation year of the
+     * unrelated, inactive federal "Green Hardwood Flooring Inc." the machine
+     * surfaces explicitly disclaim. A founding year returns only if the owner
+     * writes a sourced field into data/company.ts; derive it from that, never
+     * from arithmetic on `years`. tests/llms-surface.test.ts enforces this.
+     */
     founder: { "@id": `${SITE_URL}/about#franco` },
     employee: { "@id": `${SITE_URL}/about#franco` },
     address: {
