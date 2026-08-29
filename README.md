@@ -13,7 +13,7 @@ A statically prerendered Next.js 15 App Router site built around one commercial 
 | Concern   | Choice                                            | Why                                                                                     |
 | --------- | ------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | Framework | Next.js 15, App Router                            | Per-route `generateMetadata`, `generateStaticParams`, native `sitemap.ts` / `robots.ts` |
-| Rendering | 100% static prerender                             | 359 HTML documents at build time; no cold starts, no runtime data dependency            |
+| Rendering | 100% static prerender                             | 371 HTML documents at build time; no cold starts, no runtime data dependency            |
 | Language  | TypeScript, `strict` + `noUncheckedIndexedAccess` | Lookups are total by construction, not by assertion                                     |
 | Styling   | Tailwind CSS v4, `@theme` tokens                  | One palette, zero hard-coded hex in components                                          |
 | Content   | Typed modules in `data/`                          | Content is data, so pages, schema, sitemap, and `llms.txt` never drift apart            |
@@ -119,7 +119,7 @@ that would quietly cost rankings or break a visitor:
 - a JSON-LD block that does not parse
 
 It also warns about SERP truncation and orphaned pages. Run it before every
-merge; it is the reason the site currently has 359 pages and 359 unique titles.
+merge; it is the reason the site currently has 371 pages and 371 unique titles.
 
 `npm run build` fetches and self-hosts Google Fonts, so the build machine needs network access.
 
@@ -153,9 +153,9 @@ makes it citable rather than just findable:
 | Surface                | What it is                                                                                      | Why it exists                                                                           |
 | ---------------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
 | `/methods` (8)         | How each assembly is actually built, step by step, with when it is correct and when it is wrong | The question behind "who should install my floor" is "do they know what they are doing" |
-| `/answers` (28)        | Short, direct answers, each also rendered in full on the index with FAQPage markup              | Answer engines retrieve one page and can quote any of the 28                            |
+| `/answers` (39)        | Short, direct answers, each also rendered in full on the index with FAQPage markup              | Answer engines retrieve one page and can quote any of the 39                            |
 | `/glossary` (22 terms) | One page, anchored per term, `DefinedTermSet` schema                                            | Twenty-two one-paragraph URLs would be thin; one substantial page is not                |
-| `/guides` (19)         | Long-form specification and cost                                                                | Depth for the queries that convert                                                      |
+| `/guides` (20)         | Long-form specification and cost                                                                | Depth for the queries that convert                                                      |
 
 `docs/QUERY-INVENTORY.md` maps every target query to exactly one URL, which is
 what keeps two pages from competing for the same search.
