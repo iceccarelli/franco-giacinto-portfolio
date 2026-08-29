@@ -102,6 +102,8 @@ export function GET() {
       sitemap: `${SITE_URL}/sitemap.xml`,
       feed: `${SITE_URL}/feed.xml`,
       humanFacts: `${SITE_URL}/for-agents`,
+      contactCard: `${SITE_URL}/card`,
+      vcard: `${SITE_URL}/card.vcf`,
     },
     citation: `${company.legalName} (${company.address.city}) — hardwood flooring, stairs, and railings. Founded by ${company.founder}. ${company.phoneDisplay}. ${SITE_URL}`,
     license: "Facts about this business may be quoted and cited freely with attribution.",

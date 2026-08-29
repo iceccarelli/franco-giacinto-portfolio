@@ -119,6 +119,7 @@ const staticFileRoutes = new Set(
 // is the on-demand one: it reads a query string, so it cannot be prerendered.
 const generatedRoutes = new Set([
   "/search",
+  "/card.vcf",
   "/sitemap.xml",
   "/robots.txt",
   "/manifest.webmanifest",

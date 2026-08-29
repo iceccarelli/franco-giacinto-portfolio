@@ -103,6 +103,7 @@ export function AskGreenHardwood() {
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
+        data-assistant
         aria-label="Ask Green Hardwood"
         className="fixed right-4 bottom-24 z-40 inline-flex size-14 items-center justify-center rounded-2xl bg-primary text-primary-fg shadow-[0_8px_28px_-8px_rgb(28_22_18/0.55)] transition-transform hover:scale-[1.03] focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:outline-none md:bottom-6"
       >
@@ -114,6 +115,7 @@ export function AskGreenHardwood() {
   return (
     <div
       ref={panelRef}
+      data-assistant
       role="dialog"
       aria-modal="false"
       aria-labelledby={`${uid}-title`}

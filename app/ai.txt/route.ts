@@ -43,6 +43,8 @@ JSON for programs (CORS open, no key required):
   ${SITE_URL}/api/services.json  services with numeric price bands
   ${SITE_URL}/api/areas.json     32 areas with travel tiers and per-city URLs
   ${SITE_URL}/api/ask            POST {"query":"..."} for a grounded, cited answer
+  ${SITE_URL}/card.vcf           contact card as vCard 4.0 (canonical NAP spelling)
+  ${SITE_URL}/card               human-readable profile page for the founder
 `;
 
   return new Response(body, {

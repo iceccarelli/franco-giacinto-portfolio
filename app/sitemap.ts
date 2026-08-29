@@ -41,6 +41,7 @@ const staticRoutes: {
   { path: "/faq", priority: 0.6, changeFrequency: "monthly" },
   { path: "/about", priority: 0.6, changeFrequency: "yearly" },
   { path: "/contact", priority: 0.7, changeFrequency: "yearly" },
+  { path: "/card", priority: 0.7, changeFrequency: "yearly" },
   { path: "/for-agents", priority: 0.5, changeFrequency: "monthly" },
   { path: "/llms.txt", priority: 0.5, changeFrequency: "weekly" },
   { path: "/llms-full.txt", priority: 0.4, changeFrequency: "weekly" },

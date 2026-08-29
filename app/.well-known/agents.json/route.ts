@@ -35,6 +35,8 @@ export function GET() {
       index: `${SITE_URL}/llms.txt`,
       full: `${SITE_URL}/llms-full.txt`,
       humanReadableFacts: `${SITE_URL}/for-agents`,
+      contactCard: `${SITE_URL}/card`,
+      vcard: `${SITE_URL}/card.vcf`,
     },
 
     /** JSON, for a program to parse. */
