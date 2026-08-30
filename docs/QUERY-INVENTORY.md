@@ -51,6 +51,36 @@ Priority: 1 = own this year, 2 = support, 3 = only if a page already exists.
 | dustless sanding Toronto  | 1        | /guides/dust-free-sanding-toronto      |
 | hardwood vs vinyl GTA     | 2        | /compare                               |
 
+## 2026 demand expansion (researched 2026-08)
+
+Mapped from what buyers and answer engines are actually asking this year:
+refinish-vs-replace decisions, wide-plank white oak, pattern floors,
+occupancy/timeline questions, pets, winter, runners. Every row maps to ONE
+URL; rows marked *(new)* got a dedicated answer or guide in the same commit
+that added this table.
+
+| Query | Priority | URL |
+| ----- | -------- | --- |
+| refinish or replace hardwood floors     | 1 | /answers/refinish-or-replace-hardwood-toronto *(new)* |
+| hardwood floor refinishing cost per sq ft | 1 | /guides/hardwood-flooring-cost-gta-2026 |
+| wide plank white oak Toronto            | 1 | /answers/wide-plank-white-oak-toronto *(new)* |
+| hardwood flooring trends 2026           | 1 | /guides/hardwood-flooring-trends-gta-2026 *(new)* |
+| grey hardwood outdated / re-stain grey floor | 2 | /guides/hardwood-flooring-trends-gta-2026 *(new)* |
+| herringbone vs chevron                  | 1 | /answers/herringbone-vs-chevron-cost-difference *(new)* |
+| how long do hardwood stairs take        | 1 | /answers/how-long-hardwood-stairs-take *(new)* |
+| refinish stairs or replace treads       | 1 | /answers/refinish-stairs-or-replace-treads *(new)* |
+| best finish for hardwood stairs         | 1 | /answers/best-finish-for-hardwood-stairs *(new)* |
+| install hardwood in winter              | 2 | /answers/hardwood-installation-winter-toronto *(new)* |
+| best hardwood for dogs                  | 1 | /answers/pet-friendly-hardwood-toronto *(new)* |
+| live in house during floor refinishing  | 1 | /answers/live-at-home-during-refinishing *(new)* |
+| how soon to walk on refinished floors   | 2 | /answers/walk-on-floors-after-refinishing *(new)* |
+| carpet runner on hardwood stairs        | 2 | /answers/runner-on-hardwood-stairs *(new)* |
+| matte vs satin hardwood finish          | 2 | /answers/best-finish-for-hardwood-stairs *(new)* |
+| engineered white oak condo Toronto      | 1 | /answers/solid-or-engineered-for-toronto-condo |
+| hardwood acclimation winter humidity    | 2 | /guides/acclimation-hardwood-gta |
+| steel and oak open riser stairs         | 2 | /methods/open-riser-steel-and-oak |
+| whole home floor and stair same stain   | 1 | /answers/match-stair-stain-to-floor |
+
 ## Entity — someone checking who we are
 
 These already resolve; no new pages. The job is that every one of these
@@ -107,12 +137,12 @@ pages — twenty-two one-paragraph URLs is the definition of thin content.
 | Services              | 8                         |
 | Service x city        | 224                       |
 | Cities                | 32 (20 core, 12 travel)   |
-| Guides                | 19                        |
+| Guides                | 20                        |
 | Methods               | 8                         |
-| Answers               | 28                        |
+| Answers               | 39                        |
 | Glossary              | 1 page, 22 anchored terms |
 | Tools & company       | ~19                       |
-| **Total prerendered** | **359** (the audit prints the exact count) |
+| **Total prerendered** | **371** (the audit prints the exact count) |
 
 ## Rule for adding more
 

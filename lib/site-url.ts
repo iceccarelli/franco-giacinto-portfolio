@@ -4,7 +4,7 @@
  * Every canonical tag, every JSON-LD `@id`, `metadataBase`, the sitemap, the
  * RSS feed, and llms.txt are built from this one value. Hard-coding it means a
  * deployment on a different host tells search engines the real content is
- * somewhere else — which, on a site with 359 pages, is 359 wrong signals.
+ * somewhere else — which, on a site with 371 pages, is 371 wrong signals.
  *
  * Resolution order, most specific first:
  *

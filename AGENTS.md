@@ -16,7 +16,7 @@ The production website of **Green Hardwood**, a hardwood flooring, stairs, and
 railings company in Toronto. Live at **https://greenhardwood.ca** — the
 `*.vercel.app` alias serves the same bytes and is deliberately noindexed.
 
-It is a statically prerendered Next.js 15 App Router site: **359 pages**, all
+It is a statically prerendered Next.js 15 App Router site: **371 pages**, all
 generated at build time from typed content modules in `data/`. TypeScript is
 `strict` with `noUncheckedIndexedAccess`.
 

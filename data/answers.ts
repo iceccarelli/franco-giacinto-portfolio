@@ -254,6 +254,114 @@ export const answers: Answer[] = [
     primaryService: "hardwood-stairs",
     pathHint: "/stairs",
   },
+
+  /* ------------------------------------------------------------------
+   * 2026 demand expansion. Each of these answers a query mapped in
+   * docs/QUERY-INVENTORY.md that no existing URL answered directly.
+   * Prices are never typed here beyond the catalogue bands data/services.ts
+   * already owns; timelines echo the estimator; code questions defer to the
+   * building department per the standing rule.
+   * ------------------------------------------------------------------ */
+  {
+    slug: "refinish-or-replace-hardwood-toronto",
+    seoTitle: "Refinish or Replace Hardwood in Toronto?",
+    q: "Should I refinish my hardwood or replace it?",
+    a: "If a wear layer remains and the boards are flat and dry, refinishing wins: a dust-contained sand and a two-component waterborne finish costs a fraction of a new floor and keeps the original boards. Replacement is for floors sanded to the tongue, structurally wet, or failing across whole runs. We measure the wear layer and tell you which side of the line you are on — and we say so when a floor cannot be saved.",
+    intent: "comparison",
+    primaryService: "sanding-refinishing",
+    pathHint: "/services/sanding-refinishing",
+    featured: true,
+  },
+  {
+    slug: "wide-plank-white-oak-toronto",
+    seoTitle: "Wide-Plank White Oak in Toronto Homes?",
+    q: "Is wide-plank white oak a good idea in a Toronto house?",
+    a: "Yes, specified correctly — wide plank is the most-requested look in the GTA right now, and white oak takes stain and wear better than red. The catch is movement: the wider the board, the more a dry February and a humid July show. Past about five inches we spec engineered construction or quarter-sawn stock, check the subfloor moisture, and insist on humidity control. The plank does not fail; the specification does.",
+    intent: "commercial",
+    primaryService: "hardwood-installation",
+    pathHint: "/services/hardwood-installation",
+  },
+  {
+    slug: "herringbone-vs-chevron-cost-difference",
+    seoTitle: "Herringbone vs Chevron: the Difference?",
+    q: "What is the difference between herringbone and chevron, and which costs more?",
+    a: "Herringbone is rectangular boards lapped at 90 degrees; chevron is boards cut at an angle so the rows meet in a continuous point. Chevron reads more tailored and wastes more material at the mitres, so it typically sits at the top of the pattern premium — both add roughly 40–55% labour over a straight lay. Same species, same finish, very different room.",
+    intent: "comparison",
+    primaryService: "hardwood-installation",
+    pathHint: "/guides/herringbone-hardwood-installation-toronto",
+  },
+  {
+    slug: "how-long-hardwood-stairs-take",
+    seoTitle: "How Long Do Hardwood Stairs Take?",
+    q: "How long does a hardwood stair job take?",
+    a: "A straight flight up to about 14 steps typically runs 3–5 working days; longer or multi-landing work runs 5–8. Site-finished treads add cure time before sock traffic. We stage the work so you are never without a way upstairs overnight, and we put the schedule in writing before the crew arrives.",
+    intent: "informational",
+    primaryService: "hardwood-stairs",
+    pathHint: "/services/hardwood-stairs",
+  },
+  {
+    slug: "refinish-stairs-or-replace-treads",
+    seoTitle: "Refinish Stairs or Replace the Treads?",
+    q: "Can my stairs be refinished, or do the treads need replacing?",
+    a: "Refinish when the treads are solid hardwood with life left in the wear layer and the nosing profile is intact. Replace when treads are builder-grade softwood or MDF under carpet, cupped, split at the nosing, or thinner than the floor they meet. Most carpet-off projects in the GTA end up as retreads — new oak treads and risers over the existing stringers — because what carpet hides is rarely worth sanding.",
+    intent: "comparison",
+    primaryService: "hardwood-stairs",
+    pathHint: "/methods/carpet-to-hardwood-stair-retread",
+  },
+  {
+    slug: "best-finish-for-hardwood-stairs",
+    seoTitle: "Best Finish for Hardwood Stairs?",
+    q: "What is the most durable finish for hardwood stairs?",
+    a: "A two-component waterborne commercial finish in matte or satin. Stairs concentrate a whole floor's traffic onto twelve small surfaces, so the finish matters more than anywhere else in the house. High gloss shows every scratch and dust nib; hardwax oil is repairable but asks for maintenance a family staircase rarely gets. We finish treads with the same system we put on the floor, so sheen and colour match at the bottom step.",
+    intent: "informational",
+    primaryService: "hardwood-stairs",
+    pathHint: "/services/hardwood-stairs",
+  },
+  {
+    slug: "hardwood-installation-winter-toronto",
+    seoTitle: "Can Hardwood Be Installed in Winter?",
+    q: "Can hardwood be installed in a Toronto winter?",
+    a: "Yes — winter is a normal installation season, and often an easier booking. What matters is not the month but the building: heat on, humidity in the living range, concrete and subfloor moisture verified, and the wood acclimated to the house it will live in. A January install into a stable house beats a July install into a humid one.",
+    intent: "informational",
+    primaryService: "hardwood-installation",
+    pathHint: "/guides/acclimation-hardwood-gta",
+  },
+  {
+    slug: "pet-friendly-hardwood-toronto",
+    seoTitle: "Best Hardwood for Dogs and Pets?",
+    q: "What hardwood holds up best with dogs?",
+    a: "Harder species, lower sheen, stronger finish. Hickory and hard maple resist denting; white oak with a matte two-component waterborne finish hides claw micro-scratches far better than gloss on a soft species. Character-grade boards camouflage what family life adds later. No floor is scratch-proof — the honest goal is a floor that wears in instead of wearing out.",
+    intent: "informational",
+    primaryService: "hardwood-installation",
+    pathHint: "/showroom",
+  },
+  {
+    slug: "live-at-home-during-refinishing",
+    seoTitle: "Can I Stay Home During Refinishing?",
+    q: "Can we live in the house while floors are refinished?",
+    a: "Usually, yes. Dust-contained sanding and low-odour waterborne finishes make occupied refinishing the normal case in GTA houses and condos — we sequence rooms so you keep a bedroom and a path to the kitchen. The real constraint is cure windows: sock traffic typically after 24 hours on waterborne two-component, furniture later. We put the sequence in writing before we start.",
+    intent: "informational",
+    primaryService: "sanding-refinishing",
+    pathHint: "/services/sanding-refinishing",
+  },
+  {
+    slug: "walk-on-floors-after-refinishing",
+    seoTitle: "When Can I Walk on Refinished Floors?",
+    q: "How soon can I walk on my floors after refinishing?",
+    a: "Sock traffic typically after about 24 hours on a waterborne two-component finish; shoes and furniture later, and rugs last, once the finish has hard-cured. Oil-modified systems take longer at every stage. We leave the exact schedule for your finish in writing, because the most common way a new finish fails is a felt pad dragged across it on day two.",
+    intent: "informational",
+    primaryService: "sanding-refinishing",
+    pathHint: "/services/sanding-refinishing",
+  },
+  {
+    slug: "runner-on-hardwood-stairs",
+    seoTitle: "Carpet Runner on Hardwood Stairs?",
+    q: "Should I put a runner on new hardwood stairs?",
+    a: "A runner is a legitimate choice — it quiets the flight and adds grip for pets and older family members — and it changes the build. Treads under a runner still need a finished reveal at both edges, and the nosing profile still has to meet Ontario Building Code whether carpet covers it or not. Tell us before we mill: a stair built for a runner is detailed differently from a stair built to be seen.",
+    intent: "informational",
+    primaryService: "hardwood-stairs",
+    pathHint: "/services/hardwood-stairs",
+  },
 ];
 
 export function getAnswer(slug: string) {

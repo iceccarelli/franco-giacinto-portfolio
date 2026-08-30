@@ -16,7 +16,7 @@ Doorway domains and spun city pages produce the opposite of authority.
 
 Leads are still captured to the server log, not emailed. `RESEND_API_KEY` is unset. Ranking for a query you cannot answer the phone for is worse than not ranking.
 
-The photography is AI-generated. 359 pages now attach specific local claims to it. One real job photo is worth more than the whole set.
+The photography is AI-generated. 371 pages now attach specific local claims to it. One real job photo is worth more than the whole set.
 
 **Resolved.** `aggregateRating` used to be `ratingValue: "4.9"` with a review
 count derived by multiplying the testimonial array by 18. Neither number had a

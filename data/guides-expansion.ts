@@ -259,4 +259,41 @@ export const guideExpansions: Guide[] = [
       },
     ],
   },
+  {
+    slug: "hardwood-flooring-trends-gta-2026",
+    title: "Hardwood flooring trends in the GTA, 2026",
+    description:
+      "What GTA homeowners and designers are actually specifying in 2026 — wide-plank white oak, warm tones, matte finishes, pattern floors — and which trends age badly.",
+    kicker: "Specification",
+    read: "7 min",
+    updated: "August 2026",
+    sections: [
+      {
+        heading: "Trends are a specification problem",
+        paragraphs: [
+          "A trend piece that only shows photographs is a mood board. This one is written from the jobs GTA homeowners, designers, and builders are booking in 2026 — and from the callbacks other people's 2018 trends are generating now. A floor is a fifteen-year decision installed in an afternoon culture; the trends worth following are the ones that survive a resale cycle.",
+        ],
+      },
+      {
+        heading: "What is being specified in 2026",
+        paragraphs: [
+          "Wide-plank white oak is the centre of the market: five inches and up, character to light-character grade, in warm natural and light-brown tones. Matte and ultra-matte two-component waterborne finishes dominate because they read as raw wood while outperforming the oiled looks they imitate. Pattern floors keep growing — herringbone first, chevron for the more tailored room — usually in one space rather than the whole floor plate, which is also the honest way to budget them.",
+          "The stair is part of the trend now, not an afterthought: buyers ask for the floor, the treads, and the railing in one species and one stain formula, and open-riser and steel-and-oak flights keep gaining in custom builds. That whole-house continuity is the single strongest specification shift we see, and it is the reason a floor company that cannot mill a stair keeps losing the job.",
+        ],
+      },
+      {
+        heading: "What is fading",
+        paragraphs: [
+          "Grey and greige stains, the 2015–2020 default, now date a renovation faster than any other single choice, and cool-toned floors are the most common re-stain request we get. High-gloss finishes are effectively gone from residential specification: they show every scratch, every dust nib, and every footprint. Red-toned traditional stains keep narrowing to heritage restoration work, where they belong.",
+          "None of this obliges you to re-stain a sound floor. A grey floor with a healthy wear layer is a candidate for a future refinish, not a demolition — that is the point of buying real hardwood in the first place.",
+        ],
+      },
+      {
+        heading: "What this costs",
+        paragraphs: [
+          "Trend does not change the arithmetic. The published 2026 bands hold: pattern work adds its labour premium, wide plank steers the specification toward engineered or quarter-sawn stock, and matte two-component finishes price like any other site finish. The estimator prices all of it, city by city, and a site measure with a moisture reading is still what turns a band into a number.",
+        ],
+      },
+    ],
+  },
 ];
