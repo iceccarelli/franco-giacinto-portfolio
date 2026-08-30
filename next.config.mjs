@@ -1,3 +1,29 @@
+/**
+ * Content-Security-Policy, report-only first.
+ *
+ * Stage 1 ships this as Content-Security-Policy-Report-Only so a week of real
+ * traffic can surface anything the policy would break before it breaks it.
+ * After ~7 clean days, flip CSP_ENFORCE to true — same policy, enforcing
+ * header — in its own PR.
+ *
+ * The analytics origins (googletagmanager, google-analytics, Vercel
+ * scripts/vitals) are allowed now so Stage 2's measurement layer lands
+ * without a CSP change. 'unsafe-inline' on style-src is required by Tailwind's
+ * inlined critical styles and Next's style hydration; scripts stay 'self' +
+ * the named origins.
+ */
+const CSP_ENFORCE = false;
+
+const CSP_POLICY = [
+  "default-src 'self'",
+  "img-src 'self' data: blob: https:",
+  "script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com https://va.vercel-scripts.com",
+  "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://vitals.vercel-insights.com",
+  "style-src 'self' 'unsafe-inline'",
+  "frame-ancestors 'self'",
+  "upgrade-insecure-requests",
+].join("; ");
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -9,6 +35,18 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      /**
+       * One host, one entity: www → apex, 308, path and query preserved.
+       * The apex is the canonical (matches every canonical tag and JSON-LD
+       * @id on the site). middleware.ts repeats this for any path its
+       * matcher covers; this rule catches everything else, media included.
+       */
+      {
+        source: "/:path*",
+        has: [{ type: "host", value: "www.greenhardwood.ca" }],
+        destination: "https://greenhardwood.ca/:path*",
+        permanent: true,
+      },
       // Legacy portfolio-site URLs -> the hardwood service architecture.
       { source: "/work", destination: "/portfolio", permanent: true },
       { source: "/services/hardwood-sanding", destination: "/services/sanding-refinishing", permanent: true },
@@ -44,6 +82,29 @@ const nextConfig = {
           { key: "X-Content-Type-Options", value: "nosniff" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          /**
+           * Two years, subdomains, preload-list eligible. The site is
+           * HTTPS-only on Vercel; there is no HTTP variant to protect.
+           */
+          {
+            key: "Strict-Transport-Security",
+            value: "max-age=63072000; includeSubDomains; preload",
+          },
+          /**
+           * This site never asks for the camera, the microphone, or a
+           * location. Saying so explicitly stops any embedded third-party
+           * from asking on its behalf.
+           */
+          {
+            key: "Permissions-Policy",
+            value: "camera=(), microphone=(), geolocation=()",
+          },
+          {
+            key: CSP_ENFORCE
+              ? "Content-Security-Policy"
+              : "Content-Security-Policy-Report-Only",
+            value: CSP_POLICY,
+          },
         ],
       },
       {

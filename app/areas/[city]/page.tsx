@@ -27,6 +27,14 @@ export function generateStaticParams(): Params[] {
 
 export const dynamicParams = false;
 
+/**
+ * ISR, one hour. On Vercel this serves the prerendered page with
+ * `Cache-Control: public, s-maxage=3600, stale-while-revalidate` from the
+ * edge — the Stage 1 cache target. (A Cache-Control set in next.config
+ * headers() is overwritten for prerendered pages, so this is the honest way.)
+ */
+export const revalidate = 3600;
+
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { city: slug } = await params;
   const city = getCity(slug);

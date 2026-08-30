@@ -38,6 +38,10 @@ export function generateStaticParams(): Params[] {
 
 export const dynamicParams = false;
 
+// ISR, one hour — serves s-maxage=3600 + stale-while-revalidate at the edge.
+// See app/areas/[city]/page.tsx for the rationale.
+export const revalidate = 3600;
+
 export async function generateMetadata({ params }: { params: Promise<Params> }): Promise<Metadata> {
   const { slug } = await params;
   const service = getService(slug);
