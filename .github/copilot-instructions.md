@@ -4,7 +4,7 @@ Full rules: **[AGENTS.md](../AGENTS.md)**.
 
 Production website of a Toronto hardwood flooring, stairs, and railings company.
 Next.js 15 App Router, TypeScript strict with `noUncheckedIndexedAccess`,
-Tailwind v4, 181 statically prerendered pages, no database.
+Tailwind v4, 371 statically prerendered pages, no database.
 
 ## When suggesting code
 
@@ -12,7 +12,7 @@ Tailwind v4, 181 statically prerendered pages, no database.
   and prefer a small client island over a client page.
 - **Content lives in `data/`.** Never suggest inlining copy, a price, or a
   service description into a component. One edit in `data/services.ts` must keep
-  feeding the service page, 84 city pages, nav, footer, JSON-LD, sitemap, search
+  feeding the service page, 224 city pages, nav, footer, JSON-LD, sitemap, search
   index, `llms.txt`, and the assistant.
 - **Never fabricate business facts.** No invented prices, credentials, project
   addresses, review counts, or Ontario Building Code numbers. They come from
@@ -39,6 +39,6 @@ Tailwind v4, 181 statically prerendered pages, no database.
 
 ## Verifying
 
-`npm ci && npm run verify` — typecheck, 92 tests, build, site audit. The audit
+`npm ci && npm run verify` — typecheck, the full test suite, build, site audit. The audit
 fails on dead internal links, duplicate titles or descriptions, missing
 canonicals, missing `h1` or `alt`, and unparseable JSON-LD.
