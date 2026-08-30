@@ -23,7 +23,7 @@ import { faqs } from "@/data/faq";
 import { projects } from "@/data/projects";
 import { services } from "@/data/services";
 import { testimonials } from "@/data/testimonials";
-import { faqLd, howToStairLd } from "@/lib/seo";
+import { breadcrumbLd, webPageLd } from "@/lib/seo";
 
 const homeDescription =
   "Hardwood floor installation, custom stairs, railings, dust-free sanding and refinishing across Toronto and the GTA. Free on-site estimates.";
@@ -54,8 +54,22 @@ export default function Home() {
 
   return (
     <>
-      <JsonLd data={faqLd()} />
-      <JsonLd data={howToStairLd()} />
+      {/*
+        Stage 1: the homepage carries exactly the Rule-9 set — LocalBusiness +
+        WebSite come from the root layout; WebPage + BreadcrumbList here. The
+        bulky FAQPage block was a byte-for-byte duplicate of /faq's schema
+        (two FAQPages on one origin also dilute both), and the HowTo belongs
+        to /stairs, which already publishes its own. ~7 KB off the document.
+      */}
+      <JsonLd
+        data={webPageLd({
+          name: "Hardwood Flooring & Stairs Toronto | Green Hardwood",
+          description: homeDescription,
+          path: "/",
+          primaryImage: "/images/stair-studio-poster.jpg",
+        })}
+      />
+      <JsonLd data={breadcrumbLd([{ name: "Home", path: "/" }])} />
       <HomeHero />
 
       <section className="border-y border-border bg-surface">

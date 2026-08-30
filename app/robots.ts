@@ -10,7 +10,19 @@ export default function robots(): MetadataRoute.Robots {
 
   return {
     rules: [
-      { userAgent: "*", allow: "/" },
+      {
+        userAgent: "*",
+        allow: "/",
+        disallow: [
+          // POST-only grounded-answer endpoint. Nothing to index; crawler GETs
+          // only burn the function budget.
+          "/api/ask",
+          // Estimate success is a post-submit state, never a landing page.
+          // The route does not exist yet (success is client state today) but
+          // the rule is cheap and future-proofs Stage 4's estimator v2.
+          "/estimate/success",
+        ],
+      },
       // Answer engines are a distribution channel, not a threat. Let them in.
       { userAgent: "GPTBot", allow: "/" },
       { userAgent: "OAI-SearchBot", allow: "/" },

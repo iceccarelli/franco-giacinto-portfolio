@@ -3,13 +3,26 @@
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
+import { preload } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { company } from "@/data/company";
 
 type NetworkInfo = { saveData?: boolean; effectiveType?: string };
 
+/**
+ * The LCP element of the homepage. 1280×853, progressive JPEG, < 80 KB —
+ * generated from stair-studio.jpg (430 KB), which stays for other consumers.
+ * A <video poster> can't go through next/image, so the file is pre-optimized
+ * on disk and preloaded below instead.
+ */
+const HERO_POSTER = "/images/stair-studio-poster.jpg";
+
 export function HomeHero() {
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // Emitted as <link rel="preload" as="image"> in the SSR head, so the LCP
+  // image download starts with the document instead of after layout.
+  preload(HERO_POSTER, { as: "image", fetchPriority: "high" });
 
   /**
    * The hero loop is 2.7 MB, and it is decoration — the poster frame carries
@@ -95,7 +108,9 @@ export function HomeHero() {
             loop
             playsInline
             preload={playVideo ? "auto" : "none"}
-            poster="/images/stair-studio.jpg"
+            poster={HERO_POSTER}
+            width={1280}
+            height={853}
             aria-label="Custom white oak staircase in a Toronto home"
           >
             {playVideo ? <source src="/videos/stairs-hero.mp4" type="video/mp4" /> : null}

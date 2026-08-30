@@ -30,6 +30,10 @@ type Params = { slug: string; city: string };
 
 export const dynamicParams = false;
 
+// ISR, one hour — serves s-maxage=3600 + stale-while-revalidate at the edge.
+// See app/areas/[city]/page.tsx for the rationale.
+export const revalidate = 3600;
+
 export function generateStaticParams(): Params[] {
   return matrixPages.map((p) => ({ slug: p.service.slug, city: p.city.slug }));
 }
