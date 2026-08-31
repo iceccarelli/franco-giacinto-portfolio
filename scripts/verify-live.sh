@@ -47,6 +47,27 @@ chk() {
 H()  { curl -sI "${HOSTHDR[@]}" "$BASE$1"; }
 G()  { curl -s  "${HOSTHDR[@]}" "$BASE$1"; }
 
+# --------------------------------------------------------------- preflight
+#
+# Abort if nothing is answering. This is not defensive padding: most checks
+# below assert that a header or a string is ABSENT, and every one of those
+# passes trivially against a dead server. Run once with the server down and
+# this script reported "15 passed" — fifteen assertions about a response that
+# never existed. A suite that can pass against nothing is worse than no suite,
+# because it is believed.
+if ! curl -sf -o /dev/null --max-time 10 "${HOSTHDR[@]}" "$BASE/"; then
+  printf "\n\033[31mSTOP\033[0m  Nothing is answering at %s\n\n" "$BASE" >&2
+  printf "  Start it first:\n    npm run build && npx next start -p 4011\n" >&2
+  printf "  Or point this at production:\n    npm run verify:live https://greenhardwood.ca\n\n" >&2
+  exit 2
+fi
+
+# Prove we are talking to THIS site and not, say, a stale server on that port.
+if ! G / | grep -q "Green Hardwood"; then
+  printf "\n\033[31mSTOP\033[0m  %s answered, but it is not Green Hardwood.\n\n" "$BASE" >&2
+  exit 2
+fi
+
 head "Host guard — only greenhardwood.ca may be indexed"
 chk "a *.vercel.app host is noindexed" \
   "$(curl -sI -H 'Host: franco-giacinto-portfolio.vercel.app' "$BASE/" | grep -ci 'x-robots-tag: noindex')" 1

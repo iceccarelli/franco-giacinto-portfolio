@@ -429,3 +429,20 @@ npm run verify:live https://greenhardwood.ca
   it gates nothing. Migrating it is its own PR, not a rider on this one.
 - 30 files fail `prettier --check`. 32 failed before these changes; every file
   authored here is formatted. A repo-wide reformat would bury the review diff.
+
+### Addendum — the acceptance script could pass against a dead server
+
+Running `verify-live.sh` while the server happened to be down reported
+**"15 passed"**. Most checks in it assert that a header or a string is
+*absent*, and every one of those passes trivially when nothing answers:
+`curl` returns empty, `grep -c` returns 0, and 0 is the expected value.
+
+Fifteen green assertions about a response that never existed. A suite that
+can pass against nothing is worse than no suite, because it gets believed —
+and this one exists precisely to be believed about production.
+
+The script now preflights: it aborts with exit 2 unless the base URL answers
+`2xx` *and* the homepage contains "Green Hardwood", so it also refuses to
+grade a stale server that happens to hold the port.
+
+**44 passed, 0 failed** against a real server, exit 0.
