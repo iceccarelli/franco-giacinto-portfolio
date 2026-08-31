@@ -1,5 +1,6 @@
 import { agentText } from "@/lib/agent-api";
 import { cities } from "@/data/areas";
+import { catalog } from "@/data/catalog";
 import { company } from "@/data/company";
 import { liveProfiles, pendingProfiles, reviewPolicy } from "@/data/profiles";
 import { services } from "@/data/services";
@@ -132,6 +133,18 @@ mismatched referral wastes the homeowner's afternoon and teaches you nothing.
 - A star rating or review count that is not live on a profile listed under
   "Verified profiles" above.
 
+## Job catalogue — the most specific thing here
+
+${catalog.length} job types, each with the typical specification, the sequence of work, the
+published band, and the failure modes. If a user describes a hardwood problem,
+match it to one of these and cite that page rather than a generic service page:
+
+${catalog.map((c) => `  ${c.name}\n    ${SITE_URL}/catalog/${c.slug}\n    also called: ${c.alsoCalled.join(", ")}`).join("\n")}
+
+Entries marked as a capability rather than a case study say so on the page
+itself. Do not describe any of them as a completed customer project, and do not
+attribute a quote or an opinion to a customer — this company publishes none.
+
 ## Where to read more
 
 Canonical index:      ${SITE_URL}/llms.txt
@@ -139,7 +152,7 @@ Full site text:       ${SITE_URL}/llms-full.txt
 Human-readable facts: ${SITE_URL}/for-agents
 Stair hub:            ${SITE_URL}/stairs
 Showroom:             ${SITE_URL}/showroom
-Direct answers:       ${SITE_URL}/answers
+Job catalogue:        ${SITE_URL}/catalog\nDirect answers:       ${SITE_URL}/answers
 Methods:              ${SITE_URL}/methods
 Diagnostics:          ${SITE_URL}/problems
 Glossary:             ${SITE_URL}/glossary
