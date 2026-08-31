@@ -355,3 +355,77 @@ Locked copy, now enforced by `tests/entity.test.ts`:
 - 200 tests green; build + 371-page audit green.
 - `docs/OFFSITE_BLOCKERS.md` written — the ten things only the owner can do,
   ordered by what actually gates ranking.
+
+---
+
+## Integration — one branch, one merge (2026-08-31)
+
+### What went wrong first, and why it is recorded here
+
+The stage-1 branch was pushed and never merged. Three `.patch` files were
+uploaded to `main` through the GitHub web UI instead — which writes straight to
+a commit and therefore never consults `.gitignore`, where `*.patch` had been
+listed all along. Applying the stage-2/3 patch onto that `main` then produced:
+
+```
+CONFLICT (modify/delete): lib/canonical-host.ts deleted in HEAD ...
+CONFLICT (modify/delete): middleware.ts deleted in HEAD ...
+CONFLICT (modify/delete): tests/canonical-host.test.ts deleted in HEAD ...
+```
+
+Not a bad patch — a patch applied to a base that had never received its
+predecessor. `npm run verify` then passed on the half-merged tree (180 tests),
+which is the dangerous part: a green gate on a state nobody intended.
+
+**Resolution.** One linear integration branch replayed off `origin/main`,
+carrying every stage in order, plus a hygiene commit that untracks all three
+patch files and adds `tests/repo-hygiene.test.ts` — which reads the git index
+rather than `.gitignore`, so it fails however the file arrived.
+
+### Two defects the integration pass caught
+
+`npm run verify` proves the code is internally consistent. It cannot prove what
+a crawler receives. End-to-end curl against a running server found:
+
+1. **`/ai.txt`, `/llms.txt`, `/llms-full.txt` and `/feed.xml` sent no CORS
+   header at all.** They hand-rolled their own `Response` headers rather than
+   going through `lib/agent-api.ts`. They worked in production *only* because
+   the Vercel dashboard wildcard was blanketing every response — so removing
+   that rule (blocker #4) would have silently taken the four most important
+   agent files offline for browser-based agents, surfacing as a console error
+   in someone else's browser. Fixed with `agentText()`, the text twin of
+   `agentJson()`, reusing the same `AGENT_CORS` constant.
+2. **A false-negative in my own check** — Vercel Analytics and Speed Insights
+   inject via `document.createElement` inside `useEffect`, so they can never
+   appear in SSR HTML. The assertion now checks the client bundle.
+
+### `scripts/verify-live.sh` — `npm run verify:live`
+
+44 acceptance checks over real HTTP: host guard (4), security headers (4),
+CORS boundary in both directions (14), cache (2), crawl surface (4), entity
+moat (6), absence of fabricated social proof (6), NAP identity across four
+surfaces (4). Runs against localhost or production:
+
+```bash
+npm run verify:live https://greenhardwood.ca
+```
+
+**44 passed, 0 failed.**
+
+### Final state of the integrated branch
+
+| Gate                | Result                                          |
+| ------------------- | ----------------------------------------------- |
+| `npm run typecheck` | clean                                           |
+| `npm test`          | **207 passed, 0 failed** (was 168 on main)      |
+| `npm run build`     | 476 routes generated, 371 prerendered pages     |
+| `npm run audit:site`| no broken links, duplicate titles, or missing canonicals |
+| `npm run verify:live` | **44 passed, 0 failed**                       |
+
+### Known pre-existing, deliberately not touched
+
+- `npm run lint` is interactive and unconfigured — `next lint` is deprecated in
+  Next 15 and no ESLint config exists. It is not part of `npm run verify`, so
+  it gates nothing. Migrating it is its own PR, not a rider on this one.
+- 30 files fail `prettier --check`. 32 failed before these changes; every file
+  authored here is formatted. A repo-wide reformat would bury the review diff.
