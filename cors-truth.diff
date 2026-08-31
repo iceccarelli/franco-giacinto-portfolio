@@ -1,0 +1,310 @@
+diff --git a/docs/DOMINATION_CHANGELOG.md b/docs/DOMINATION_CHANGELOG.md
+index d7e8c3e..ebe5266 100644
+--- a/docs/DOMINATION_CHANGELOG.md
++++ b/docs/DOMINATION_CHANGELOG.md
+@@ -446,3 +446,63 @@ The script now preflights: it aborts with exit 2 unless the base URL answers
+ grade a stale server that happens to hold the port.
+ 
+ **44 passed, 0 failed** against a real server, exit 0.
++
++
++---
++
++## Correction — the wildcard CORS was never a dashboard rule (2026-08-31)
++
++Stages 1.1 and 3 asserted, in code comments and in `OFFSITE_BLOCKERS.md`, that
++production's `Access-Control-Allow-Origin: *` on HTML came from the Vercel
++project's dashboard header configuration. **That was wrong.** It was a
++confident inference from one fact — the header is in no file in this
++repository — and it was never tested.
++
++Measuring it settled it in three requests:
++
++```
++/stairs    x-vercel-cache: PRERENDER    access-control-allow-origin: *
++/images/…  (static asset)               access-control-allow-origin: *
++/search    (function-rendered)          no CORS header at all
++```
++
++Vercel attaches the wildcard to everything it serves out of static or
++prerendered storage. Function-rendered routes never get it. There is no
++dashboard switch, and there was never anything for the owner to click.
++
++Two consequences that matter more than the header:
++
++1. **`middleware.ts` could never have removed it.** The CDN attaches the
++   header after middleware has run. The delete is now documented as a second
++   layer for an upstream proxy, not as the mechanism.
++2. **The local check that "proved" the delete worked was vacuous.** Under
++   `next start` nothing sets the header, so `HTML sends NO ACAO` passed
++   without ever exercising a deletion. It was reported as evidence. It was
++   not evidence of anything.
++
++The override now lives in `next.config.mjs`, where a declared header becomes
++part of the build output routing config — the layer that can actually take
++precedence over the static-serving default. It is scoped with a negative
++lookahead so `/api/*`, `/ai.txt`, `/llms.txt`, `/llms-full.txt`, `/feed.xml`,
++`/card.vcf` and `/.well-known/*` keep their `*`; those are meant to be
++cross-origin readable and now set it themselves through `agentText()` and
++`agentJson()`.
++
++`headers()` can set a value but not unset one, so HTML is given
++`https://greenhardwood.ca` rather than nothing. Same effect: unreadable from
++any other origin.
++
++**This override is unproven against Vercel's static layer.** If production
++still shows `*` on HTML after deploy, or shows two conflicting values, the
++correct response is to revert this rule — a duplicated `Access-Control-Allow-Origin`
++is worse than a permissive one, because a browser rejects the response
++outright, and on the agent endpoints that would be a real regression. Verify
++with `npm run verify:live https://greenhardwood.ca` immediately after deploy.
++
++### Proportion
++
++The pages carrying the wildcard are public marketing pages: no authentication,
++no cookies, no user data, and `*` without `Allow-Credentials` means credentials
++are never sent. This is a scanner finding, not an exposure. Every
++discoverability and entity result on the production suite was already green
++before this change.
+diff --git a/docs/OFFSITE_BLOCKERS.md b/docs/OFFSITE_BLOCKERS.md
+index 233dd6a..709bfb7 100644
+--- a/docs/OFFSITE_BLOCKERS.md
++++ b/docs/OFFSITE_BLOCKERS.md
+@@ -70,18 +70,28 @@ instead of months.
+ 
+ ## 4. Vercel dashboard — two settings
+ 
+-**a. Remove the wildcard CORS header.** Production was measured serving
+-`access-control-allow-origin: *` on HTML from a dashboard header rule that
+-exists in no file in this repository:
++**a. ~~Remove the wildcard CORS header.~~ — CORRECTION: nothing to do here.**
++
++This item previously said the `access-control-allow-origin: *` on the site's
++HTML came from a dashboard header rule. That was wrong, and measuring it
++settled the question:
+ 
+ ```
+-$ curl -sI https://greenhardwood.ca/
+-access-control-allow-origin: *
++/stairs   x-vercel-cache: PRERENDER   access-control-allow-origin: *
++/images/… (static asset)              access-control-allow-origin: *
++/search   (function-rendered)         no CORS header at all
+ ```
+ 
+-`middleware.ts` now strips it from every page response, so the site is correct
+-either way — but the rule should come out of the dashboard so the repository
+-stays the only thing that decides. **Settings → Headers.**
++Vercel attaches the wildcard to everything it serves from static/prerendered
++storage. It is platform behaviour, there is no dashboard switch for it, and
++middleware cannot delete it because the CDN adds it after middleware runs. The
++override now lives in `next.config.mjs`, scoped so the agent surfaces keep
++their `*`.
++
++Impact, stated plainly so nobody re-panics about it: the pages carrying the
++wildcard are public marketing pages with no authentication, no cookies and no
++user data, and `*` without `Allow-Credentials` means no credentials are ever
++sent. It is a scanner finding and an untidiness, not an exposure.
+ 
+ **b. Turn on Deployment Protection for previews.**
+ **Settings → Deployment Protection → Vercel Authentication → Standard
+diff --git a/lib/canonical-host.ts b/lib/canonical-host.ts
+index c6a7509..b40067f 100644
+--- a/lib/canonical-host.ts
++++ b/lib/canonical-host.ts
+@@ -48,17 +48,24 @@ export function hostPolicy(rawHost: string | null | undefined): HostPolicy {
+  *   $ curl -sI https://greenhardwood.ca/
+  *   access-control-allow-origin: *
+  *
+- * That header is set by no file in this repository. It comes from the Vercel
+- * project's own header configuration (Settings → Headers), which is outside
+- * version control and therefore outside review. A wildcard ACAO on HTML lets
+- * any origin read the rendered page cross-origin — pointless for a public
+- * marketing page, and a standing finding on every security scan a commercial
+- * client will ever run against this domain.
++ * That header is set by no file in this repository, and — contrary to what an
++ * earlier version of this comment claimed — it is not a Vercel dashboard
++ * setting either. It is what Vercel attaches to everything it serves out of
++ * static/prerendered storage. Measured on production:
+  *
+- * middleware.ts strips it from everything except the paths below, so the
+- * repository — not a dashboard setting nobody remembers — decides which
+- * responses are cross-origin readable. Removing it from the dashboard as well
+- * is tracked in docs/OFFSITE_BLOCKERS.md.
++ *   /stairs   x-vercel-cache: PRERENDER   access-control-allow-origin: *
++ *   /images/… (static asset)              access-control-allow-origin: *
++ *   /search   (function-rendered)         no CORS header at all
++ *
++ * Which means middleware cannot remove it: the delete below runs before the
++ * CDN attaches its own header. The local test that appeared to prove the
++ * delete worked was vacuous — `next start` never sets the header, so there was
++ * nothing to delete. The override that actually bites is declared in
++ * next.config.mjs, where it becomes part of the build output routing config.
++ *
++ * This list still governs which paths may be cross-origin readable at all, and
++ * that scoping is what next.config.mjs excludes from the override. The delete
++ * stays as a second layer for any host or proxy that does set it upstream.
+  */
+ const CORS_PUBLIC_PREFIXES = [
+   "/api/", // facts.json, services.json, areas.json, ask
+diff --git a/middleware.ts b/middleware.ts
+index b1a4ee6..38bbd93 100644
+--- a/middleware.ts
++++ b/middleware.ts
+@@ -11,9 +11,12 @@ import { hostPolicy, isCorsPublicPath } from "@/lib/canonical-host";
+  * covers hosts the other two cannot know about in advance (a stapled domain,
+  * a mirror, a future alias), and it owns the www → apex 308.
+  *
+- * It also owns the CORS boundary, because production was measured sending
+- * `Access-Control-Allow-Origin: *` on HTML from a Vercel dashboard setting
+- * that exists in no file here. See lib/canonical-host.ts.
++ * It also carries a CORS strip as a second layer. Note what that layer can
++ * and cannot do: Vercel attaches `Access-Control-Allow-Origin: *` to
++ * everything it serves from static/prerendered storage, AFTER middleware has
++ * run, so this delete cannot remove it. next.config.mjs overrides it instead.
++ * The delete stays for any upstream host or proxy that sets it earlier.
++ * See lib/canonical-host.ts.
+  *
+  * Policy logic is pure and lives in lib/canonical-host.ts, where
+  * tests/canonical-host.test.ts pins it.
+diff --git a/next.config.mjs b/next.config.mjs
+index 252afed..b79605c 100644
+--- a/next.config.mjs
++++ b/next.config.mjs
+@@ -49,9 +49,21 @@ const nextConfig = {
+       },
+       // Legacy portfolio-site URLs -> the hardwood service architecture.
+       { source: "/work", destination: "/portfolio", permanent: true },
+-      { source: "/services/hardwood-sanding", destination: "/services/sanding-refinishing", permanent: true },
+-      { source: "/services/hardwood-refinishing", destination: "/services/sanding-refinishing", permanent: true },
+-      { source: "/services/hardwood-finishing", destination: "/services/sanding-refinishing", permanent: true },
++      {
++        source: "/services/hardwood-sanding",
++        destination: "/services/sanding-refinishing",
++        permanent: true,
++      },
++      {
++        source: "/services/hardwood-refinishing",
++        destination: "/services/sanding-refinishing",
++        permanent: true,
++      },
++      {
++        source: "/services/hardwood-finishing",
++        destination: "/services/sanding-refinishing",
++        permanent: true,
++      },
+       { source: "/services/stairs", destination: "/services/hardwood-stairs", permanent: true },
+       { source: "/services/railings", destination: "/services/hardwood-railings", permanent: true },
+       { source: "/stairs-toronto", destination: "/stairs", permanent: true },
+@@ -100,13 +112,40 @@ const nextConfig = {
+             value: "camera=(), microphone=(), geolocation=()",
+           },
+           {
+-            key: CSP_ENFORCE
+-              ? "Content-Security-Policy"
+-              : "Content-Security-Policy-Report-Only",
++            key: CSP_ENFORCE ? "Content-Security-Policy" : "Content-Security-Policy-Report-Only",
+             value: CSP_POLICY,
+           },
+         ],
+       },
++      /**
++       * Vercel serves every prerendered page and static asset with
++       * `Access-Control-Allow-Origin: *`. Measured on production:
++       *
++       *   /stairs   x-vercel-cache: PRERENDER   access-control-allow-origin: *
++       *   /search   (function-rendered)         no CORS header at all
++       *
++       * It is platform behaviour for static file serving, not a rule anyone
++       * configured — an earlier commit in this repo blamed a Vercel dashboard
++       * setting, which was wrong. It also means middleware cannot remove it:
++       * `response.headers.delete()` runs before the CDN attaches its own, and
++       * the local test that appeared to prove otherwise was vacuous, because
++       * `next start` never sets the header in the first place.
++       *
++       * A header declared here IS compiled into the build output's routing
++       * config, which is the layer that can actually override the default.
++       * Scoped by negative lookahead so the agent surfaces keep their `*` —
++       * they are meant to be cross-origin readable and now set it themselves
++       * via agentText()/agentJson().
++       *
++       * Same-origin rather than absent: `headers()` can only set a value, not
++       * unset one. Naming our own origin makes the page unreadable from any
++       * other origin, which is the point.
++       */
++      {
++        source:
++          "/((?!api/|_next/|images/|videos/|ai\\.txt|llms\\.txt|llms-full\\.txt|feed\\.xml|card\\.vcf|\\.well-known/).*)",
++        headers: [{ key: "Access-Control-Allow-Origin", value: "https://greenhardwood.ca" }],
++      },
+       {
+         source: "/images/:path*",
+         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+diff --git a/scripts/verify-live.sh b/scripts/verify-live.sh
+index 11d6c3a..eddcc7c 100755
+--- a/scripts/verify-live.sh
++++ b/scripts/verify-live.sh
+@@ -102,8 +102,23 @@ head "CORS boundary — agent surfaces yes, pages no"
+ for u in /ai.txt /llms.txt /llms-full.txt /feed.xml /card.vcf /api/facts.json /api/services.json /api/areas.json; do
+   chk "$u is cross-origin readable" "$(H "$u" | grep -ci 'access-control-allow-origin')" 1
+ done
++# Not "no header" — "no wildcard".
++#
++# Vercel attaches `Access-Control-Allow-Origin: *` to everything it serves from
++# static/prerendered storage, and headers() can set a value but not unset one,
++# so next.config.mjs names our own origin instead. Same effect: unreadable from
++# any other origin. Asserting on absence graded the working override as a
++# failure, having previously passed locally only because `next start` never set
++# the header at all.
+ for u in / /areas/vaughan /estimate /card /stairs /services/hardwood-stairs/toronto; do
+-  chk "$u sends NO CORS header" "$(H "$u" | grep -ci 'access-control-allow-origin')" 0
++  chk "$u is not readable from any origin" "$(H "$u" | grep -ci 'access-control-allow-origin: \*')" 0
++done
++
++# A browser rejects a response carrying two conflicting ACAO values outright.
++# On the agent endpoints that would be a real regression, so it is checked
++# rather than assumed.
++for u in / /ai.txt /api/facts.json; do
++  chk "$u sends exactly one CORS header, not two" "$(H "$u" | grep -ci 'access-control-allow-origin')" 1
+ done
+ 
+ head "Cache"
+diff --git a/tests/canonical-host.test.ts b/tests/canonical-host.test.ts
+index 8e3e57e..0180f0c 100644
+--- a/tests/canonical-host.test.ts
++++ b/tests/canonical-host.test.ts
+@@ -65,10 +65,11 @@ describe("canonical host policy", () => {
+ /**
+  * Which paths may be read cross-origin.
+  *
+- * Production was measured serving `Access-Control-Allow-Origin: *` on HTML —
+- * on the canonical domain — from a Vercel dashboard header rule that exists in
+- * no file in this repository. middleware.ts strips it everywhere except the
+- * agent surfaces. If someone widens that list to include a page, this fails.
++ * Production serves `Access-Control-Allow-Origin: *` on HTML because Vercel
++ * attaches it to everything from static/prerendered storage — not, as an
++ * earlier comment here claimed, from a dashboard rule. This list is what
++ * next.config.mjs excludes from its same-origin override, so widening it to
++ * include a page would make that page cross-origin readable again.
+  */
+ describe("CORS surface", () => {
+   test("the agent endpoints stay cross-origin readable", () => {
+@@ -112,12 +113,13 @@ describe("CORS surface", () => {
+ /**
+  * The other half of the CORS boundary.
+  *
+- * `isCorsPublicPath` decides what middleware may NOT strip. It cannot grant a
+- * header the route never set — and four agent surfaces (/ai.txt, /llms.txt,
+- * /llms-full.txt, /feed.xml) set none. They appeared to work in production
+- * only because a Vercel dashboard rule blanketed every response with
+- * `Access-Control-Allow-Origin: *`. Removing that rule would have taken them
+- * offline for browser-based agents with no visible failure on our side.
++ * `isCorsPublicPath` decides what may NOT be stripped or overridden. It cannot
++ * grant a header the route never set — and four agent surfaces (/ai.txt,
++ * /llms.txt, /llms-full.txt, /feed.xml) set none. They appeared to work only
++ * because Vercel blankets static responses with
++ * `Access-Control-Allow-Origin: *`. Any change to that platform behaviour, or
++ * a move off Vercel, would have taken them offline for browser-based agents
++ * with no visible failure on our side.
+  *
+  * Caught by end-to-end curl against a real server, not by any unit test — so
+  * this one exists to keep it caught.
