@@ -80,3 +80,38 @@ describe("repository hygiene", () => {
     );
   });
 });
+
+/**
+ * Build-sandbox stubs must never reach a commit.
+ *
+ * `npm run build` fetches Google Fonts, and the container this work was done
+ * in has no route to fonts.googleapis.com — so `next/font` was stubbed out
+ * locally to let the build run. One of those stubs was committed. It would
+ * have shipped a site with no webfonts and a CLS regression on all 371 pages,
+ * and nothing in typecheck, the test suite, or the site audit would have said
+ * a word: the stub compiles, renders, and passes every existing assertion.
+ *
+ * This is the assertion that would have caught it.
+ */
+describe("no build-sandbox stubs are committed", () => {
+  test("app/layout.tsx still loads its fonts through next/font", () => {
+    const src = readFileSync("app/layout.tsx", "utf8");
+    assert.ok(
+      src.includes('from "next/font/google"'),
+      "the next/font import is missing — a local build stub has been committed",
+    );
+    assert.match(src, /Figtree\(\{/, "Figtree is no longer initialised through next/font");
+    assert.match(src, /Fraunces\(\{/, "Fraunces is no longer initialised through next/font");
+    assert.ok(!src.includes("FONT STUB"), "a font stub marker is present in app/layout.tsx");
+  });
+
+  test("no source file carries a sandbox stub marker", () => {
+    const markers = ["FONT STUB", "BUILD-SANDBOX STUB"];
+    for (const file of ["app/layout.tsx", "next.config.mjs"]) {
+      const src = readFileSync(file, "utf8");
+      for (const m of markers) {
+        assert.ok(!src.includes(m), `${file} contains the sandbox marker "${m}"`);
+      }
+    }
+  });
+});

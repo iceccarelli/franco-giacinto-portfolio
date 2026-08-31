@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-// FONT STUB
+import { Figtree, Fraunces } from "next/font/google";
 import "./globals.css";
 import { SiteShell } from "@/components/layout/site-shell";
 import { JsonLd } from "@/components/json-ld";
@@ -8,9 +8,19 @@ import { company } from "@/data/company";
 import { localBusinessLd, websiteLd } from "@/lib/seo";
 import { IS_PREVIEW, SITE_URL } from "@/lib/site-url";
 
-const figtree = { variable: "--font-figtree" };
+const figtree = Figtree({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-figtree",
+  display: "swap",
+});
 
-const fraunces = { variable: "--font-fraunces" };
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: ["500", "600", "700"],
+  variable: "--font-fraunces",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
