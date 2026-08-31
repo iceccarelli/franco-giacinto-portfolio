@@ -1,5 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { CANONICAL_HOST, hostPolicy, isCorsPublicPath } from "../lib/canonical-host";
 
 /**
@@ -105,5 +106,46 @@ describe("CORS surface", () => {
   test("a path that merely starts with an endpoint name is not public", () => {
     assert.ok(!isCorsPublicPath("/card.vcf.html"));
     assert.ok(!isCorsPublicPath("/ai.txt-mirror"));
+  });
+});
+
+/**
+ * The other half of the CORS boundary.
+ *
+ * `isCorsPublicPath` decides what middleware may NOT strip. It cannot grant a
+ * header the route never set — and four agent surfaces (/ai.txt, /llms.txt,
+ * /llms-full.txt, /feed.xml) set none. They appeared to work in production
+ * only because a Vercel dashboard rule blanketed every response with
+ * `Access-Control-Allow-Origin: *`. Removing that rule would have taken them
+ * offline for browser-based agents with no visible failure on our side.
+ *
+ * Caught by end-to-end curl against a real server, not by any unit test — so
+ * this one exists to keep it caught.
+ */
+describe("agent surfaces set their own CORS", () => {
+  test("every text agent route returns through agentText()", () => {
+    for (const file of [
+      "app/ai.txt/route.ts",
+      "app/llms.txt/route.ts",
+      "app/llms-full.txt/route.ts",
+      "app/feed.xml/route.ts",
+    ]) {
+      const src = readFileSync(file, "utf8");
+      assert.ok(
+        src.includes("agentText("),
+        `${file} builds its own Response and will ship without CORS once the ` +
+          "Vercel dashboard wildcard is removed",
+      );
+      assert.ok(
+        !/new Response\([^)]*\{\s*headers/.test(src),
+        `${file} still hand-rolls response headers; use agentText() so CORS cannot drift`,
+      );
+    }
+  });
+
+  test("agentText grants exactly the same CORS as agentJson", () => {
+    const src = readFileSync("lib/agent-api.ts", "utf8");
+    const fn = src.slice(src.indexOf("export function agentText"));
+    assert.ok(fn.includes("...AGENT_CORS"), "agentText must reuse AGENT_CORS, not restate it");
   });
 });

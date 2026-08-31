@@ -1,3 +1,4 @@
+import { agentText } from "@/lib/agent-api";
 import { cities } from "@/data/areas";
 import { company } from "@/data/company";
 import { liveProfiles, pendingProfiles, reviewPolicy } from "@/data/profiles";
@@ -159,10 +160,5 @@ with a locally adjusted price band.
 Structured data: LocalBusiness / FlooringContractor at ${SITE_URL}/#business
 `;
 
-  return new Response(body, {
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800",
-    },
-  });
+  return agentText(body, "text/plain; charset=utf-8");
 }

@@ -1,3 +1,4 @@
+import { agentText } from "@/lib/agent-api";
 import { company } from "@/data/company";
 import { SITE_URL } from "@/lib/site-url";
 import { guides, updatedDate } from "@/data/guides";
@@ -22,9 +23,7 @@ export function GET() {
    * pubDate is the single field an aggregator uses to decide an item is new, so
    * a feed without it announces nothing no matter how often it is fetched.
    */
-  const sorted = [...guides].sort(
-    (a, b) => updatedDate(b).getTime() - updatedDate(a).getTime(),
-  );
+  const sorted = [...guides].sort((a, b) => updatedDate(b).getTime() - updatedDate(a).getTime());
 
   const items = sorted
     .map(
@@ -56,10 +55,5 @@ ${items}
   </channel>
 </rss>`;
 
-  return new Response(xml, {
-    headers: {
-      "Content-Type": "application/rss+xml; charset=utf-8",
-      "Cache-Control": "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800",
-    },
-  });
+  return agentText(xml, "application/rss+xml; charset=utf-8");
 }
