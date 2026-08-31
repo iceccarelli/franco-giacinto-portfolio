@@ -44,6 +44,7 @@ chk() {
     printf "  \033[31mFAIL\033[0m  %s  (want %s, got %s)\n" "$label" "$want" "$got"; FAIL=$((FAIL + 1))
   fi
 }
+note() { printf "  \033[2mskip\033[0m  %s\n" "$1"; }
 H()  { curl -sI "${HOSTHDR[@]}" "$BASE$1"; }
 G()  { curl -s  "${HOSTHDR[@]}" "$BASE$1"; }
 
@@ -69,13 +70,27 @@ if ! G / | grep -q "Green Hardwood"; then
 fi
 
 head "Host guard — only greenhardwood.ca may be indexed"
-chk "a *.vercel.app host is noindexed" \
-  "$(curl -sI -H 'Host: franco-giacinto-portfolio.vercel.app' "$BASE/" | grep -ci 'x-robots-tag: noindex')" 1
 chk "the canonical host is NOT noindexed" "$(H / | grep -ci 'x-robots-tag')" 0
-chk "www 308s to the apex, path and query intact" \
-  "$(curl -sI -H 'Host: www.greenhardwood.ca' "$BASE/areas/vaughan?a=1" | grep -c 'location: https://greenhardwood.ca/areas/vaughan?a=1')" 1
-chk "an unknown mirror host is noindexed" \
-  "$(curl -sI -H 'Host: mirror.example' "$BASE/" | grep -ci noindex)" 1
+
+if [ ${#HOSTHDR[@]} -gt 0 ]; then
+  # Local. Spoofing Host is the only way to reach middleware's other branches.
+  chk "a *.vercel.app host is noindexed" \
+    "$(curl -sI -H 'Host: franco-giacinto-portfolio.vercel.app' "$BASE/" | grep -ci 'x-robots-tag: noindex')" 1
+  chk "www 308s to the apex, path and query intact" \
+    "$(curl -sI -H 'Host: www.greenhardwood.ca' "$BASE/areas/vaughan?a=1" | grep -c 'location: https://greenhardwood.ca/areas/vaughan?a=1')" 1
+  chk "an unknown mirror host is noindexed" \
+    "$(curl -sI -H 'Host: mirror.example' "$BASE/" | grep -ci noindex)" 1
+else
+  # Production. Vercel routes on the hostname the request resolved to and
+  # ignores a conflicting Host header, so spoofing here asserts nothing — it
+  # graded the canonical response three more times and called the clone
+  # un-noindexed. It is not. Hit the real alias instead.
+  chk "the .vercel.app alias is noindexed" \
+    "$(curl -sI --max-time 15 https://franco-giacinto-portfolio.vercel.app/ | grep -ci 'x-robots-tag: noindex')" 1
+  chk "www 308s to the apex, path and query intact" \
+    "$(curl -sI --max-time 15 'https://www.greenhardwood.ca/areas/vaughan?a=1' | grep -c 'location: https://greenhardwood.ca/areas/vaughan?a=1')" 1
+  note "arbitrary-mirror check — needs a resolving hostname; covered by tests/canonical-host.test.ts"
+fi
 
 head "Security headers"
 chk "HSTS includes subdomains and preload" "$(H / | grep -c 'includeSubDomains; preload')" 1
@@ -92,8 +107,20 @@ for u in / /areas/vaughan /estimate /card /stairs /services/hardwood-stairs/toro
 done
 
 head "Cache"
-chk "homepage serves s-maxage, not must-revalidate" "$(H / | grep -c 's-maxage')" 1
-chk "a city page serves s-maxage" "$(H /areas/vaughan | grep -c 's-maxage')" 1
+if [ ${#HOSTHDR[@]} -gt 0 ]; then
+  chk "homepage serves s-maxage, not must-revalidate" "$(H / | grep -c 's-maxage')" 1
+  chk "a city page serves s-maxage" "$(H /areas/vaughan | grep -c 's-maxage')" 1
+else
+  # On Vercel an ISR page is cached at the edge and the BROWSER is deliberately
+  # told max-age=0, must-revalidate; s-maxage is handled internally by the CDN
+  # and never appears. Asserting on it graded documented behaviour as broken.
+  # x-vercel-cache is the observable evidence the edge is serving the page;
+  # the interval is asserted by the build's Revalidate column.
+  chk "the homepage is served from the edge cache" \
+    "$(H / | grep -ciE 'x-vercel-cache: (HIT|STALE|PRERENDER|REVALIDATED)')" 1
+  chk "a city page is served from the edge cache" \
+    "$(H /areas/vaughan | grep -ciE 'x-vercel-cache: (HIT|STALE|PRERENDER|REVALIDATED)')" 1
+fi
 
 head "Crawl surface"
 chk "robots disallows /api/ask" "$(G /robots.txt | grep -c 'Disallow: /api/ask')" 1
