@@ -40,7 +40,13 @@ export function ProjectGrid() {
         {visible.map((p) => (
           <article
             key={p.slug}
-            className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
+            /*
+             * A stable anchor per job. There is no /portfolio/{slug} route —
+             * the grid is one client-filtered page — so the job catalogue deep
+             * links here instead. scroll-mt clears the sticky header.
+             */
+            id={p.slug}
+            className="scroll-mt-28 overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
           >
             {p.before && p.after ? (
               <BeforeAfter
@@ -50,12 +56,7 @@ export function ProjectGrid() {
                 afterAlt={p.imageAlt}
               />
             ) : (
-              <Photo
-            src={p.image}
-            alt={p.imageAlt}
-            ratio="4/3"
-            slot="card"
-          />
+              <Photo src={p.image} alt={p.imageAlt} ratio="4/3" slot="card" />
             )}
             <div className="p-6">
               <div className="flex flex-wrap gap-2">

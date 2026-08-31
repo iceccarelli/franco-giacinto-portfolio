@@ -8,7 +8,6 @@ import { HomeHero } from "@/components/home/hero";
 import { ToolsRow } from "@/components/home/tools-row";
 import { WhyUs } from "@/components/home/why-us";
 import { JsonLd } from "@/components/json-ld";
-import { Stars } from "@/components/stars";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,11 +17,11 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { company, stats } from "@/data/company";
+import { catalog, bandFor } from "@/data/catalog";
 import { coreCities } from "@/data/areas";
 import { faqs } from "@/data/faq";
 import { projects } from "@/data/projects";
 import { services } from "@/data/services";
-import { testimonials } from "@/data/testimonials";
 import { breadcrumbLd, webPageLd } from "@/lib/seo";
 
 const homeDescription =
@@ -122,12 +121,12 @@ export default function Home() {
               className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
             >
               <Photo
-            src={s.image}
-            alt={s.imageAlt}
-            ratio="16/10"
-            slot="card"
-            imageClassName="transition-transform duration-300 group-hover:scale-[1.03]"
-          />
+                src={s.image}
+                alt={s.imageAlt}
+                ratio="16/10"
+                slot="card"
+                imageClassName="transition-transform duration-300 group-hover:scale-[1.03]"
+              />
               <div className="p-5">
                 <p className="text-xs text-accent">{s.priceFrom}</p>
                 <h3 className="mt-1 font-display text-2xl">{s.shortName}</h3>
@@ -214,12 +213,7 @@ export default function Home() {
               key={p.slug}
               className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
             >
-              <Photo
-            src={p.image}
-            alt={p.imageAlt}
-            ratio="4/3"
-            slot="card"
-          />
+              <Photo src={p.image} alt={p.imageAlt} ratio="4/3" slot="card" />
               <div className="p-5">
                 <Badge>{p.location}</Badge>
                 <h3 className="mt-3 font-display text-xl">{p.title}</h3>
@@ -273,23 +267,55 @@ export default function Home() {
         </div>
       </section>
 
+      {/*
+        This section used to present six invented customers as genuine
+        feedback — names, five-star ratings and quotes. They had
+        already been pulled out of the structured data; they were still on the
+        page under a heading asserting they were real. They are gone.
+
+        The subject matter was not the fabrication — the attribution was. Those
+        six jobs are jobs this shop does, so they became data/catalog.ts, where
+        each is described as a specification rather than as praise. A stranger's
+        five stars persuade nobody spending $18,000; the failure modes of a
+        stair retread are something a competitor cannot copy without knowing
+        the trade.
+      */}
       <section className="mx-auto max-w-6xl px-4 py-16 sm:py-24 sm:px-6">
-        <h2 className="font-display text-3xl">What clients actually say</h2>
-        <div className="mt-8 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
-          {testimonials.map((t) => (
-            <blockquote
-              key={t.name}
-              className="rounded-xl bg-surface p-6 shadow-[var(--shadow-card)]"
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div className="max-w-2xl">
+            <p className="text-xs font-medium tracking-[0.18em] text-accent uppercase">
+              The catalogue
+            </p>
+            <h2 className="mt-2 font-display text-3xl sm:text-4xl">
+              Find your job, and what goes wrong with it.
+            </h2>
+            <p className="mt-3 text-muted">
+              Twelve job types, each with the specification, the published band, and the failure
+              modes that produce a second invoice. No testimonials — this shop has not collected
+              reviews yet, and will not invent them.
+            </p>
+          </div>
+          <Button asChild variant="outline">
+            <Link href="/catalog">
+              All twelve <ArrowRight className="size-4" />
+            </Link>
+          </Button>
+        </div>
+        <div className="mt-9 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
+          {catalog.slice(0, 6).map((entry) => (
+            <Link
+              key={entry.slug}
+              href={`/catalog/${entry.slug}`}
+              className="group flex flex-col rounded-xl bg-surface p-6 shadow-[var(--shadow-card)] transition-shadow hover:shadow-lg"
             >
-              <Stars rating={t.rating} />
-              <p className="mt-3 text-fg">“{t.quote}”</p>
-              <footer className="mt-4 text-sm">
-                <p className="font-medium">{t.name}</p>
-                <p className="text-muted">
-                  {t.role} · {t.project}
-                </p>
-              </footer>
-            </blockquote>
+              <p className="text-xs text-accent">{bandFor(entry)}</p>
+              <h3 className="mt-2 font-display text-xl leading-snug">{entry.name}</h3>
+              <p className="mt-2 flex-1 text-sm text-muted">{entry.summary}</p>
+              <p className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+                {entry.failureModes.length} ways it goes wrong
+                <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
+              </p>
+            </Link>
           ))}
         </div>
       </section>

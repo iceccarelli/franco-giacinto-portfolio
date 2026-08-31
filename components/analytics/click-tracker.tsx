@@ -94,7 +94,9 @@ function classify(
     return { event: "stair_studio_click", location };
   }
 
-  const job = /^\/portfolio\/([^/?#]+)/.exec(href);
+  // Both shapes: a future /portfolio/{slug} route, and the anchor form the
+  // job catalogue uses today against the single filtered grid.
+  const job = /^\/portfolio(?:\/|#)([^/?#]+)/.exec(href);
   if (job?.[1]) return { event: "portfolio_job_open", slug: job[1] };
 
   return null;

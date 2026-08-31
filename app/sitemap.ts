@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { answers } from "@/data/answers";
+import { catalog } from "@/data/catalog";
 import { cities } from "@/data/areas";
 import { SITE_URL } from "@/lib/site-url";
 import { guides, updatedDate } from "@/data/guides";
@@ -25,6 +26,7 @@ const staticRoutes: {
   { path: "/services", priority: 0.9, changeFrequency: "monthly" },
   { path: "/estimate", priority: 0.9, changeFrequency: "monthly" },
   { path: "/portfolio", priority: 0.8, changeFrequency: "weekly" },
+  { path: "/catalog", priority: 0.85, changeFrequency: "monthly" },
   { path: "/showroom", priority: 0.8, changeFrequency: "monthly" },
   { path: "/areas", priority: 0.8, changeFrequency: "monthly" },
   { path: "/guides", priority: 0.75, changeFrequency: "weekly" },
@@ -97,6 +99,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified,
       changeFrequency: "monthly" as const,
       priority: p.category === "stairs" ? 0.8 : 0.75,
+    })),
+    // The job catalogue. Priority sits with the money services: these pages
+    // carry the specification and the failure modes, which is what both a
+    // buyer and an answer engine are actually looking for.
+    ...catalog.map((c) => ({
+      url: `${BASE}/catalog/${c.slug}`,
+      lastModified,
+      changeFrequency: "monthly" as const,
+      priority: c.category === "stairs" ? 0.85 : 0.75,
     })),
     ...answers.map((a) => ({
       url: `${BASE}/answers/${a.slug}`,

@@ -155,6 +155,7 @@ export const navSections: NavSection[] = [
         heading: "See it",
         href: "/portfolio",
         links: [
+          { label: "Job catalogue", href: "/catalog", blurb: "Twelve job types, with what goes wrong in each" },
           { label: "Portfolio", href: "/portfolio", blurb: "Completed floors, stairs, and railings" },
           { label: "Stair studio", href: "/stairs", blurb: "Configure a staircase and price it" },
           { label: "Showroom", href: "/showroom", blurb: "Species and finishes in daylight" },
@@ -208,6 +209,7 @@ export const footerColumns: NavGroup[] = [
     heading: "Learn",
     href: "/guides",
     links: [
+      { label: "Job catalogue", href: "/catalog" },
       { label: "Guides", href: "/guides" },
       { label: "Methods", href: "/methods" },
       { label: "Diagnose a problem", href: "/problems" },
