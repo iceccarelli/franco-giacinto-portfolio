@@ -24,9 +24,7 @@ export const CANONICAL_HOST = new URL(company.website).host;
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "0.0.0.0"]);
 
 export type HostPolicy =
-  | { action: "canonical" }
-  | { action: "redirect"; host: string }
-  | { action: "noindex" };
+  { action: "canonical" } | { action: "redirect"; host: string } | { action: "noindex" };
 
 export function hostPolicy(rawHost: string | null | undefined): HostPolicy {
   const host = (rawHost ?? "").trim().toLowerCase();
@@ -38,4 +36,43 @@ export function hostPolicy(rawHost: string | null | undefined): HostPolicy {
 
   // Unknown host — includes every *.vercel.app deployment URL. Never indexable.
   return { action: "noindex" };
+}
+
+/**
+ * The public, cross-origin surfaces. These are the ONLY paths that may send
+ * `Access-Control-Allow-Origin: *`.
+ *
+ * Why this list exists at all: production was observed sending ACAO `*` on
+ * *HTML* — on greenhardwood.ca itself:
+ *
+ *   $ curl -sI https://greenhardwood.ca/
+ *   access-control-allow-origin: *
+ *
+ * That header is set by no file in this repository. It comes from the Vercel
+ * project's own header configuration (Settings → Headers), which is outside
+ * version control and therefore outside review. A wildcard ACAO on HTML lets
+ * any origin read the rendered page cross-origin — pointless for a public
+ * marketing page, and a standing finding on every security scan a commercial
+ * client will ever run against this domain.
+ *
+ * middleware.ts strips it from everything except the paths below, so the
+ * repository — not a dashboard setting nobody remembers — decides which
+ * responses are cross-origin readable. Removing it from the dashboard as well
+ * is tracked in docs/OFFSITE_BLOCKERS.md.
+ */
+const CORS_PUBLIC_PREFIXES = [
+  "/api/", // facts.json, services.json, areas.json, ask
+  "/card.vcf", // vCard 4.0, fetched by contact managers
+  "/.well-known/", // agents.json
+  "/llms.txt",
+  "/llms-full.txt",
+  "/ai.txt",
+  "/feed.xml",
+];
+
+/** True when this path is deliberately readable from any origin. */
+export function isCorsPublicPath(pathname: string) {
+  return CORS_PUBLIC_PREFIXES.some((p) =>
+    p.endsWith("/") ? pathname.startsWith(p) : pathname === p,
+  );
 }

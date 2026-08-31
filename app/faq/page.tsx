@@ -25,6 +25,21 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * ISR, one hour.
+ *
+ * Measured on production before this change:
+ *   cache-control: public, max-age=0, must-revalidate
+ *
+ * That is the Next default for a fully static page, and it means the edge
+ * revalidates against the origin far more eagerly than a page built from
+ * `data/` at deploy time ever needs to. `revalidate` makes Vercel serve
+ * `s-maxage=3600, stale-while-revalidate` instead: the CDN answers from cache
+ * for an hour and refreshes in the background, which is the Stage 1 cache
+ * target and one less origin hit on every crawl.
+ */
+export const revalidate = 3600;
+
 export default function FaqPage() {
   return (
     <>

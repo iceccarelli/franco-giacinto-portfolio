@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { CANONICAL_HOST, hostPolicy } from "../lib/canonical-host";
+import { CANONICAL_HOST, hostPolicy, isCorsPublicPath } from "../lib/canonical-host";
 
 /**
  * The middleware host guard in one sentence: only greenhardwood.ca may be
@@ -58,5 +58,52 @@ describe("canonical host policy", () => {
 
   test("a port on the canonical host does not defeat the match", () => {
     assert.deepEqual(hostPolicy("greenhardwood.ca:443"), { action: "canonical" });
+  });
+});
+
+/**
+ * Which paths may be read cross-origin.
+ *
+ * Production was measured serving `Access-Control-Allow-Origin: *` on HTML —
+ * on the canonical domain — from a Vercel dashboard header rule that exists in
+ * no file in this repository. middleware.ts strips it everywhere except the
+ * agent surfaces. If someone widens that list to include a page, this fails.
+ */
+describe("CORS surface", () => {
+  test("the agent endpoints stay cross-origin readable", () => {
+    for (const path of [
+      "/api/facts.json",
+      "/api/services.json",
+      "/api/areas.json",
+      "/api/ask",
+      "/card.vcf",
+      "/.well-known/agents.json",
+      "/llms.txt",
+      "/llms-full.txt",
+      "/ai.txt",
+      "/feed.xml",
+    ]) {
+      assert.ok(isCorsPublicPath(path), `${path} must keep CORS *`);
+    }
+  });
+
+  test("no HTML page is cross-origin readable", () => {
+    for (const path of [
+      "/",
+      "/estimate",
+      "/stairs",
+      "/areas/vaughan",
+      "/services/hardwood-stairs/toronto",
+      "/card",
+      "/about",
+      "/contact",
+    ]) {
+      assert.ok(!isCorsPublicPath(path), `${path} must not send ACAO *`);
+    }
+  });
+
+  test("a path that merely starts with an endpoint name is not public", () => {
+    assert.ok(!isCorsPublicPath("/card.vcf.html"));
+    assert.ok(!isCorsPublicPath("/ai.txt-mirror"));
   });
 });
