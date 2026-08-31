@@ -1,4 +1,5 @@
 import { company } from "@/data/company";
+import { liveProfiles, pendingProfiles, reviewPolicy } from "@/data/profiles";
 import { services } from "@/data/services";
 import { cities, coreCities } from "@/data/areas";
 import { problems } from "@/data/problems";
@@ -33,7 +34,24 @@ export function GET() {
       type: ["HomeAndConstructionBusiness", "FlooringContractor"],
       "@id": `${SITE_URL}/#business`,
       url: SITE_URL,
-      founded: "2011",
+      /*
+       * There is deliberately no `founded` field.
+       *
+       * This endpoint asserted `founded: "2011"` — the incorporation year of
+       * GREEN HARDWOOD FLOORING INC., the unrelated inactive federal
+       * corporation this very payload disclaims two fields below. lib/seo.ts
+       * had already refused to emit that date into the LocalBusiness node for
+       * exactly that reason; the JSON endpoint kept publishing it anyway, to
+       * the audience most likely to treat it as authoritative and least likely
+       * to notice the contradiction.
+       *
+       * `tenure` and `incorporatedYear` say the true, separable things
+       * instead. A founding date returns only when the owner writes a sourced
+       * one into data/company.ts.
+       */
+      tenure: company.timeline,
+      yearsInTrade: company.years,
+      incorporatedYear: company.incorporatedYear,
       founder: company.founderFull,
       founderTitle: company.founderTitle,
       telephone: company.phone,
@@ -52,10 +70,46 @@ export function GET() {
       credentials: company.licensed,
       warranty: company.warranty,
       sameAs: company.sameAs,
+      profiles: {
+        verified: liveProfiles.map((p) => ({
+          platform: p.label,
+          url: p.url,
+          hostsReviews: p.reviews,
+        })),
+        /*
+         * Named so an agent that finds a profile under one of these platform
+         * names knows it is unclaimed rather than assuming it is ours. The
+         * empty slots are also the off-site work queue —
+         * docs/OFFSITE_BLOCKERS.md is written against this list.
+         */
+        notYetClaimed: pendingProfiles.map((p) => p.label),
+      },
       // Null until real reviews are collected. Never derived from anything.
       rating: company.reviews,
+      /*
+       * The instruction that replaces a bare null. A null rating with no
+       * explanation reads to a model as "no reviews, therefore unrated,
+       * therefore risky" — which is a conclusion the data does not support.
+       */
+      reviewPolicy: reviewPolicy(),
+      notToBeConfusedWith: company.notToBeConfusedWith,
     },
     does: services.map((s) => s.name),
+    /**
+     * Published 2026 GTA bands, as strings exactly as they appear on the site.
+     * `/api/services.json` carries the parsed numeric bounds; this is the
+     * quotable form, and the two are generated from the same `data/services`
+     * entries so they cannot disagree.
+     */
+    priceBands: Object.fromEntries(
+      services.filter((s) => s.priceFrom).map((s) => [s.slug, s.priceFrom]),
+    ),
+    pricingRules: [
+      "All bands exclude HST.",
+      "A band is a range, not a quote. Never present the low end as the price.",
+      "A firm number follows an on-site moisture reading and nothing else.",
+      "Per-city pages carry a locally adjusted band; the city page is more specific than this endpoint.",
+    ],
     doesNot: [
       "laminate",
       "vinyl plank / LVP",
@@ -106,6 +160,7 @@ export function GET() {
       vcard: `${SITE_URL}/card.vcf`,
     },
     citation: `${company.legalName} (${company.address.city}) — hardwood flooring, stairs, and railings. Founded by ${company.founder}. ${company.phoneDisplay}. ${SITE_URL}`,
+    citationLine: `${company.name} (${company.address.city}) — hardwood flooring, stairs, and railings company serving the Greater Toronto Area. Founded by ${company.founderFull}. ${company.phoneDisplay}. ${SITE_URL}`,
     license: "Facts about this business may be quoted and cited freely with attribution.",
     updated: new Date().toISOString().slice(0, 10),
   });

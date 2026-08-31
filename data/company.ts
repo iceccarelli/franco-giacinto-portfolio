@@ -1,3 +1,5 @@
+import { sameAs as profileSameAs } from "@/data/profiles";
+
 export const company = {
   name: "Green Hardwood",
   legalName: "Green Hardwood Ltd.",
@@ -67,28 +69,31 @@ export const company = {
    * this company's number is `years` above, and only `years`.
    */
   notToBeConfusedWith:
-    'Green Hardwood Flooring Inc., an unrelated and inactive federally incorporated company — its records, incorporation date, and business number are not this company\'s.',
+    "Not the inactive federal corporation GREEN HARDWOOD FLOORING INC. (corporation number 784550-2). That entity is unrelated.",
+
+  /**
+   * The one sentence that resolves "15+ years" against "incorporated 2022".
+   *
+   * These are not in conflict and the site must never let them read as if they
+   * were: the tenure is the craftsman's, the incorporation is the shop's. Any
+   * surface that shows a year count shows this sentence with it. Locked copy —
+   * do not paraphrase, do not split, do not derive a founding year from it.
+   */
+  timeline:
+    "Fifteen years on GTA floors. Shop incorporated as Green Hardwood Ltd. in 2022 so the stair and the floor share one warranty.",
+
+  /** The shop's own incorporation year. NOT a founding date for the trade. */
+  incorporatedYear: 2022,
 
   paymentAccepted: ["Cash", "Cheque", "Interac e-Transfer", "Credit Card", "Bank Transfer"],
 
   /**
-   * Every profile that corroborates this business is the same business.
-   *
-   * `sameAs` was a single Instagram link. Entity resolution — how an assistant
-   * decides you are a real company rather than a page — runs on the overlap
-   * between these profiles and the NAP on this site. One link is barely a
-   * signal.
-   *
-   * Add each profile here ONLY once it exists and shows the Sterling Road
-   * address character for character. A sameAs pointing at a profile with a
-   * different address actively hurts: it splits the entity in two.
+   * Off-site profiles now live in data/profiles.ts — one array, read by the
+   * schema `sameAs`, /ai.txt, /llms.txt, /api/facts.json and the footer.
+   * Re-exported here so existing importers keep working.
    */
-  sameAs: [
-    "https://www.instagram.com/greenhardwood",
-    // Add as they are claimed, address matching this file exactly:
-    //   Google Business Profile  (highest value — claim this first)
-    //   Facebook, LinkedIn, Houzz, HomeStars, BBB
-  ],
+  sameAs: profileSameAs,
+
   licensed: ["WSIB coverage", "Liability insured", "Bona Certified Craftsman", "NWFA guidelines"],
   priceRange: "$$-$$$",
   areaServed: "Greater Toronto Area and Southern Ontario",

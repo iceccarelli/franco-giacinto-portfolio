@@ -5,6 +5,7 @@ import { Container } from "@/components/layout/container";
 import { company } from "@/data/company";
 import { coreCities } from "@/data/areas";
 import { footerColumns, legalLinks } from "@/data/navigation";
+import { liveProfiles } from "@/data/profiles";
 
 /**
  * The footer, in the shape aws.amazon.com uses: an action row, a four-column
@@ -60,7 +61,10 @@ export function SiteFooter() {
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-primary-fg/75">
               {company.tagline}
             </p>
-            <address data-track-location="footer_nap" className="mt-4 space-y-1.5 text-sm not-italic text-primary-fg/80">
+            <address
+              data-track-location="footer_nap"
+              className="mt-4 space-y-1.5 text-sm not-italic text-primary-fg/80"
+            >
               <span className="flex items-start gap-2">
                 <MapPin className="mt-0.5 size-4 shrink-0 text-primary-fg/50" aria-hidden />
                 <span>
@@ -83,15 +87,25 @@ export function SiteFooter() {
                 <Mail className="size-4 shrink-0 text-primary-fg/50" aria-hidden />
                 {company.email}
               </a>
-              <a
-                className="flex items-center gap-2 underline-offset-2 hover:underline"
-                href={company.instagram}
-                rel="noopener noreferrer"
-                target="_blank"
-              >
-                <Instagram className="size-4 shrink-0 text-primary-fg/50" aria-hidden />
-                Instagram
-              </a>
+              {/*
+                Driven by data/profiles.ts, not hard-coded. Every profile the
+                shop actually owns appears here and in the schema `sameAs` from
+                the same array, so the footer and the structured data can never
+                disagree about which profiles exist — which is the mismatch
+                that splits an entity in two.
+              */}
+              {liveProfiles.map((profile) => (
+                <a
+                  key={profile.key}
+                  className="flex items-center gap-2 underline-offset-2 hover:underline"
+                  href={profile.url}
+                  rel="me noopener noreferrer"
+                  target="_blank"
+                >
+                  <Instagram className="size-4 shrink-0 text-primary-fg/50" aria-hidden />
+                  {profile.label}
+                </a>
+              ))}
             </address>
             <p className="mt-3 text-xs text-primary-fg/60">{company.hoursSummary}</p>
           </div>
@@ -188,13 +202,28 @@ export function SiteFooter() {
         <p className="mt-8 text-center text-xs leading-relaxed text-primary-fg/55">
           {company.licensed.join(" · ")} · {company.warranty}
         </p>
+
+        {/*
+          Entity disambiguation, in crawlable text on all 371 pages.
+          
+          There is an unrelated inactive federal corporation with a nearly
+          identical name. Answer engines merge same-named entities by default
+          and cheerfully borrow the wrong incorporation date; the denial has to
+          exist somewhere a crawler reads, not only in /ai.txt. The tenure
+          sentence sits beside it because "15+ years" and "incorporated 2022"
+          look like a contradiction until one sentence explains that they are
+          measuring two different things.
+        */}
+        <p className="mx-auto mt-3 max-w-2xl text-center text-xs leading-relaxed text-primary-fg/45">
+          {company.timeline} {company.notToBeConfusedWith}
+        </p>
       </Container>
 
       <div className="border-t border-primary-fg/10">
         <Container className="flex flex-col gap-3 py-5 text-xs text-primary-fg/50 sm:flex-row sm:items-center sm:justify-between">
           <p>
-            {/* legalName already ends in "Ltd." — do not add a second period. */}
-            © {new Date().getFullYear()} {company.legalName} All rights reserved.
+            {/* legalName already ends in "Ltd." — do not add a second period. */}©{" "}
+            {new Date().getFullYear()} {company.legalName} All rights reserved.
           </p>
           <ul className="flex flex-wrap gap-x-5 gap-y-2">
             {legalLinks.map((link) => (
