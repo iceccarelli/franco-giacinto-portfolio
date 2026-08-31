@@ -70,18 +70,28 @@ instead of months.
 
 ## 4. Vercel dashboard — two settings
 
-**a. Remove the wildcard CORS header.** Production was measured serving
-`access-control-allow-origin: *` on HTML from a dashboard header rule that
-exists in no file in this repository:
+**a. ~~Remove the wildcard CORS header.~~ — CORRECTION: nothing to do here.**
+
+This item previously said the `access-control-allow-origin: *` on the site's
+HTML came from a dashboard header rule. That was wrong, and measuring it
+settled the question:
 
 ```
-$ curl -sI https://greenhardwood.ca/
-access-control-allow-origin: *
+/stairs   x-vercel-cache: PRERENDER   access-control-allow-origin: *
+/images/… (static asset)              access-control-allow-origin: *
+/search   (function-rendered)         no CORS header at all
 ```
 
-`middleware.ts` now strips it from every page response, so the site is correct
-either way — but the rule should come out of the dashboard so the repository
-stays the only thing that decides. **Settings → Headers.**
+Vercel attaches the wildcard to everything it serves from static/prerendered
+storage. It is platform behaviour, there is no dashboard switch for it, and
+middleware cannot delete it because the CDN adds it after middleware runs. The
+override now lives in `next.config.mjs`, scoped so the agent surfaces keep
+their `*`.
+
+Impact, stated plainly so nobody re-panics about it: the pages carrying the
+wildcard are public marketing pages with no authentication, no cookies and no
+user data, and `*` without `Allow-Credentials` means no credentials are ever
+sent. It is a scanner finding and an untidiness, not an exposure.
 
 **b. Turn on Deployment Protection for previews.**
 **Settings → Deployment Protection → Vercel Authentication → Standard

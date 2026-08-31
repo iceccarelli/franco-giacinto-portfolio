@@ -446,3 +446,63 @@ The script now preflights: it aborts with exit 2 unless the base URL answers
 grade a stale server that happens to hold the port.
 
 **44 passed, 0 failed** against a real server, exit 0.
+
+
+---
+
+## Correction — the wildcard CORS was never a dashboard rule (2026-08-31)
+
+Stages 1.1 and 3 asserted, in code comments and in `OFFSITE_BLOCKERS.md`, that
+production's `Access-Control-Allow-Origin: *` on HTML came from the Vercel
+project's dashboard header configuration. **That was wrong.** It was a
+confident inference from one fact — the header is in no file in this
+repository — and it was never tested.
+
+Measuring it settled it in three requests:
+
+```
+/stairs    x-vercel-cache: PRERENDER    access-control-allow-origin: *
+/images/…  (static asset)               access-control-allow-origin: *
+/search    (function-rendered)          no CORS header at all
+```
+
+Vercel attaches the wildcard to everything it serves out of static or
+prerendered storage. Function-rendered routes never get it. There is no
+dashboard switch, and there was never anything for the owner to click.
+
+Two consequences that matter more than the header:
+
+1. **`middleware.ts` could never have removed it.** The CDN attaches the
+   header after middleware has run. The delete is now documented as a second
+   layer for an upstream proxy, not as the mechanism.
+2. **The local check that "proved" the delete worked was vacuous.** Under
+   `next start` nothing sets the header, so `HTML sends NO ACAO` passed
+   without ever exercising a deletion. It was reported as evidence. It was
+   not evidence of anything.
+
+The override now lives in `next.config.mjs`, where a declared header becomes
+part of the build output routing config — the layer that can actually take
+precedence over the static-serving default. It is scoped with a negative
+lookahead so `/api/*`, `/ai.txt`, `/llms.txt`, `/llms-full.txt`, `/feed.xml`,
+`/card.vcf` and `/.well-known/*` keep their `*`; those are meant to be
+cross-origin readable and now set it themselves through `agentText()` and
+`agentJson()`.
+
+`headers()` can set a value but not unset one, so HTML is given
+`https://greenhardwood.ca` rather than nothing. Same effect: unreadable from
+any other origin.
+
+**This override is unproven against Vercel's static layer.** If production
+still shows `*` on HTML after deploy, or shows two conflicting values, the
+correct response is to revert this rule — a duplicated `Access-Control-Allow-Origin`
+is worse than a permissive one, because a browser rejects the response
+outright, and on the agent endpoints that would be a real regression. Verify
+with `npm run verify:live https://greenhardwood.ca` immediately after deploy.
+
+### Proportion
+
+The pages carrying the wildcard are public marketing pages: no authentication,
+no cookies, no user data, and `*` without `Allow-Credentials` means credentials
+are never sent. This is a scanner finding, not an exposure. Every
+discoverability and entity result on the production suite was already green
+before this change.

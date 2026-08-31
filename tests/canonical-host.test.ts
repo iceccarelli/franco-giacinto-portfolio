@@ -65,10 +65,11 @@ describe("canonical host policy", () => {
 /**
  * Which paths may be read cross-origin.
  *
- * Production was measured serving `Access-Control-Allow-Origin: *` on HTML —
- * on the canonical domain — from a Vercel dashboard header rule that exists in
- * no file in this repository. middleware.ts strips it everywhere except the
- * agent surfaces. If someone widens that list to include a page, this fails.
+ * Production serves `Access-Control-Allow-Origin: *` on HTML because Vercel
+ * attaches it to everything from static/prerendered storage — not, as an
+ * earlier comment here claimed, from a dashboard rule. This list is what
+ * next.config.mjs excludes from its same-origin override, so widening it to
+ * include a page would make that page cross-origin readable again.
  */
 describe("CORS surface", () => {
   test("the agent endpoints stay cross-origin readable", () => {
@@ -112,12 +113,13 @@ describe("CORS surface", () => {
 /**
  * The other half of the CORS boundary.
  *
- * `isCorsPublicPath` decides what middleware may NOT strip. It cannot grant a
- * header the route never set — and four agent surfaces (/ai.txt, /llms.txt,
- * /llms-full.txt, /feed.xml) set none. They appeared to work in production
- * only because a Vercel dashboard rule blanketed every response with
- * `Access-Control-Allow-Origin: *`. Removing that rule would have taken them
- * offline for browser-based agents with no visible failure on our side.
+ * `isCorsPublicPath` decides what may NOT be stripped or overridden. It cannot
+ * grant a header the route never set — and four agent surfaces (/ai.txt,
+ * /llms.txt, /llms-full.txt, /feed.xml) set none. They appeared to work only
+ * because Vercel blankets static responses with
+ * `Access-Control-Allow-Origin: *`. Any change to that platform behaviour, or
+ * a move off Vercel, would have taken them offline for browser-based agents
+ * with no visible failure on our side.
  *
  * Caught by end-to-end curl against a real server, not by any unit test — so
  * this one exists to keep it caught.
