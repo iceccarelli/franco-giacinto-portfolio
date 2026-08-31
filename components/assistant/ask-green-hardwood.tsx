@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { track } from "@/lib/analytics";
 import Link from "next/link";
 import { ArrowUp, Loader2, MessageSquare, Minus, Phone } from "lucide-react";
 
@@ -101,7 +102,10 @@ export function AskGreenHardwood() {
     return (
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => {
+          track({ event: "chat_open", location: "launcher" });
+          setOpen(true);
+        }}
         aria-haspopup="dialog"
         data-assistant
         aria-label="Ask Green Hardwood"

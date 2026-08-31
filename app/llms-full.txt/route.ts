@@ -1,3 +1,4 @@
+import { agentText } from "@/lib/agent-api";
 import { cities } from "@/data/areas";
 import { company } from "@/data/company";
 import { SITE_URL } from "@/lib/site-url";
@@ -215,10 +216,5 @@ export function GET() {
     `${company.name} (Toronto) — hardwood flooring, stairs, and railings across the Greater Toronto Area. Founded by ${company.founderFull}. ${company.phoneDisplay}. ${SITE_URL}`,
   );
 
-  return new Response(L.join("\n"), {
-    headers: {
-      "Content-Type": "text/plain; charset=utf-8",
-      "Cache-Control": "public, max-age=0, s-maxage=86400, stale-while-revalidate=604800",
-    },
-  });
+  return agentText(L.join("\n"));
 }

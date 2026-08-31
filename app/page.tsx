@@ -23,7 +23,7 @@ import { faqs } from "@/data/faq";
 import { projects } from "@/data/projects";
 import { services } from "@/data/services";
 import { testimonials } from "@/data/testimonials";
-import { faqLd, howToStairLd } from "@/lib/seo";
+import { breadcrumbLd, webPageLd } from "@/lib/seo";
 
 const homeDescription =
   "Hardwood floor installation, custom stairs, railings, dust-free sanding and refinishing across Toronto and the GTA. Free on-site estimates.";
@@ -40,6 +40,21 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * ISR, one hour.
+ *
+ * Measured on production before this change:
+ *   cache-control: public, max-age=0, must-revalidate
+ *
+ * That is the Next default for a fully static page, and it means the edge
+ * revalidates against the origin far more eagerly than a page built from
+ * `data/` at deploy time ever needs to. `revalidate` makes Vercel serve
+ * `s-maxage=3600, stale-while-revalidate` instead: the CDN answers from cache
+ * for an hour and refreshes in the background, which is the Stage 1 cache
+ * target and one less origin hit on every crawl.
+ */
+export const revalidate = 3600;
+
 export default function Home() {
   const featured = services.filter((s) =>
     [
@@ -54,8 +69,22 @@ export default function Home() {
 
   return (
     <>
-      <JsonLd data={faqLd()} />
-      <JsonLd data={howToStairLd()} />
+      {/*
+        Stage 1: the homepage carries exactly the Rule-9 set — LocalBusiness +
+        WebSite come from the root layout; WebPage + BreadcrumbList here. The
+        bulky FAQPage block was a byte-for-byte duplicate of /faq's schema
+        (two FAQPages on one origin also dilute both), and the HowTo belongs
+        to /stairs, which already publishes its own. ~7 KB off the document.
+      */}
+      <JsonLd
+        data={webPageLd({
+          name: "Hardwood Flooring & Stairs Toronto | Green Hardwood",
+          description: homeDescription,
+          path: "/",
+          primaryImage: "/images/stair-studio-poster.jpg",
+        })}
+      />
+      <JsonLd data={breadcrumbLd([{ name: "Home", path: "/" }])} />
       <HomeHero />
 
       <section className="border-y border-border bg-surface">

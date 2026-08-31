@@ -38,3 +38,37 @@ export function agentJson(body: unknown, sMaxAge = 3600) {
 export function agentPreflight() {
   return new Response(null, { status: 204, headers: AGENT_CORS });
 }
+
+/**
+ * Public, cacheable plain-text with CORS. The text twin of `agentJson`.
+ *
+ * /ai.txt, /llms.txt, /llms-full.txt and /feed.xml were built for
+ * cross-origin readers — a browser-based agent, an in-page research tool, a
+ * third-party crawler running in a worker — and were the only agent surfaces
+ * that sent no CORS header at all. They appeared to work in production solely
+ * because a Vercel dashboard rule was blanketing every response with
+ * `Access-Control-Allow-Origin: *`, including HTML that had no business
+ * carrying it.
+ *
+ * Stage 1.1 strips that wildcard from HTML. Without this helper, removing the
+ * dashboard rule would silently take these four files offline for exactly the
+ * audience they exist to serve — a regression nobody would notice for months,
+ * because the failure is a console error in someone else's browser.
+ *
+ * So the repository now grants CORS to the files that want it, explicitly,
+ * instead of inheriting it from a setting nobody owns.
+ */
+export function agentText(
+  body: string,
+  contentType = "text/plain; charset=utf-8",
+  sMaxAge = 86400,
+) {
+  return new Response(body, {
+    headers: {
+      "Content-Type": contentType,
+      ...AGENT_CORS,
+      "Cache-Control": `public, max-age=0, s-maxage=${sMaxAge}, stale-while-revalidate=604800`,
+      "X-Robots-Tag": "all",
+    },
+  });
+}

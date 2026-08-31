@@ -2,7 +2,7 @@
   "name": "green-hardwood",
   "version": "2.0.0",
   "private": true,
-  "description": "Green Hardwood — hardwood floor installation, custom hardwood stairs, and railings across Toronto and the GTA.",
+  "description": "Green Hardwood \u2014 hardwood floor installation, custom hardwood stairs, and railings across Toronto and the GTA.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -12,13 +12,16 @@
     "verify": "npm run typecheck && npm run test && npm run build && npm run audit:site",
     "indexnow": "node --experimental-strip-types scripts/indexnow.mjs",
     "audit:site": "node --experimental-strip-types scripts/audit-site.mjs",
-    "test": "tsx --conditions=react-server --test tests/*.test.ts"
+    "test": "tsx --conditions=react-server --test tests/*.test.ts",
+    "verify:live": "bash scripts/verify-live.sh"
   },
   "dependencies": {
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-label": "^2.1.8",
     "@radix-ui/react-slot": "^1.2.4",
+    "@vercel/analytics": "^2.0.1",
+    "@vercel/speed-insights": "^2.0.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.544.0",

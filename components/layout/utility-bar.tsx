@@ -13,7 +13,7 @@ import { utilityLinks } from "@/data/navigation";
  */
 export function UtilityBar() {
   return (
-    <div className="hidden bg-primary text-primary-fg lg:block">
+    <div data-track-location="utility_bar" className="hidden bg-primary text-primary-fg lg:block">
       <div className="mx-auto flex h-9 max-w-6xl items-center justify-between px-4 text-xs sm:px-6">
         <p className="text-primary-fg/70">
           {company.hoursSummary} · {company.address.city}, {company.address.region}

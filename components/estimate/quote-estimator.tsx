@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -17,14 +17,44 @@ import {
   type ServiceKind,
 } from "@/data/estimate";
 import { formatCad } from "@/lib/utils";
+import { track } from "@/lib/analytics";
 
 export function QuoteEstimator({ compact = false }: { compact?: boolean }) {
   const [input, setInput] = useState<EstimateInput>(emptyEstimate);
   const result = useMemo(() => calculateEstimate(input), [input]);
+  const started = useRef(false);
 
   function patch<K extends keyof EstimateInput>(key: K, value: EstimateInput[K]) {
+    // First touch of any control is the top of the funnel, and only the first.
+    if (!started.current) {
+      started.current = true;
+      track({ event: "estimate_start", entry: compact ? "home" : "estimate_page" });
+    }
     setInput((prev) => ({ ...prev, [key]: value }));
   }
+
+  /**
+   * The band, once it settles.
+   *
+   * Debounced by 700 ms because the area control is a range slider: firing on
+   * every tick would push a hundred events for one drag, blow through the GA4
+   * event quota, and turn the median band into noise. What matters is the band
+   * a visitor actually read, which is the one still on screen when they stop
+   * moving.
+   */
+  useEffect(() => {
+    if (!started.current) return;
+    const t = setTimeout(() => {
+      track({
+        event: "estimate_band_shown",
+        min: Math.round(result.low),
+        max: Math.round(result.high),
+        city: input.city,
+        service: input.service,
+      });
+    }, 700);
+    return () => clearTimeout(t);
+  }, [result.low, result.high, input.city, input.service]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
