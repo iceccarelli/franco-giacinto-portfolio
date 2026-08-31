@@ -49,9 +49,21 @@ const nextConfig = {
       },
       // Legacy portfolio-site URLs -> the hardwood service architecture.
       { source: "/work", destination: "/portfolio", permanent: true },
-      { source: "/services/hardwood-sanding", destination: "/services/sanding-refinishing", permanent: true },
-      { source: "/services/hardwood-refinishing", destination: "/services/sanding-refinishing", permanent: true },
-      { source: "/services/hardwood-finishing", destination: "/services/sanding-refinishing", permanent: true },
+      {
+        source: "/services/hardwood-sanding",
+        destination: "/services/sanding-refinishing",
+        permanent: true,
+      },
+      {
+        source: "/services/hardwood-refinishing",
+        destination: "/services/sanding-refinishing",
+        permanent: true,
+      },
+      {
+        source: "/services/hardwood-finishing",
+        destination: "/services/sanding-refinishing",
+        permanent: true,
+      },
       { source: "/services/stairs", destination: "/services/hardwood-stairs", permanent: true },
       { source: "/services/railings", destination: "/services/hardwood-railings", permanent: true },
       { source: "/stairs-toronto", destination: "/stairs", permanent: true },
@@ -100,12 +112,39 @@ const nextConfig = {
             value: "camera=(), microphone=(), geolocation=()",
           },
           {
-            key: CSP_ENFORCE
-              ? "Content-Security-Policy"
-              : "Content-Security-Policy-Report-Only",
+            key: CSP_ENFORCE ? "Content-Security-Policy" : "Content-Security-Policy-Report-Only",
             value: CSP_POLICY,
           },
         ],
+      },
+      /**
+       * Vercel serves every prerendered page and static asset with
+       * `Access-Control-Allow-Origin: *`. Measured on production:
+       *
+       *   /stairs   x-vercel-cache: PRERENDER   access-control-allow-origin: *
+       *   /search   (function-rendered)         no CORS header at all
+       *
+       * It is platform behaviour for static file serving, not a rule anyone
+       * configured — an earlier commit in this repo blamed a Vercel dashboard
+       * setting, which was wrong. It also means middleware cannot remove it:
+       * `response.headers.delete()` runs before the CDN attaches its own, and
+       * the local test that appeared to prove otherwise was vacuous, because
+       * `next start` never sets the header in the first place.
+       *
+       * A header declared here IS compiled into the build output's routing
+       * config, which is the layer that can actually override the default.
+       * Scoped by negative lookahead so the agent surfaces keep their `*` —
+       * they are meant to be cross-origin readable and now set it themselves
+       * via agentText()/agentJson().
+       *
+       * Same-origin rather than absent: `headers()` can only set a value, not
+       * unset one. Naming our own origin makes the page unreadable from any
+       * other origin, which is the point.
+       */
+      {
+        source:
+          "/((?!api/|_next/|images/|videos/|ai\\.txt|llms\\.txt|llms-full\\.txt|feed\\.xml|card\\.vcf|\\.well-known/).*)",
+        headers: [{ key: "Access-Control-Allow-Origin", value: "https://greenhardwood.ca" }],
       },
       {
         source: "/images/:path*",

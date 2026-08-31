@@ -48,17 +48,24 @@ export function hostPolicy(rawHost: string | null | undefined): HostPolicy {
  *   $ curl -sI https://greenhardwood.ca/
  *   access-control-allow-origin: *
  *
- * That header is set by no file in this repository. It comes from the Vercel
- * project's own header configuration (Settings → Headers), which is outside
- * version control and therefore outside review. A wildcard ACAO on HTML lets
- * any origin read the rendered page cross-origin — pointless for a public
- * marketing page, and a standing finding on every security scan a commercial
- * client will ever run against this domain.
+ * That header is set by no file in this repository, and — contrary to what an
+ * earlier version of this comment claimed — it is not a Vercel dashboard
+ * setting either. It is what Vercel attaches to everything it serves out of
+ * static/prerendered storage. Measured on production:
  *
- * middleware.ts strips it from everything except the paths below, so the
- * repository — not a dashboard setting nobody remembers — decides which
- * responses are cross-origin readable. Removing it from the dashboard as well
- * is tracked in docs/OFFSITE_BLOCKERS.md.
+ *   /stairs   x-vercel-cache: PRERENDER   access-control-allow-origin: *
+ *   /images/… (static asset)              access-control-allow-origin: *
+ *   /search   (function-rendered)         no CORS header at all
+ *
+ * Which means middleware cannot remove it: the delete below runs before the
+ * CDN attaches its own header. The local test that appeared to prove the
+ * delete worked was vacuous — `next start` never sets the header, so there was
+ * nothing to delete. The override that actually bites is declared in
+ * next.config.mjs, where it becomes part of the build output routing config.
+ *
+ * This list still governs which paths may be cross-origin readable at all, and
+ * that scoping is what next.config.mjs excludes from the override. The delete
+ * stays as a second layer for any host or proxy that does set it upstream.
  */
 const CORS_PUBLIC_PREFIXES = [
   "/api/", // facts.json, services.json, areas.json, ask

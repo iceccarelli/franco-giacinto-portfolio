@@ -102,8 +102,23 @@ head "CORS boundary — agent surfaces yes, pages no"
 for u in /ai.txt /llms.txt /llms-full.txt /feed.xml /card.vcf /api/facts.json /api/services.json /api/areas.json; do
   chk "$u is cross-origin readable" "$(H "$u" | grep -ci 'access-control-allow-origin')" 1
 done
+# Not "no header" — "no wildcard".
+#
+# Vercel attaches `Access-Control-Allow-Origin: *` to everything it serves from
+# static/prerendered storage, and headers() can set a value but not unset one,
+# so next.config.mjs names our own origin instead. Same effect: unreadable from
+# any other origin. Asserting on absence graded the working override as a
+# failure, having previously passed locally only because `next start` never set
+# the header at all.
 for u in / /areas/vaughan /estimate /card /stairs /services/hardwood-stairs/toronto; do
-  chk "$u sends NO CORS header" "$(H "$u" | grep -ci 'access-control-allow-origin')" 0
+  chk "$u is not readable from any origin" "$(H "$u" | grep -ci 'access-control-allow-origin: \*')" 0
+done
+
+# A browser rejects a response carrying two conflicting ACAO values outright.
+# On the agent endpoints that would be a real regression, so it is checked
+# rather than assumed.
+for u in / /ai.txt /api/facts.json; do
+  chk "$u sends exactly one CORS header, not two" "$(H "$u" | grep -ci 'access-control-allow-origin')" 1
 done
 
 head "Cache"

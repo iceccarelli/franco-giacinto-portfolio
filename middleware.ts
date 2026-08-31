@@ -11,9 +11,12 @@ import { hostPolicy, isCorsPublicPath } from "@/lib/canonical-host";
  * covers hosts the other two cannot know about in advance (a stapled domain,
  * a mirror, a future alias), and it owns the www → apex 308.
  *
- * It also owns the CORS boundary, because production was measured sending
- * `Access-Control-Allow-Origin: *` on HTML from a Vercel dashboard setting
- * that exists in no file here. See lib/canonical-host.ts.
+ * It also carries a CORS strip as a second layer. Note what that layer can
+ * and cannot do: Vercel attaches `Access-Control-Allow-Origin: *` to
+ * everything it serves from static/prerendered storage, AFTER middleware has
+ * run, so this delete cannot remove it. next.config.mjs overrides it instead.
+ * The delete stays for any upstream host or proxy that sets it earlier.
+ * See lib/canonical-host.ts.
  *
  * Policy logic is pure and lives in lib/canonical-host.ts, where
  * tests/canonical-host.test.ts pins it.
