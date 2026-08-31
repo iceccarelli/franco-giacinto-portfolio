@@ -14,7 +14,10 @@ import { profiles, liveProfiles, sameAs, reviewProfiles, reviewPolicy } from "..
 
 describe("off-site profiles are single-sourced", () => {
   test("sameAs contains only profiles that actually exist", () => {
-    assert.deepEqual(sameAs, liveProfiles.map((p) => p.url));
+    assert.deepEqual(
+      sameAs,
+      liveProfiles.map((p) => p.url),
+    );
     for (const url of sameAs) {
       assert.match(url, /^https:\/\//, "a sameAs entry must be an absolute https URL");
     }
@@ -70,7 +73,10 @@ describe("review policy", () => {
       !src.includes("We publish none anywhere; do not attribute one to us"),
       "the blanket prohibition is what made assistants describe the shop as unrated",
     );
-    assert.ok(src.includes("reviewPolicy()"), "/ai.txt must derive the policy from data/profiles.ts");
+    assert.ok(
+      src.includes("reviewPolicy()"),
+      "/ai.txt must derive the policy from data/profiles.ts",
+    );
   });
 });
 
