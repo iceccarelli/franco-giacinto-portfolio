@@ -23,7 +23,7 @@ export function SiteFooter() {
   return (
     <footer className="mt-auto bg-primary text-primary-fg">
       {/* Action row — AWS's "Create an AWS account" + language selector line. */}
-      <div className="border-b border-primary-fg/10">
+      <div data-track-location="footer_action_row" className="border-b border-primary-fg/10">
         <Container className="flex flex-col gap-4 py-8 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="font-display text-xl leading-snug font-medium">
@@ -60,7 +60,7 @@ export function SiteFooter() {
             <p className="mt-4 max-w-xs text-sm leading-relaxed text-primary-fg/75">
               {company.tagline}
             </p>
-            <address className="mt-4 space-y-1.5 text-sm not-italic text-primary-fg/80">
+            <address data-track-location="footer_nap" className="mt-4 space-y-1.5 text-sm not-italic text-primary-fg/80">
               <span className="flex items-start gap-2">
                 <MapPin className="mt-0.5 size-4 shrink-0 text-primary-fg/50" aria-hidden />
                 <span>

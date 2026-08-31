@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useId, type ReactNode } from "react";
+import { useActionState, useEffect, useId, useRef, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 import { CheckCircle2, Loader2, Phone } from "lucide-react";
 import { submitLead } from "@/app/actions/lead";
@@ -11,6 +11,7 @@ import { cities } from "@/data/areas";
 import { company } from "@/data/company";
 import { serviceKinds } from "@/data/estimate";
 import { initialLeadState, type LeadErrors, type LeadField } from "@/lib/leads";
+import { track } from "@/lib/analytics";
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -39,6 +40,31 @@ export function QuoteForm({
 }) {
   const [state, formAction] = useActionState(submitLead, initialLeadState);
   const uid = useId();
+  const counted = useRef(false);
+
+  /**
+   * The conversion, fired from the server's verdict rather than from the
+   * submit button.
+   *
+   * A handler on onSubmit counts every attempt, including the ones that bounce
+   * off validation and the ones the honeypot swallows — which is how a lead
+   * count ends up two or three times larger than the inbox. This fires once,
+   * only when the action actually returned success, and carries only the
+   * coarse dimensions the server marked safe to send.
+   */
+  useEffect(() => {
+    if (state.status !== "success" || counted.current) return;
+    counted.current = true;
+    const a = state.analytics;
+    track({
+      event: "estimate_submit",
+      city: a?.city ?? "unknown",
+      service: a?.service ?? "unknown",
+      has_photos: a?.has_photos ?? false,
+      has_stairs: a?.has_stairs ?? false,
+      source: a?.source ?? source,
+    });
+  }, [state.status, state.analytics, source]);
 
   if (state.status === "success") {
     return (

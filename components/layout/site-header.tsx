@@ -44,7 +44,7 @@ export function SiteHeader() {
         <NavMenu />
 
         {/* Desktop actions. */}
-        <div className="ml-auto hidden items-center gap-2 lg:flex">
+        <div data-track-location="header" className="ml-auto hidden items-center gap-2 lg:flex">
           <SiteSearch />
           <a
             href={`tel:${company.phone}`}

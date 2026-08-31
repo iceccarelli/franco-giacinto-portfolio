@@ -26,11 +26,31 @@ export type Lead = {
 
 export type LeadErrors = Partial<Record<LeadField | "form", string>>;
 
+/**
+ * The only part of an accepted lead that is allowed to reach an analytics
+ * vendor.
+ *
+ * City slug, service kind, whether a size was given, and which surface the
+ * form was on. No name, no phone, no email, no free text — those go to the
+ * inbox and stop there. Typed separately from `values` so the boundary is
+ * something a reviewer can see rather than a convention someone has to
+ * remember.
+ */
+export type LeadAnalytics = {
+  city: string;
+  service: string;
+  has_photos: boolean;
+  has_stairs: boolean;
+  source: string;
+};
+
 export type LeadState = {
   status: "idle" | "success" | "error";
   errors: LeadErrors;
   /** Echoed back so the form can repopulate after a failed round trip. */
   values: Partial<Record<LeadField, string>>;
+  /** Present only on `status: "success"`. Coarse dimensions, never PII. */
+  analytics?: LeadAnalytics;
 };
 
 export const initialLeadState: LeadState = { status: "idle", errors: {}, values: {} };

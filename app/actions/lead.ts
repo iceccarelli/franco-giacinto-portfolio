@@ -48,5 +48,22 @@ export async function submitLead(_prev: LeadState, form: FormData): Promise<Lead
   await deliverLead(parsed.lead);
 
   // Delivery problems are ours. The visitor's request was accepted and logged.
-  return { status: "success", errors: {}, values: {} };
+  return {
+    status: "success",
+    errors: {},
+    values: {},
+    /**
+     * Coarse dimensions only. The client fires `estimate_submit` from these,
+     * so the conversion is counted from the server's verdict — a lead that
+     * failed validation never reaches this line and therefore never inflates
+     * the conversion count, which an onSubmit handler on the form would.
+     */
+    analytics: {
+      city: parsed.lead.city,
+      service: parsed.lead.service,
+      has_photos: false,
+      has_stairs: parsed.lead.service === "stairs" || parsed.lead.service === "both",
+      source: parsed.lead.source,
+    },
+  };
 }
