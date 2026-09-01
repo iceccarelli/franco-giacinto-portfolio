@@ -1,0 +1,717 @@
+diff --git a/app/areas/[city]/page.tsx b/app/areas/[city]/page.tsx
+index 57974ea..7db0427 100644
+--- a/app/areas/[city]/page.tsx
++++ b/app/areas/[city]/page.tsx
+@@ -128,7 +128,7 @@ export default async function CityPage({ params }: { params: Promise<Params> })
+           </h1>
+           <p className="mt-4 max-w-2xl text-lg text-muted">{city.blurb}</p>
+           <Button asChild className="mt-6">
+-            <Link href="/estimate">Estimate a {city.name} project</Link>
++            <Link href={`/estimate?city=${city.slug}`}>Estimate a {city.name} project</Link>
+           </Button>
+         </div>
+       </section>
+diff --git a/app/estimate/page.tsx b/app/estimate/page.tsx
+index 1834c79..f9b9e96 100644
+--- a/app/estimate/page.tsx
++++ b/app/estimate/page.tsx
+@@ -1,9 +1,7 @@
+ import type { Metadata } from "next";
+ import { Photo } from "@/components/photo";
+-import { QuoteEstimator } from "@/components/estimate/quote-estimator";
+-import { QuoteForm } from "@/components/estimate/quote-form";
++import { EstimateFlow } from "@/components/estimate/estimate-flow";
+ import { PageHero } from "@/components/page-hero";
+-import { company } from "@/data/company";
+ 
+ export const metadata: Metadata = {
+   title: "Hardwood Estimate",
+@@ -18,26 +16,60 @@ export const metadata: Metadata = {
+   },
+ };
+ 
++/**
++ * Stays prerendered and edge-cached. The `?service=` / `?city=` prefill is
++ * resolved inside EstimateFlow on the client, because resolving it here would
++ * make this a per-request function render — which the site audit flagged, and
++ * which is the wrong trade on the page every conversion path ends at.
++ *
++ * The canonical is pinned to the bare path above, so `/estimate?city=vaughan`
++ * never becomes a second indexable URL competing with `/estimate`.
++ */
++export const revalidate = 3600;
++
+ export default function EstimatePage() {
+   return (
+     <>
+       <PageHero
+         kicker="Estimate"
+-        title="A real range, then a site visit."
+-        lede="Calibrated to 2026 Greater Toronto labour and mill pricing. We do not lock a number until we have read the moisture in your subfloor."
++        title="City, service, size. A 2026 GTA band in about twenty seconds."
++        lede="Calibrated to 2026 Greater Toronto labour and mill pricing. We do not lock a number until we have read the moisture in your subfloor. No spam, no vinyl pitch."
+       />
+       <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
+-        <QuoteEstimator />
++        <EstimateFlow />
++
+         <div className="mt-14 grid gap-10 lg:grid-cols-2">
+           <div>
+-            <h2 className="font-display text-3xl">Book the free measure</h2>
+-            <p className="mt-3 text-muted">
+-              We typically confirm within one business day. For water damage or a failed inspection,
+-              call {company.phoneDisplay}.
+-            </p>
+-            <div className="mt-6">
+-              <QuoteForm />
+-            </div>
++            <h2 className="font-display text-2xl">What happens next</h2>
++            <ol className="mt-4 space-y-3 text-muted">
++              <li className="flex gap-3">
++                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-fg">
++                  1
++                </span>
++                <span>
++                  A project lead calls or texts within one business day. Not a call centre — the
++                  person who will be on site.
++                </span>
++              </li>
++              <li className="flex gap-3">
++                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-fg">
++                  2
++                </span>
++                <span>
++                  Free on-site measure inside the core service area, including a moisture reading of
++                  the subfloor. That reading is what turns the band into a number.
++                </span>
++              </li>
++              <li className="flex gap-3">
++                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-fg">
++                  3
++                </span>
++                <span>
++                  A written scope and a firm price. Floors, stairs and railings on one document,
++                  under one warranty.
++                </span>
++              </li>
++            </ol>
+           </div>
+           <Photo
+             src="/images/workshop.jpg"
+diff --git a/app/services/[slug]/[city]/page.tsx b/app/services/[slug]/[city]/page.tsx
+index b5ddb40..de97a66 100644
+--- a/app/services/[slug]/[city]/page.tsx
++++ b/app/services/[slug]/[city]/page.tsx
+@@ -137,7 +137,7 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
+             <p className="mt-4 text-lg text-muted">{page.angle}</p>
+             <div className="mt-6 flex flex-wrap gap-3">
+               <Button asChild size="lg">
+-                <Link href="/estimate">Price this in {city.name}</Link>
++                <Link href={`/estimate?service=${page.service.slug}&city=${page.city.slug}`}>Price this in {city.name}</Link>
+               </Button>
+               <Button asChild size="lg" variant="outline">
+                 <a href={`tel:${company.phone}`}>Call {company.phoneDisplay}</a>
+diff --git a/app/services/[slug]/page.tsx b/app/services/[slug]/page.tsx
+index d7a7400..9f8ffea 100644
+--- a/app/services/[slug]/page.tsx
++++ b/app/services/[slug]/page.tsx
+@@ -106,7 +106,7 @@ export default async function ServicePage({ params }: { params: Promise<Params>
+             </p>
+             <div className="mt-6 flex flex-wrap gap-3">
+               <Button asChild>
+-                <Link href="/estimate">Estimate this work</Link>
++                <Link href={`/estimate?service=${service.slug}`}>Estimate this work</Link>
+               </Button>
+               {service.slug === "hardwood-stairs" && (
+                 <Button asChild variant="outline">
+diff --git a/components/estimate/estimate-flow.tsx b/components/estimate/estimate-flow.tsx
+new file mode 100644
+index 0000000..e1c3b7b
+--- /dev/null
++++ b/components/estimate/estimate-flow.tsx
+@@ -0,0 +1,178 @@
++"use client";
++
++import { Suspense, useEffect, useMemo, useRef, useState } from "react";
++import { useSearchParams } from "next/navigation";
++import Link from "next/link";
++import { QuoteEstimator } from "@/components/estimate/quote-estimator";
++import { QuoteForm } from "@/components/estimate/quote-form";
++import { calculateEstimate, type EstimateInput } from "@/data/estimate";
++import { getCity } from "@/data/areas";
++import { serviceKinds } from "@/data/estimate";
++import {
++  prefillFrom,
++  readStoredEstimate,
++  seedEstimate,
++  writeStoredEstimate,
++} from "@/lib/estimate-prefill";
++import { track } from "@/lib/analytics";
++import { formatCad } from "@/lib/utils";
++
++/**
++ * One configuration, two views.
++ *
++ * `/estimate` used to render the calculator and the lead form as unrelated
++ * components: a visitor set city, service and size on the calculator, then
++ * typed city, service and size again into the form beneath it. This owns the
++ * state once and hands it to both.
++ *
++ * It also does the two things the brief asks for and the page could not do:
++ *
++ *   - honours `?service=` and `?city=` (the catalogue was already sending
++ *     them; nothing was reading them)
++ *   - restores an abandoned configuration on the next visit, without
++ *     re-engagement nagging and without ever storing a name or a phone number
++ */
++/**
++ * The query string is read on the CLIENT, deliberately.
++ *
++ * Reading `searchParams` in the server component turned `/estimate` from a
++ * prerendered, edge-cached page into a per-request function render — the site
++ * audit caught it — and that is a bad trade on the one page every conversion
++ * path ends at. The prefill only ever seeds client state, so nothing is gained
++ * by resolving it on the server.
++ *
++ * `useSearchParams` needs a Suspense boundary in a static page, so the export
++ * below provides one and the real component sits inside it.
++ */
++export function EstimateFlow() {
++  return (
++    <Suspense fallback={<EstimateFlowInner prefill={{}} />}>
++      <EstimateFlowFromUrl />
++    </Suspense>
++  );
++}
++
++function EstimateFlowFromUrl() {
++  const params = useSearchParams();
++  const prefill = useMemo(
++    () =>
++      prefillFrom({
++        service: params.get("service") ?? undefined,
++        city: params.get("city") ?? undefined,
++        sqft: params.get("sqft") ?? undefined,
++        steps: params.get("steps") ?? undefined,
++      }),
++    [params],
++  );
++  return <EstimateFlowInner prefill={prefill} />;
++}
++
++function EstimateFlowInner({ prefill }: { prefill: Partial<EstimateInput> }) {
++  // Server and first client render must agree, so the URL prefill seeds the
++  // initial state and anything remembered is merged in after hydration.
++  const [input, setInput] = useState<EstimateInput>(() => seedEstimate(prefill));
++  const [restored, setRestored] = useState(false);
++  const hydrated = useRef(false);
++
++  useEffect(() => {
++    if (hydrated.current) return;
++    hydrated.current = true;
++    const stored = readStoredEstimate();
++    // An explicit link wins over a memory: somebody who just clicked "price a
++    // stair conversion" means it, whatever they configured last week.
++    const merged = { ...stored, ...prefill };
++    if (Object.keys(stored).length > 0 && Object.keys(prefill).length === 0) {
++      setInput(seedEstimate(merged));
++      setRestored(true);
++    }
++  }, [prefill]);
++
++  useEffect(() => {
++    if (!hydrated.current) return;
++    writeStoredEstimate(input);
++  }, [input]);
++
++  const result = calculateEstimate(input);
++  const cityName = getCity(input.city)?.name ?? input.city;
++  const serviceLabel = serviceKinds.find((s) => s.id === input.service)?.label ?? input.service;
++
++  return (
++    <>
++      {restored && (
++        /*
++          Stated, not silent. A page that quietly changes what the visitor sees
++          is worse than one that starts fresh — so it says what it did and how
++          to undo it, in one line, once.
++        */
++        <p className="mb-5 rounded-lg border border-border bg-bg-warm px-4 py-3 text-sm text-muted">
++          Picked up where you left off — {serviceLabel.toLowerCase()} in {cityName}.{" "}
++          <button
++            type="button"
++            className="font-medium text-primary underline underline-offset-2"
++            onClick={() => {
++              setInput(seedEstimate({}));
++              setRestored(false);
++            }}
++          >
++            Start over
++          </button>
++        </p>
++      )}
++
++      <QuoteEstimator
++        value={input}
++        onChange={(next) => {
++          if (next.service !== input.service) {
++            track({ event: "estimate_step", step: 2, step_name: "service" });
++          } else if (next.city !== input.city) {
++            track({ event: "estimate_step", step: 1, step_name: "city" });
++          }
++          setInput(next);
++        }}
++      />
++
++      <section className="mt-14 grid gap-8 lg:grid-cols-[0.9fr_1.1fr]">
++        <div>
++          <h2 className="font-display text-3xl">Book the free measure</h2>
++          {/*
++            The handover. The form below is already filled in from the
++            configuration above, so this states what it is carrying rather than
++            making the visitor check.
++          */}
++          <div className="mt-4 rounded-xl border border-border bg-surface p-5">
++            <p className="text-xs tracking-[0.16em] text-accent uppercase">Carried over</p>
++            <p className="mt-2 font-display text-2xl tabular-nums">
++              {formatCad(result.low)} – {formatCad(result.high)}
++            </p>
++            <p className="mt-1 text-sm text-muted">
++              {serviceLabel} · {cityName}
++              {input.service === "stairs" || input.service === "railings"
++                ? input.stairs > 0
++                  ? ` · ${input.stairs} steps`
++                  : ""
++                : ` · ${input.sqft} sq ft`}
++            </p>
++            <p className="mt-3 text-sm text-muted">
++              GTA 2026 range · HST extra · not a firm quote. We lock a number only after a moisture
++              reading on site.
++            </p>
++          </div>
++          <p className="mt-5 text-sm text-muted">
++            Not sure which job you have?{" "}
++            <Link href="/catalog" className="text-primary underline underline-offset-2">
++              Find it in the catalogue
++            </Link>{" "}
++            — twelve job types with the specification and what goes wrong in each.
++          </p>
++        </div>
++
++        <QuoteForm
++          source="estimate"
++          defaultService={input.service}
++          defaultCity={input.city}
++          defaultSqft={input.sqft > 0 ? String(input.sqft) : undefined}
++        />
++      </section>
++    </>
++  );
++}
+diff --git a/components/estimate/quote-estimator.tsx b/components/estimate/quote-estimator.tsx
+index c6ad51a..6ba3911 100644
+--- a/components/estimate/quote-estimator.tsx
++++ b/components/estimate/quote-estimator.tsx
+@@ -19,8 +19,26 @@ import {
+ import { formatCad } from "@/lib/utils";
+ import { track } from "@/lib/analytics";
+ 
+-export function QuoteEstimator({ compact = false }: { compact?: boolean }) {
+-  const [input, setInput] = useState<EstimateInput>(emptyEstimate);
++export function QuoteEstimator({
++  compact = false,
++  value,
++  onChange,
++}: {
++  compact?: boolean;
++  /**
++   * Optional controlled mode.
++   *
++   * On `/estimate` the state is owned one level up by EstimateFlow, so the
++   * lead form beneath can be prefilled from whatever the visitor configured
++   * here — they should never be asked for city, service and size twice.
++   * Everywhere else (the homepage strip) the component keeps its own state and
++   * nothing changes.
++   */
++  value?: EstimateInput;
++  onChange?: (next: EstimateInput) => void;
++}) {
++  const [internal, setInternal] = useState<EstimateInput>(emptyEstimate);
++  const input = value ?? internal;
+   const result = useMemo(() => calculateEstimate(input), [input]);
+   const started = useRef(false);
+ 
+@@ -30,7 +48,9 @@ export function QuoteEstimator({ compact = false }: { compact?: boolean }) {
+       started.current = true;
+       track({ event: "estimate_start", entry: compact ? "home" : "estimate_page" });
+     }
+-    setInput((prev) => ({ ...prev, [key]: value }));
++    const next = { ...input, [key]: value };
++    if (onChange) onChange(next);
++    else setInternal(next);
+   }
+ 
+   /**
+diff --git a/components/estimate/quote-form.tsx b/components/estimate/quote-form.tsx
+index cfcb67f..57d9af3 100644
+--- a/components/estimate/quote-form.tsx
++++ b/components/estimate/quote-form.tsx
+@@ -32,10 +32,13 @@ function SubmitButton() {
+ export function QuoteForm({
+   defaultService,
+   defaultCity,
++  defaultSqft,
+   source = "site",
+ }: {
+   defaultService?: string;
+   defaultCity?: string;
++  /** Carried over from the estimator so nobody types the size twice. */
++  defaultSqft?: string;
+   source?: string;
+ }) {
+   const [state, formAction] = useActionState(submitLead, initialLeadState);
+@@ -211,7 +214,7 @@ export function QuoteForm({
+           id={`${uid}-sqft`}
+           name="sqft"
+           inputMode="numeric"
+-          defaultValue={val("sqft")}
++          defaultValue={val("sqft") ?? defaultSqft}
+           placeholder="e.g. 1200"
+           aria-invalid={Boolean(errors.sqft)}
+           aria-describedby={errors.sqft ? errorId("sqft") : undefined}
+diff --git a/lib/estimate-prefill.ts b/lib/estimate-prefill.ts
+new file mode 100644
+index 0000000..b9b593e
+--- /dev/null
++++ b/lib/estimate-prefill.ts
+@@ -0,0 +1,143 @@
++import { cities } from "@/data/areas";
++import { emptyEstimate, serviceKinds, type EstimateInput, type ServiceKind } from "@/data/estimate";
++
++/**
++ * Seeding the estimator from where the visitor came from, and remembering it.
++ *
++ * Two defects this exists to close.
++ *
++ * 1. The catalogue already links `/estimate?service=hardwood-stairs`, and the
++ *    brief asks city pages to link `/estimate?city=vaughan`. Nothing read
++ *    either parameter. They were passed into a void, and every visitor landed
++ *    on the same default — 800 sq ft of white oak in Toronto — no matter which
++ *    page sent them or what they had just been reading about.
++ *
++ * 2. `/estimate` rendered the calculator and the lead form as two unrelated
++ *    components. Somebody who set city, service and size on the calculator
++ *    then had to type city, service and size again into the form directly
++ *    beneath it. On a page whose only job is to capture a lead, asking for the
++ *    same three answers twice is the most expensive friction available.
++ */
++
++/**
++ * `data/services.ts` slugs and `data/estimate.ts` ServiceKind ids are two
++ * different vocabularies — "hardwood-stairs" versus "stairs". Every link into
++ * the estimator names a *service slug*, because that is what the URL space
++ * uses, so the translation lives here instead of being reinvented per call site.
++ */
++const SERVICE_SLUG_TO_KIND: Record<string, ServiceKind> = {
++  "hardwood-installation": "install",
++  "hardwood-stairs": "stairs",
++  "hardwood-railings": "railings",
++  "sanding-refinishing": "refinish",
++  "hardwood-repairs": "repair",
++  "hardwood-decks": "deck",
++  // Commercial and inlay work is quoted as an install. The estimator has no
++  // separate line for either, and inventing one would produce a number the
++  // shop cannot stand behind.
++  "commercial-hardwood": "install",
++  "custom-inlays": "install",
++};
++
++const KINDS = new Set<string>(serviceKinds.map((s) => s.id));
++const CITY_SLUGS = new Set<string>(cities.map((c) => c.slug));
++
++/** A service kind from either vocabulary, or undefined if it is neither. */
++export function serviceKindFrom(value: string | undefined | null): ServiceKind | undefined {
++  if (!value) return undefined;
++  const v = value.trim().toLowerCase();
++  if (KINDS.has(v)) return v as ServiceKind;
++  return SERVICE_SLUG_TO_KIND[v];
++}
++
++/** A city slug the estimator actually prices, or undefined. */
++export function cityFrom(value: string | undefined | null): string | undefined {
++  if (!value) return undefined;
++  const v = value.trim().toLowerCase();
++  return CITY_SLUGS.has(v) ? v : undefined;
++}
++
++/**
++ * Build the estimator's starting state from a URL.
++ *
++ * Unknown values are ignored rather than rejected: a stale link naming a
++ * service that no longer exists should still open a working estimator, not an
++ * error page.
++ */
++export function prefillFrom(
++  params: Record<string, string | string[] | undefined>,
++): Partial<EstimateInput> {
++  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
++  const out: Partial<EstimateInput> = {};
++
++  const service = serviceKindFrom(one(params.service));
++  if (service) out.service = service;
++
++  const city = cityFrom(one(params.city));
++  if (city) out.city = city;
++
++  const sqft = Number(one(params.sqft));
++  if (Number.isFinite(sqft) && sqft >= 120 && sqft <= 4500) out.sqft = Math.round(sqft);
++
++  const steps = Number(one(params.steps));
++  if (Number.isFinite(steps) && steps >= 0 && steps <= 40) out.stairs = Math.round(steps);
++
++  return out;
++}
++
++/**
++ * Where an abandoned configuration is kept.
++ *
++ * Deliberately narrow: only the four fields that describe the *job*. Never a
++ * name, a phone number or an email — those belong in the inbox and nowhere
++ * else, least of all in a browser store that any script on the page can read.
++ *
++ * No expiry games, no re-engagement nagging, no dark patterns. If somebody
++ * comes back, their configuration is where they left it. That is all it does.
++ */
++export const ESTIMATE_STORAGE_KEY = "gh.estimate.v1";
++
++type Stored = Pick<EstimateInput, "service" | "city" | "sqft" | "stairs">;
++
++export function readStoredEstimate(): Partial<EstimateInput> {
++  if (typeof window === "undefined") return {};
++  try {
++    const raw = window.localStorage.getItem(ESTIMATE_STORAGE_KEY);
++    if (!raw) return {};
++    const parsed = JSON.parse(raw) as Partial<Stored>;
++    const out: Partial<EstimateInput> = {};
++    const service = serviceKindFrom(parsed.service);
++    if (service) out.service = service;
++    const city = cityFrom(parsed.city);
++    if (city) out.city = city;
++    if (typeof parsed.sqft === "number" && parsed.sqft >= 120 && parsed.sqft <= 4500)
++      out.sqft = parsed.sqft;
++    if (typeof parsed.stairs === "number" && parsed.stairs >= 0 && parsed.stairs <= 40)
++      out.stairs = parsed.stairs;
++    return out;
++  } catch {
++    // Private mode, cleared storage, a browser that blocks it, corrupt JSON.
++    // None of these deserves an error: the estimator just starts fresh.
++    return {};
++  }
++}
++
++export function writeStoredEstimate(input: EstimateInput) {
++  if (typeof window === "undefined") return;
++  try {
++    const slim: Stored = {
++      service: input.service,
++      city: input.city,
++      sqft: input.sqft,
++      stairs: input.stairs,
++    };
++    window.localStorage.setItem(ESTIMATE_STORAGE_KEY, JSON.stringify(slim));
++  } catch {
++    /* Storage unavailable. The estimator works without it. */
++  }
++}
++
++/** The default state with a prefill applied over it. */
++export function seedEstimate(prefill: Partial<EstimateInput>): EstimateInput {
++  return { ...emptyEstimate(), ...prefill };
++}
+diff --git a/tests/estimate-flow.test.ts b/tests/estimate-flow.test.ts
+new file mode 100644
+index 0000000..935f8e2
+--- /dev/null
++++ b/tests/estimate-flow.test.ts
+@@ -0,0 +1,181 @@
++import { test, describe } from "node:test";
++import assert from "node:assert/strict";
++import { readFileSync } from "node:fs";
++import { cityFrom, prefillFrom, seedEstimate, serviceKindFrom } from "../lib/estimate-prefill";
++import { serviceKinds } from "../data/estimate";
++import { services } from "../data/services";
++import { cities } from "../data/areas";
++
++/**
++ * The estimator is the site's only lead capture. These pin the two defects
++ * that made it leak.
++ */
++
++describe("links into the estimator are actually honoured", () => {
++  test("every service slug the site links with maps to a real estimator kind", () => {
++    const kinds = new Set(serviceKinds.map((s) => s.id));
++    for (const service of services) {
++      const kind = serviceKindFrom(service.slug);
++      assert.ok(kind, `/estimate?service=${service.slug} maps to nothing — the link is a no-op`);
++      assert.ok(kinds.has(kind), `${service.slug} maps to "${kind}", which is not a service kind`);
++    }
++  });
++
++  test("every city the site links with is priceable", () => {
++    for (const city of cities) {
++      assert.equal(cityFrom(city.slug), city.slug, `/estimate?city=${city.slug} is not recognised`);
++    }
++  });
++
++  test("the estimator's own vocabulary is accepted too", () => {
++    for (const kind of serviceKinds) assert.equal(serviceKindFrom(kind.id), kind.id);
++  });
++
++  test("a stale or hostile parameter is ignored, never fatal", () => {
++    assert.equal(serviceKindFrom("service-that-was-deleted"), undefined);
++    assert.equal(cityFrom("atlantis"), undefined);
++    assert.equal(serviceKindFrom(null), undefined);
++    assert.deepEqual(prefillFrom({ service: "nope", city: "nope" }), {});
++    // Out-of-range numbers are dropped rather than clamped into a lie.
++    assert.deepEqual(prefillFrom({ sqft: "999999" }), {});
++    assert.deepEqual(prefillFrom({ sqft: "-5" }), {});
++    assert.deepEqual(prefillFrom({ steps: "500" }), {});
++  });
++
++  test("a prefill produces a complete, valid estimator state", () => {
++    const seeded = seedEstimate(
++      prefillFrom({ service: "hardwood-stairs", city: "vaughan", steps: "13" }),
++    );
++    assert.equal(seeded.service, "stairs");
++    assert.equal(seeded.city, "vaughan");
++    assert.equal(seeded.stairs, 13);
++    // Untouched fields keep their defaults rather than becoming undefined.
++    assert.ok(seeded.sqft > 0);
++    assert.ok(seeded.species);
++  });
++
++  test("array-valued query parameters take the first value", () => {
++    assert.deepEqual(prefillFrom({ city: ["toronto", "vaughan"] }), { city: "toronto" });
++  });
++});
++
++describe("the pages that link in actually pass the parameters", () => {
++  const has = (file: string, needle: string) => readFileSync(file, "utf8").includes(needle);
++
++  test("city hubs prefill the city", () => {
++    assert.ok(
++      has("app/areas/[city]/page.tsx", "/estimate?city=$"),
++      "a city hub still links to a bare /estimate — the reader retypes a city the page knows",
++    );
++  });
++
++  test("service pages prefill the service", () => {
++    assert.ok(has("app/services/[slug]/page.tsx", "/estimate?service=$"));
++  });
++
++  test("service x city pages prefill both", () => {
++    const src = readFileSync("app/services/[slug]/[city]/page.tsx", "utf8");
++    assert.ok(src.includes("/estimate?service=$") && src.includes("&city=$"));
++  });
++
++  test("/estimate reads the query string it is sent", () => {
++    const flow = readFileSync("components/estimate/estimate-flow.tsx", "utf8");
++    assert.ok(flow.includes("useSearchParams"), "the estimator ignores its own parameters");
++    assert.ok(flow.includes("prefillFrom"), "the estimator is not seeded from the URL");
++  });
++
++  test("/estimate stays prerendered — the prefill must not cost the edge cache", () => {
++    const src = readFileSync("app/estimate/page.tsx", "utf8");
++    assert.ok(
++      !src.includes("searchParams"),
++      "resolving the query string on the server makes /estimate a per-request render",
++    );
++    assert.match(src, /export const revalidate/, "/estimate should declare its ISR interval");
++    const flow = readFileSync("components/estimate/estimate-flow.tsx", "utf8");
++    assert.ok(
++      flow.includes("Suspense"),
++      "useSearchParams needs a Suspense boundary in a static page",
++    );
++  });
++
++  test("/estimate keeps one canonical whatever the query string says", () => {
++    const src = readFileSync("app/estimate/page.tsx", "utf8");
++    assert.match(
++      src,
++      /canonical:\s*"\/estimate"/,
++      "a parameterised estimate URL must not become a second indexable page",
++    );
++  });
++});
++
++describe("the configuration is asked for once, not twice", () => {
++  test("the estimator can be driven by an owner above it", () => {
++    const src = readFileSync("components/estimate/quote-estimator.tsx", "utf8");
++    assert.ok(
++      src.includes("onChange") && src.includes("value?:"),
++      "QuoteEstimator is not controllable",
++    );
++  });
++
++  test("the flow hands the estimator's state to the lead form", () => {
++    const src = readFileSync("components/estimate/estimate-flow.tsx", "utf8");
++    for (const prop of [
++      "defaultService={input.service}",
++      "defaultCity={input.city}",
++      "defaultSqft=",
++    ]) {
++      assert.ok(src.includes(prop), `the form is not prefilled with ${prop}`);
++    }
++  });
++
++  test("/estimate renders the joined flow, not two disconnected components", () => {
++    const src = readFileSync("app/estimate/page.tsx", "utf8");
++    assert.ok(src.includes("EstimateFlow"), "/estimate does not use the joined flow");
++    assert.ok(
++      !src.includes("<QuoteForm") || src.includes("EstimateFlow"),
++      "/estimate mounts a second, unconnected form",
++    );
++  });
++});
++
++describe("what is remembered, and what is never remembered", () => {
++  test("only the job is stored — never a person", () => {
++    const src = readFileSync("lib/estimate-prefill.ts", "utf8");
++    const stored = src.slice(
++      src.indexOf("type Stored"),
++      src.indexOf("export function readStoredEstimate"),
++    );
++    for (const banned of ["name", "phone", "email", "message"]) {
++      assert.ok(
++        !new RegExp(`\\b${banned}\\b`).test(stored),
++        `localStorage would hold "${banned}" — personal data belongs in the inbox, not a browser store`,
++      );
++    }
++  });
++
++  test("storage failure is survivable, not fatal", () => {
++    const src = readFileSync("lib/estimate-prefill.ts", "utf8");
++    assert.equal(
++      (src.match(/catch\s*\{/g) ?? []).length,
++      2,
++      "both the read and the write must tolerate storage being blocked (private mode, cleared data)",
++    );
++  });
++
++  test("a restored session is disclosed and reversible, not silent", () => {
++    const src = readFileSync("components/estimate/estimate-flow.tsx", "utf8");
++    assert.ok(
++      src.includes("Picked up where you left off"),
++      "a silent state change is worse than none",
++    );
++    assert.ok(src.includes("Start over"), "a restored configuration must be dismissable");
++  });
++
++  test("an explicit link beats a remembered configuration", () => {
++    const src = readFileSync("components/estimate/estimate-flow.tsx", "utf8");
++    assert.ok(
++      src.includes("...stored, ...prefill"),
++      "a URL parameter must override storage — somebody who clicked a stair link means it",
++    );
++  });
++});
