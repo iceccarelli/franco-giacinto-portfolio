@@ -137,7 +137,7 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
             <p className="mt-4 text-lg text-muted">{page.angle}</p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Button asChild size="lg">
-                <Link href="/estimate">Price this in {city.name}</Link>
+                <Link href={`/estimate?service=${page.service.slug}&city=${page.city.slug}`}>Price this in {city.name}</Link>
               </Button>
               <Button asChild size="lg" variant="outline">
                 <a href={`tel:${company.phone}`}>Call {company.phoneDisplay}</a>
