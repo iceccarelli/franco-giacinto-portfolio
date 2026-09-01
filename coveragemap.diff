@@ -1,0 +1,1034 @@
+diff --git a/app/areas/[city]/page.tsx b/app/areas/[city]/page.tsx
+index 7db0427..d4529f2 100644
+--- a/app/areas/[city]/page.tsx
++++ b/app/areas/[city]/page.tsx
+@@ -17,6 +17,9 @@ import { projects } from "@/data/projects";
+ import { SITE_URL } from "@/lib/site-url";
+ import { breadcrumbLd, clampDescription, faqLd, webPageLd } from "@/lib/seo";
+ import { Breadcrumbs } from "@/components/breadcrumbs";
++import { CoverageMap } from "@/components/map/coverage-map";
++import { coverage } from "@/data/coverage";
++import { company } from "@/data/company";
+ import { matrixForCity } from "@/data/matrix";
+ 
+ type Params = { city: string };
+@@ -68,6 +71,7 @@ export default async function CityPage({ params }: { params: Promise<Params> })
+   if (!city) notFound();
+   const localProjects = projects.filter((p) => p.citySlug === city.slug);
+   const servicePages = matrixForCity(city.slug);
++  const pin = coverage.find((p) => p.city.slug === city.slug);
+   const crumbs = [
+     { name: "Home", path: "/" },
+     { name: "Areas", path: "/areas" },
+@@ -163,12 +167,7 @@ export default async function CityPage({ params }: { params: Promise<Params> })
+                     key={p.slug}
+                     className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
+                   >
+-                    <Photo
+-            src={p.image}
+-            alt={p.imageAlt}
+-            ratio="16/8"
+-            slot="half"
+-          />
++                    <Photo src={p.image} alt={p.imageAlt} ratio="16/8" slot="half" />
+                     <div className="p-4">
+                       <h3 className="font-display text-xl">{p.title}</h3>
+                       <p className="mt-1 text-sm text-muted">{p.summary}</p>
+@@ -190,10 +189,36 @@ export default async function CityPage({ params }: { params: Promise<Params> })
+             </Accordion>
+           </div>
+         </article>
+-        <aside className="h-fit rounded-xl bg-surface p-6 shadow-[var(--shadow-card)]">
+-          <h2 className="font-display text-2xl">On-site in {city.name}</h2>
+-          <p className="mt-2 mb-4 text-sm text-muted">{tierNote(city)}</p>
+-          <QuoteForm />
++        <aside className="h-fit space-y-6">
++          {/*
++            A locator, not a job map. It answers the one geographic question a
++            homeowner here actually has — do you come out this far, and how far
++            is it — using the real centroid and a computed drive distance.
++            aria-hidden: the same facts are in the text beneath it.
++          */}
++          {pin && (
++            <div className="rounded-xl bg-surface p-6 shadow-[var(--shadow-card)]">
++              <h2 className="font-display text-2xl">{city.name} from the studio</h2>
++              <p className="mt-2 text-sm text-muted">
++                {pin.distanceKm} km from {company.address.line1}.{" "}
++                {city.tier === "core"
++                  ? "Inside the core radius — the site visit is free for any qualified job."
++                  : "Outside the core radius — we travel here for stair packages, whole-home installs and refinishing."}
++              </p>
++              <div className="mt-4">
++                <CoverageMap focus={city.slug} height={260} />
++              </div>
++              <p className="mt-3 text-xs text-muted">
++                Service coverage and published bands. Not a record of past jobs.
++              </p>
++            </div>
++          )}
++
++          <div className="rounded-xl bg-surface p-6 shadow-[var(--shadow-card)]">
++            <h2 className="font-display text-2xl">On-site in {city.name}</h2>
++            <p className="mt-2 mb-4 text-sm text-muted">{tierNote(city)}</p>
++            <QuoteForm defaultCity={city.slug} />
++          </div>
+         </aside>
+       </div>
+     </>
+diff --git a/app/areas/page.tsx b/app/areas/page.tsx
+index 7e63897..4dc1738 100644
+--- a/app/areas/page.tsx
++++ b/app/areas/page.tsx
+@@ -1,7 +1,6 @@
+ import type { Metadata } from "next";
+-import Link from "next/link";
+ import { PageHero } from "@/components/page-hero";
+-import { coreCities, extendedCities } from "@/data/areas";
++import { CoverageDisclosure, CoverageList, CoverageMap } from "@/components/map/coverage-map";
+ 
+ export const metadata: Metadata = {
+   title: "Hardwood Flooring Service Areas",
+@@ -40,47 +39,37 @@ export default function AreasIndex() {
+         lede="Local pages exist so homeowners, builders, and AI agents can see the housing stock we actually work in, not a dumped list of suburbs."
+       />
+       <div className="mx-auto max-w-6xl space-y-12 px-4 py-12 sm:py-16 sm:px-6">
+-        <section>
+-          <h2 className="font-display text-3xl">Core service area</h2>
+-          <p className="mt-1 max-w-2xl text-muted">
+-            Free on-site measure for any qualified hardwood, stair, or railing job.
+-          </p>
+-          <div className="mt-6 grid gap-5 md:grid-cols-2">
+-            {coreCities.map((c) => (
+-              <Link
+-                key={c.slug}
+-                href={`/areas/${c.slug}`}
+-                className="rounded-xl bg-surface p-6 shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
+-              >
+-                <p className="text-xs text-accent">{c.region}</p>
+-                <h3 className="mt-1 font-display text-2xl">Hardwood flooring in {c.name}</h3>
+-                <p className="mt-2 text-sm text-muted">{c.blurb}</p>
+-              </Link>
+-            ))}
+-          </div>
+-        </section>
++        {/*
++          The coverage map.
+ 
++          Pins are municipalities we serve, positioned at their real centroids
++          and carrying the locally-adjusted band — NOT a record of past jobs.
++          Nine of the portfolio entries carry AI-generated photography (see
++          docs/HONEST-LIMITS.md); placing those on a map would put invented
++          work at real addresses, which is checkable and indefensible.
++
++          The map is aria-hidden and loads only when scrolled to. Everything
++          it shows is also in the lists below, as server-rendered HTML, so a
++          crawler or an assistant reads the full service area either way.
++        */}
+         <section>
+-          <h2 className="font-display text-3xl">Travel area</h2>
+-          <p className="mt-1 max-w-2xl text-muted">
+-            We work in these towns regularly, but on stair packages, whole-home installs, and
+-            refinishing rather than a single-room repair. Saying so up front is better than taking
+-            the booking and disappointing someone.
+-          </p>
+-          <div className="mt-6 grid gap-5 md:grid-cols-2">
+-            {extendedCities.map((c) => (
+-              <Link
+-                key={c.slug}
+-                href={`/areas/${c.slug}`}
+-                className="rounded-xl bg-surface p-6 shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
+-              >
+-                <p className="text-xs text-accent">{c.region}</p>
+-                <h3 className="mt-1 font-display text-2xl">Hardwood flooring in {c.name}</h3>
+-                <p className="mt-2 text-sm text-muted">{c.blurb}</p>
+-              </Link>
+-            ))}
++          <h2 className="font-display text-3xl">Where we work</h2>
++          <CoverageDisclosure />
++          <div className="mt-6">
++            <CoverageMap />
+           </div>
+         </section>
++
++        {/*
++          One list, the same data the map is drawn from.
++
++          The two hand-rolled sections that were here showed a name and a
++          blurb; the map knew the distance, the job types and the local band
++          and none of that was in the HTML. A crawler or an assistant would
++          have read half the page. CoverageList renders everything the pins
++          carry, so the map is genuinely decoration.
++        */}
++        <CoverageList />
+       </div>
+     </>
+   );
+diff --git a/components/map/coverage-map-client.tsx b/components/map/coverage-map-client.tsx
+new file mode 100644
+index 0000000..9b1f0c7
+--- /dev/null
++++ b/components/map/coverage-map-client.tsx
+@@ -0,0 +1,173 @@
++"use client";
++
++// Leaflet's stylesheet. Next code-splits it with this component, so it is
++// still not on the critical path — it ships when the map does.
++import "leaflet/dist/leaflet.css";
++import { useEffect, useRef, useState } from "react";
++import type { Map as LeafletMap } from "leaflet";
++import { track } from "@/lib/analytics";
++
++/**
++ * The interactive layer, loaded only when the browser asks for it.
++ *
++ * Leaflet is ~144 KB of JavaScript plus its stylesheet, which is more than the
++ * entire shared bundle this site ships today. It is imported dynamically and
++ * only once the map scrolls into view, so a visitor who never reaches the map
++ * — or who is on a crawler, or has JavaScript off — pays nothing for it.
++ *
++ * The list underneath is the real content. This is decoration on top of it.
++ */
++
++type Serialisable = {
++  slug: string;
++  name: string;
++  tier: "core" | "extended";
++  lat: number;
++  lng: number;
++  distanceKm: number;
++  jobTypeCount: number;
++  stairLow: number;
++  stairHigh: number;
++  href: string;
++  estimateHref: string;
++  note: string;
++};
++
++export function CoverageMapClient({
++  pins,
++  studio,
++  focus,
++  height = 520,
++}: {
++  pins: Serialisable[];
++  studio: { lat: number; lng: number; label: string };
++  /** Slug to centre on. Used by the small locator on a city page. */
++  focus?: string;
++  height?: number;
++}) {
++  const el = useRef<HTMLDivElement>(null);
++  const map = useRef<LeafletMap | null>(null);
++  const [visible, setVisible] = useState(false);
++  const [failed, setFailed] = useState(false);
++
++  // Only start loading Leaflet when the map is actually about to be seen.
++  useEffect(() => {
++    const node = el.current;
++    if (!node || visible) return;
++    if (typeof IntersectionObserver === "undefined") {
++      setVisible(true);
++      return;
++    }
++    const io = new IntersectionObserver(
++      (entries) => {
++        if (entries.some((e) => e.isIntersecting)) {
++          setVisible(true);
++          io.disconnect();
++        }
++      },
++      { rootMargin: "300px" },
++    );
++    io.observe(node);
++    return () => io.disconnect();
++  }, [visible]);
++
++  useEffect(() => {
++    if (!visible || !el.current || map.current) return;
++    let cancelled = false;
++
++    (async () => {
++      try {
++        const L = (await import("leaflet")).default;
++        if (cancelled || !el.current) return;
++
++        const focused = focus ? pins.find((p) => p.slug === focus) : undefined;
++        const instance = L.map(el.current, {
++          center: focused ? [focused.lat, focused.lng] : [43.72, -79.55],
++          zoom: focused ? 10 : 8,
++          scrollWheelZoom: false, // never hijack a page scroll
++          attributionControl: true,
++        });
++        map.current = instance;
++
++        L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
++          maxZoom: 17,
++          // Required by the OpenStreetMap tile usage policy. Do not remove.
++          attribution:
++            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
++        }).addTo(instance);
++
++        // The shop itself.
++        L.circleMarker([studio.lat, studio.lng], {
++          radius: 9,
++          weight: 3,
++          color: "#1B3A2A",
++          fillColor: "#ffffff",
++          fillOpacity: 1,
++        })
++          .addTo(instance)
++          .bindPopup(
++            `<strong>The studio</strong><br>${studio.label}<br><span style="opacity:.7">Every drive starts here.</span>`,
++          );
++
++        for (const p of pins) {
++          const core = p.tier === "core";
++          const marker = L.circleMarker([p.lat, p.lng], {
++            radius: core ? 8 : 6,
++            weight: 2,
++            color: core ? "#1B3A2A" : "#8A6A3B",
++            fillColor: core ? "#1B3A2A" : "#8A6A3B",
++            fillOpacity: core ? 0.75 : 0.4,
++          }).addTo(instance);
++
++          marker.bindPopup(
++            `<div style="min-width:210px">
++               <strong style="font-size:15px">${p.name}</strong>
++               <div style="margin-top:2px;opacity:.7">${core ? "Core service area" : "Extended — we travel"} · ${p.distanceKm} km from the studio</div>
++               <div style="margin-top:8px"><strong>13-step stair conversion</strong><br>$${p.stairLow.toLocaleString()} – $${p.stairHigh.toLocaleString()}<br>
++                 <span style="opacity:.7">2026 band · HST extra · not a quote</span></div>
++               <div style="margin-top:8px">${p.jobTypeCount} job types taken here</div>
++               <div style="margin-top:8px;opacity:.7;font-size:11px">Service coverage — not a record of past jobs.</div>
++               <div style="margin-top:10px">
++                 <a href="${p.href}">${p.name} page</a> · <a href="${p.estimateHref}">Price it</a>
++               </div>
++             </div>`,
++          );
++          marker.on("popupopen", () =>
++            track({ event: "stair_studio_click", location: `map:${p.slug}` }),
++          );
++        }
++
++        // Frame every pin, so nobody has to hunt for the service area.
++        if (!focused) {
++          instance.fitBounds(
++            pins.map((p) => [p.lat, p.lng] as [number, number]),
++            { padding: [28, 28] },
++          );
++        }
++      } catch {
++        // Tiles blocked, offline, a browser Leaflet does not support. The
++        // list below is the content; the map was never load-bearing.
++        if (!cancelled) setFailed(true);
++      }
++    })();
++
++    return () => {
++      cancelled = true;
++      map.current?.remove();
++      map.current = null;
++    };
++  }, [visible, pins, studio, focus]);
++
++  if (failed) return null;
++
++  return (
++    <div
++      ref={el}
++      // 520px is a lot of a 667px phone screen. The CSS variable lets the
++      // stylesheet drop it at narrow widths without the component knowing.
++      style={{ ["--map-h" as string]: `${height}px` }}
++      className="h-[min(var(--map-h),60vh)] w-full overflow-hidden rounded-xl border border-border bg-bg-warm"
++      aria-hidden="true"
++    />
++  );
++}
+diff --git a/components/map/coverage-map.tsx b/components/map/coverage-map.tsx
+new file mode 100644
+index 0000000..1d2e526
+--- /dev/null
++++ b/components/map/coverage-map.tsx
+@@ -0,0 +1,138 @@
++import Link from "next/link";
++import { CoverageMapClient } from "@/components/map/coverage-map-client";
++import { MapPin } from "lucide-react";
++import {
++  STUDIO,
++  coreCoverage,
++  coverage,
++  coverageSummary,
++  extendedCoverage,
++  type CoveragePin,
++} from "@/data/coverage";
++
++/**
++ * Coverage: a crawlable list, with a map on top of it.
++ *
++ * The order matters and is deliberate. Everything a search engine or an answer
++ * engine can use — the municipality, the tier, the distance, the band, the
++ * link — is server-rendered HTML. The Leaflet layer is loaded client-side,
++ * only when it scrolls into view, and is marked aria-hidden because it repeats
++ * information the list already carries in a form a screen reader can read.
++ *
++ * Build it the other way round and you get a page that looks impressive and is
++ * invisible to every crawler and every assistant — 32 municipalities' worth of
++ * local signal locked inside a canvas.
++ */
++
++/**
++ * No `next/dynamic` with `ssr: false` here — Next 15 forbids that inside a
++ * Server Component, and it was never needed. CoverageMapClient renders an
++ * empty container on the server and only reaches for Leaflet inside an effect,
++ * after an IntersectionObserver says the map is about to be seen.
++ *
++ * The "use client" boundary already puts it in its own chunk, and the
++ * `await import("leaflet")` inside the effect puts the 144 KB library in a
++ * second chunk that is fetched on demand. So nothing about the map is on the
++ * critical path, and the shared bundle is untouched.
++ */
++
++function serialise(p: CoveragePin) {
++  return {
++    slug: p.city.slug,
++    name: p.city.name,
++    tier: p.city.tier,
++    lat: p.lat,
++    lng: p.lng,
++    distanceKm: p.distanceKm,
++    jobTypeCount: p.jobTypes.length,
++    stairLow: p.stairBand.low,
++    stairHigh: p.stairBand.high,
++    href: `/areas/${p.city.slug}`,
++    estimateHref: `/estimate?city=${p.city.slug}&service=hardwood-stairs`,
++    note: p.city.typical,
++  };
++}
++
++export function CoverageMap({ focus, height }: { focus?: string; height?: number }) {
++  return (
++    <CoverageMapClient
++      pins={coverage.map(serialise)}
++      studio={{ lat: STUDIO.lat, lng: STUDIO.lng, label: STUDIO.label }}
++      focus={focus}
++      height={height}
++    />
++  );
++}
++
++/** The list. This is the content; the map above is the decoration. */
++export function CoverageList() {
++  const groups = [
++    {
++      key: "core",
++      heading: "Core service area",
++      note: "Free on-site measure for any qualified hardwood, stair or railing job.",
++      pins: coreCoverage,
++    },
++    {
++      key: "extended",
++      heading: "We travel here",
++      note: "Outside the core radius. Stair packages, whole-home installs and refinishing — not a single-room repair. Saying so is better than taking the enquiry and disappointing someone.",
++      pins: extendedCoverage,
++    },
++  ];
++
++  return (
++    <div className="space-y-10">
++      {groups.map((group) => (
++        <section key={group.key}>
++          <h3 className="font-display text-2xl">{group.heading}</h3>
++          <p className="mt-2 max-w-2xl text-sm text-muted">{group.note}</p>
++          <ul className="mt-5 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
++            {group.pins.map((p) => (
++              <li key={p.city.slug}>
++                <Link
++                  href={`/areas/${p.city.slug}`}
++                  className="group flex h-full flex-col rounded-xl border border-border bg-surface p-5 transition-shadow hover:shadow-[var(--shadow-card)]"
++                >
++                  <p className="text-xs text-accent">{p.city.region}</p>
++                  <p className="mt-1 flex items-center gap-1.5 font-display text-xl">
++                    <MapPin className="size-4 shrink-0 text-accent" aria-hidden />
++                    Hardwood flooring in {p.city.name}
++                  </p>
++                  <p className="mt-2 flex-1 text-sm text-muted">{p.city.blurb}</p>
++                  <p className="mt-3 text-xs text-muted">
++                    {p.distanceKm} km from the studio · {p.jobTypes.length} job types taken here
++                  </p>
++                  <p className="mt-1 text-sm tabular-nums">
++                    13-step stair conversion{" "}
++                    <span className="font-medium">
++                      ${p.stairBand.low.toLocaleString()} – ${p.stairBand.high.toLocaleString()}
++                    </span>
++                  </p>
++                </Link>
++              </li>
++            ))}
++          </ul>
++        </section>
++      ))}
++    </div>
++  );
++}
++
++/**
++ * The disclaimer, stated once and rendered near the map.
++ *
++ * A map pin reads as a record even when nothing says it is one. This says what
++ * the pins mean before anyone has to guess.
++ */
++export function CoverageDisclosure() {
++  return (
++    <p className="mt-4 max-w-3xl text-sm text-muted">
++      {coverageSummary()}{" "}
++      <span className="text-fg">
++        Bands are computed from the published 2026 rates and this municipality&rsquo;s travel and
++        labour multiplier — HST extra, and a firm number follows a moisture reading on site.
++      </span>
++    </p>
++  );
++}
+diff --git a/data/coverage.ts b/data/coverage.ts
+new file mode 100644
+index 0000000..e84a3de
+--- /dev/null
++++ b/data/coverage.ts
+@@ -0,0 +1,207 @@
++import { cities, tierNote, type City } from "@/data/areas";
++import { catalog, type CatalogEntry } from "@/data/catalog";
++import { calculateEstimate, emptyEstimate } from "@/data/estimate";
++import { company } from "@/data/company";
++
++/**
++ * The service-coverage map.
++ *
++ * ── What this is, and what it deliberately is not ─────────────────────────
++ *
++ * It is a map of where this shop works, what it takes on in each place, and
++ * what that costs there. Every pin is a municipality in the published service
++ * area, positioned at its real centroid, carrying its real travel tier and a
++ * band computed by the same estimator the rest of the site uses.
++ *
++ * It is NOT a map of completed jobs, and it must never become one by accident.
++ *
++ * The reason is specific. `data/projects.ts` holds nine portfolio entries and
++ * `docs/HONEST-LIMITS.md` records that the photography attached to them is
++ * AI-generated. Dropping those onto a map would place invented work at real
++ * addresses in real neighbourhoods — a claim any prospective client, any
++ * competitor, or any journalist can check by knocking on a door. That is the
++ * invented-testimonial mistake with a street address attached, and it is worse
++ * than the original because a map pin reads as a record even when the caption
++ * says otherwise.
++ *
++ * So the map answers a different and more useful question. A homeowner in
++ * Burlington does not actually want to know whether this shop worked three
++ * streets away; they want to know whether it comes out to Burlington, what it
++ * will do when it gets there, and roughly what the number is. All three of
++ * those are true things we can state today.
++ *
++ * ── Where a real job would go, when there is one ──────────────────────────
++ *
++ * `CoveragePin.confirmedJobs` exists and is empty. It takes an entry only when
++ * a job is real, finished, and the client has agreed to it being shown — the
++ * same gate `CatalogEntry.testimonial` uses. Until then the honest surface is
++ * capability, and the map says "job types we take here" rather than implying
++ * a history it cannot evidence.
++ */
++
++export type ConfirmedJob = {
++  /** Neighbourhood or intersection. Never a street address. */
++  area: string;
++  citySlug: string;
++  /** Which catalogue archetype this job was. */
++  catalogSlug: string;
++  /** ISO date the work completed. */
++  date: string;
++  /** Species, size, step count — whatever is true and specific. */
++  specs: string[];
++  /** The client agreed, in writing, that this job may be shown publicly. */
++  permission: true;
++};
++
++export type CoveragePin = {
++  city: City;
++  /** Municipality centroid. Public geographic fact, not a business claim. */
++  lat: number;
++  lng: number;
++  /** Straight-line kilometres from the Sterling Road studio, computed. */
++  distanceKm: number;
++  /** The catalogue archetypes this shop takes on in this municipality. */
++  jobTypes: CatalogEntry[];
++  /** A real, locally-adjusted band for the shop's primary service. */
++  stairBand: { low: number; high: number };
++  installBand: { low: number; high: number };
++  /**
++   * Real, finished, permissioned jobs. Empty on every pin, and it stays that
++   * way until Franco confirms one. `tests/coverage.test.ts` fails the build if
++   * an entry appears without a date, a catalogue match and explicit permission.
++   */
++  confirmedJobs: ConfirmedJob[];
++};
++
++/**
++ * Municipality centroids, decimal degrees.
++ *
++ * Ordinary published geography — the same coordinates any atlas or the
++ * Canadian Geographical Names Database gives. Nothing here asserts anything
++ * about the business; a wrong number puts a pin in the wrong field, which is
++ * embarrassing rather than dishonest, and `tests/coverage.test.ts` bounds them
++ * to Southern Ontario so a transposed sign cannot ship.
++ */
++const CENTROIDS: Record<string, [number, number]> = {
++  toronto: [43.6532, -79.3832],
++  etobicoke: [43.6205, -79.5132],
++  "north-york": [43.7615, -79.4111],
++  scarborough: [43.7764, -79.2318],
++  "east-york": [43.6903, -79.3277],
++  mississauga: [43.589, -79.6441],
++  brampton: [43.7315, -79.7624],
++  caledon: [43.8668, -79.8663],
++  vaughan: [43.8361, -79.4983],
++  markham: [43.8561, -79.337],
++  "richmond-hill": [43.8828, -79.4403],
++  aurora: [44.0065, -79.4504],
++  newmarket: [44.0592, -79.4613],
++  king: [43.9236, -79.5286],
++  "whitchurch-stouffville": [43.9709, -79.2445],
++  oakville: [43.4675, -79.6877],
++  burlington: [43.3255, -79.799],
++  milton: [43.5183, -79.8774],
++  "halton-hills": [43.6294, -79.9377],
++  pickering: [43.8384, -79.0868],
++  ajax: [43.8509, -79.0204],
++  whitby: [43.8975, -78.9429],
++  oshawa: [43.8971, -78.8658],
++  clarington: [43.9351, -78.6089],
++  hamilton: [43.2557, -79.8711],
++  ancaster: [43.2187, -79.9871],
++  dundas: [43.2664, -79.9553],
++  "bradford-west-gwillimbury": [44.1146, -79.5636],
++  barrie: [44.3894, -79.6903],
++  innisfil: [44.3, -79.5667],
++  orangeville: [43.9192, -80.0941],
++  guelph: [43.5448, -80.2482],
++};
++
++/** Great-circle distance in kilometres. */
++function haversineKm(a: [number, number], b: [number, number]) {
++  const R = 6371;
++  const dLat = ((b[0] - a[0]) * Math.PI) / 180;
++  const dLng = ((b[1] - a[1]) * Math.PI) / 180;
++  const lat1 = (a[0] * Math.PI) / 180;
++  const lat2 = (b[0] * Math.PI) / 180;
++  const h = Math.sin(dLat / 2) ** 2 + Math.sin(dLng / 2) ** 2 * Math.cos(lat1) * Math.cos(lat2);
++  return Math.round(2 * R * Math.asin(Math.sqrt(h)));
++}
++
++/** The Sterling Road studio. Origin of the map and of every drive. */
++export const STUDIO = {
++  lat: company.geo.latitude,
++  lng: company.geo.longitude,
++  label: `${company.legalName}, ${company.address.line1}`,
++} as const;
++
++/**
++ * Which catalogue archetypes are offered where.
++ *
++ * Core municipalities get the whole catalogue: any qualified job justifies the
++ * visit. Extended ones get only the larger packages, because that is the
++ * honest commercial position `tierNote()` already states in prose — driving to
++ * Barrie for a single-room repair is not a service, it is a promise nobody
++ * intends to keep. Encoding it here means the map cannot contradict the copy.
++ */
++function jobTypesFor(city: City): CatalogEntry[] {
++  if (city.tier === "core") return catalog;
++  const worthTheDrive = new Set([
++    "carpet-to-hardwood-stairs",
++    "open-riser-feature-stair",
++    "whole-home-install-plus-stairs",
++    "heritage-quarter-sawn-refinish",
++    "herringbone-over-radiant",
++    "commercial-overnight-install",
++    "code-compliant-hardwood-railing",
++  ]);
++  return catalog.filter((c) => worthTheDrive.has(c.slug));
++}
++
++function bandFor(citySlug: string, service: "stairs" | "install") {
++  const input = {
++    ...emptyEstimate(),
++    city: citySlug,
++    service,
++    ...(service === "stairs" ? { stairs: 13 } : { sqft: 800 }),
++  };
++  const r = calculateEstimate(input);
++  return { low: Math.round(r.low), high: Math.round(r.high) };
++}
++
++export const coverage: CoveragePin[] = cities.map((city) => {
++  const centroid = CENTROIDS[city.slug];
++  if (!centroid) {
++    // A city without a coordinate would silently vanish from the map. Fail at
++    // build time instead — tests/coverage.test.ts also asserts completeness.
++    throw new Error(`data/coverage.ts: no centroid for "${city.slug}"`);
++  }
++  return {
++    city,
++    lat: centroid[0],
++    lng: centroid[1],
++    distanceKm: haversineKm([STUDIO.lat, STUDIO.lng], centroid),
++    jobTypes: jobTypesFor(city),
++    stairBand: bandFor(city.slug, "stairs"),
++    installBand: bandFor(city.slug, "install"),
++    confirmedJobs: [],
++  };
++});
++
++export const coreCoverage = coverage.filter((p) => p.city.tier === "core");
++export const extendedCoverage = coverage.filter((p) => p.city.tier === "extended");
++
++/** Every pin that carries a real, permissioned job. Empty today. */
++export const coverageWithJobs = coverage.filter((p) => p.confirmedJobs.length > 0);
++
++/** The one-line honest summary the map header and /api/areas.json both use. */
++export function coverageSummary() {
++  return (
++    `${coverage.length} municipalities across the Greater Toronto Area and Southern Ontario. ` +
++    `${coreCoverage.length} inside the core radius with a free on-site measure for any qualified job; ` +
++    `${extendedCoverage.length} we travel to for stair packages, whole-home installs and refinishing. ` +
++    `Pins are service coverage and published bands — not a record of past jobs.`
++  );
++}
++
++export { tierNote };
+diff --git a/next.config.mjs b/next.config.mjs
+index b79605c..5bd40cd 100644
+--- a/next.config.mjs
++++ b/next.config.mjs
+@@ -16,6 +16,8 @@ const CSP_ENFORCE = false;
+ 
+ const CSP_POLICY = [
+   "default-src 'self'",
++  // Already permissive enough for OpenStreetMap raster tiles; named here so
++  // the dependency is visible rather than incidental.
+   "img-src 'self' data: blob: https:",
+   "script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com https://va.vercel-scripts.com",
+   "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://vitals.vercel-insights.com",
+diff --git a/package-lock.json b/package-lock.json
+index 3dd47c9..627652e 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -16,6 +16,7 @@
+         "@vercel/speed-insights": "^2.0.0",
+         "class-variance-authority": "^0.7.1",
+         "clsx": "^2.1.1",
++        "leaflet": "^1.9.4",
+         "lucide-react": "^0.544.0",
+         "next": "^15.5.4",
+         "qrcode": "^1.5.4",
+@@ -26,6 +27,7 @@
+       },
+       "devDependencies": {
+         "@tailwindcss/postcss": "^4.1.13",
++        "@types/leaflet": "^1.9.22",
+         "@types/node": "^22.15.0",
+         "@types/qrcode": "^1.5.6",
+         "@types/react": "^19.1.9",
+@@ -2255,6 +2257,13 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/@types/geojson": {
++      "version": "7946.0.16",
++      "resolved": "https://registry.npmjs.org/@types/geojson/-/geojson-7946.0.16.tgz",
++      "integrity": "sha512-6C8nqWur3j98U6+lXDfTUWIfgvZU+EumvpHKcYjujKH7woYyLj2sUmff0tRhrqM7BohUw7Pz3ZB1jj2gW9Fvmg==",
++      "dev": true,
++      "license": "MIT"
++    },
+     "node_modules/@types/json-schema": {
+       "version": "7.0.15",
+       "resolved": "https://registry.npmjs.org/@types/json-schema/-/json-schema-7.0.15.tgz",
+@@ -2269,6 +2278,16 @@
+       "dev": true,
+       "license": "MIT"
+     },
++    "node_modules/@types/leaflet": {
++      "version": "1.9.22",
++      "resolved": "https://registry.npmjs.org/@types/leaflet/-/leaflet-1.9.22.tgz",
++      "integrity": "sha512-h3lhECYEKDasG7LFHu+GiHqAvsgLuQvlJvVZzJDGONo3sEL+wUOqSFLnwkZlK0qVxnxbuGFW8iBlJNYs5wgndA==",
++      "dev": true,
++      "license": "MIT",
++      "dependencies": {
++        "@types/geojson": "*"
++      }
++    },
+     "node_modules/@types/node": {
+       "version": "22.20.1",
+       "resolved": "https://registry.npmjs.org/@types/node/-/node-22.20.1.tgz",
+@@ -5473,6 +5492,12 @@
+         "node": ">=0.10"
+       }
+     },
++    "node_modules/leaflet": {
++      "version": "1.9.4",
++      "resolved": "https://registry.npmjs.org/leaflet/-/leaflet-1.9.4.tgz",
++      "integrity": "sha512-nxS1ynzJOmOlHp+iL3FyWqK89GtNL8U8rvlMOsQdTTssxZwCXh8N2NB3GDQOL+YR3XnWyZAxwQixURb+FA74PA==",
++      "license": "BSD-2-Clause"
++    },
+     "node_modules/levn": {
+       "version": "0.4.1",
+       "resolved": "https://registry.npmjs.org/levn/-/levn-0.4.1.tgz",
+diff --git a/package.json b/package.json
+index 5a328fc..8fee3d3 100644
+--- a/package.json
++++ b/package.json
+@@ -2,7 +2,7 @@
+   "name": "green-hardwood",
+   "version": "2.0.0",
+   "private": true,
+-  "description": "Green Hardwood \u2014 hardwood floor installation, custom hardwood stairs, and railings across Toronto and the GTA.",
++  "description": "Green Hardwood — hardwood floor installation, custom hardwood stairs, and railings across Toronto and the GTA.",
+   "scripts": {
+     "dev": "next dev",
+     "build": "next build",
+@@ -24,6 +24,7 @@
+     "@vercel/speed-insights": "^2.0.0",
+     "class-variance-authority": "^0.7.1",
+     "clsx": "^2.1.1",
++    "leaflet": "^1.9.4",
+     "lucide-react": "^0.544.0",
+     "next": "^15.5.4",
+     "qrcode": "^1.5.4",
+@@ -34,6 +35,7 @@
+   },
+   "devDependencies": {
+     "@tailwindcss/postcss": "^4.1.13",
++    "@types/leaflet": "^1.9.22",
+     "@types/node": "^22.15.0",
+     "@types/qrcode": "^1.5.6",
+     "@types/react": "^19.1.9",
+diff --git a/tests/coverage.test.ts b/tests/coverage.test.ts
+new file mode 100644
+index 0000000..b97d7bb
+--- /dev/null
++++ b/tests/coverage.test.ts
+@@ -0,0 +1,221 @@
++import { test, describe } from "node:test";
++import assert from "node:assert/strict";
++import { readFileSync } from "node:fs";
++import {
++  STUDIO,
++  coreCoverage,
++  coverage,
++  coverageSummary,
++  coverageWithJobs,
++  extendedCoverage,
++} from "../data/coverage";
++import { cities } from "../data/areas";
++import { catalog } from "../data/catalog";
++
++/**
++ * The map must never become a claim about work that was not done.
++ *
++ * data/projects.ts carries AI-generated photography (docs/HONEST-LIMITS.md).
++ * Putting those entries on a map would place invented jobs at real addresses
++ * in real neighbourhoods — checkable by anyone, and materially worse than the
++ * invented testimonials because a pin reads as a record.
++ */
++
++describe("the map shows coverage, never a job history", () => {
++  test("no pin carries a job", () => {
++    assert.equal(coverageWithJobs.length, 0);
++    for (const p of coverage) {
++      assert.deepEqual(p.confirmedJobs, [], `${p.city.slug} has a job pin with nothing behind it`);
++    }
++  });
++
++  test("a job, if one is ever added, needs permission, a date and a real archetype", () => {
++    const slugs = new Set(catalog.map((c) => c.slug));
++    for (const pin of coverage) {
++      for (const job of pin.confirmedJobs) {
++        assert.equal(job.permission, true, `${pin.city.slug}: job shown without client permission`);
++        assert.ok(
++          job.date && !Number.isNaN(Date.parse(job.date)),
++          `${pin.city.slug}: unparseable date`,
++        );
++        assert.ok(slugs.has(job.catalogSlug), `${pin.city.slug}: job is not a known job type`);
++        assert.ok(job.area?.length, `${pin.city.slug}: job needs a neighbourhood`);
++        assert.ok(
++          !/\d+\s+\w+\s+(street|st|road|rd|avenue|ave|drive|dr|crescent|cres)\b/i.test(job.area),
++          `${pin.city.slug}: a job must never carry a street address`,
++        );
++      }
++    }
++  });
++
++  test("the portfolio is not wired into the map", () => {
++    // An actual import, not a mention: the file explains at length WHY the
++    // portfolio is excluded, and that explanation must not trip its own guard.
++    const src = readFileSync("data/coverage.ts", "utf8");
++    const imports = src
++      .split("\n")
++      .filter((l) => /^\s*import\b/.test(l))
++      .join("\n");
++    assert.ok(
++      !/projects/.test(imports),
++      "coverage imports the portfolio — those entries carry AI-generated photography",
++    );
++  });
++
++  test("the disclosure says what the pins mean, in the page and in the summary", () => {
++    assert.match(coverageSummary(), /not a record of past jobs/i);
++    const map = readFileSync("components/map/coverage-map.tsx", "utf8");
++    assert.ok(map.includes("CoverageDisclosure"), "the map ships without its disclosure");
++    const city = readFileSync("app/areas/[city]/page.tsx", "utf8");
++    assert.match(city, /Not a record of past jobs/i, "the city locator has no disclosure");
++  });
++});
++
++describe("every municipality is on the map, in the right place", () => {
++  test("one pin per city, none missing, none invented", () => {
++    assert.equal(coverage.length, cities.length);
++    assert.deepEqual(coverage.map((p) => p.city.slug).sort(), cities.map((c) => c.slug).sort());
++  });
++
++  test("every coordinate is inside Southern Ontario", () => {
++    // A transposed sign or a swapped pair puts a pin in the Indian Ocean.
++    for (const p of coverage) {
++      assert.ok(
++        p.lat > 42.8 && p.lat < 44.8,
++        `${p.city.slug}: latitude ${p.lat} is not Southern Ontario`,
++      );
++      assert.ok(
++        p.lng > -80.6 && p.lng < -78.4,
++        `${p.city.slug}: longitude ${p.lng} is not Southern Ontario`,
++      );
++    }
++  });
++
++  test("distance from the studio is plausible and ordered", () => {
++    for (const p of coverage) {
++      assert.ok(
++        p.distanceKm >= 0 && p.distanceKm < 140,
++        `${p.city.slug}: ${p.distanceKm} km is implausible`,
++      );
++    }
++    const furthestCore = Math.max(...coreCoverage.map((p) => p.distanceKm));
++    const nearestExtended = Math.min(...extendedCoverage.map((p) => p.distanceKm));
++    // Tiers are commercial, not purely geometric, so they may interleave —
++    // but the extremes must not invert, or the tiering is simply wrong.
++    assert.ok(
++      Math.max(...extendedCoverage.map((p) => p.distanceKm)) > furthestCore,
++      "the furthest extended town is closer than the furthest core one",
++    );
++    assert.ok(nearestExtended > 0);
++  });
++
++  test("the studio is the Sterling Road address from data/company.ts", () => {
++    assert.ok(STUDIO.label.includes("Sterling Road"));
++    assert.ok(STUDIO.lat > 43.6 && STUDIO.lat < 43.7);
++  });
++});
++
++describe("what each pin promises matches what the site says elsewhere", () => {
++  test("core municipalities get the whole catalogue; extended get the larger packages only", () => {
++    for (const p of coreCoverage) {
++      assert.equal(p.jobTypes.length, catalog.length, `${p.city.slug} should offer every job type`);
++    }
++    for (const p of extendedCoverage) {
++      assert.ok(
++        p.jobTypes.length < catalog.length && p.jobTypes.length > 0,
++        `${p.city.slug} offers ${p.jobTypes.length} job types — extended towns take packages, not everything`,
++      );
++      // The prose in tierNote() rules out single-room repairs out there. The
++      // map must not contradict it.
++      assert.ok(
++        !p.jobTypes.some((j) => j.slug === "water-damage-board-replacement"),
++        `${p.city.slug} offers a single-room repair, which tierNote() says it does not`,
++      );
++    }
++  });
++
++  test("every band is coherent and locally adjusted", () => {
++    for (const p of coverage) {
++      assert.ok(
++        p.stairBand.high > p.stairBand.low && p.stairBand.low > 0,
++        `${p.city.slug}: bad stair band`,
++      );
++      assert.ok(
++        p.installBand.high > p.installBand.low && p.installBand.low > 0,
++        `${p.city.slug}: bad install band`,
++      );
++    }
++    const toronto = coverage.find((p) => p.city.slug === "toronto")!;
++    const barrie = coverage.find((p) => p.city.slug === "barrie")!;
++    assert.ok(
++      barrie.stairBand.low !== toronto.stairBand.low,
++      "every city quotes the same number — the travel multiplier is not being applied",
++    );
++  });
++
++  test("no band is restated in the component; they are computed", () => {
++    const src = readFileSync("components/map/coverage-map.tsx", "utf8");
++    assert.ok(!/\$\d{1,3},\d{3}/.test(src), "a hard-coded dollar figure in the map component");
++  });
++});
++
++describe("the map is an enhancement, not the content", () => {
++  test("Leaflet is never in the shared bundle", () => {
++    const client = readFileSync("components/map/coverage-map-client.tsx", "utf8");
++    assert.ok(client.startsWith('"use client"'), "the map layer must be a client island");
++    assert.match(
++      client,
++      /await import\("leaflet"\)/,
++      "Leaflet must be imported inside the effect, on demand — it is larger than the whole shared bundle",
++    );
++    // `import type` is erased at compile time and costs nothing at runtime;
++    // a VALUE import of leaflet would ship the library on the critical path.
++    assert.ok(
++      !/^import (?!type\b)[^;]*from "leaflet";/m.test(client),
++      "a static value import of Leaflet would put 144 KB on the critical path",
++    );
++    assert.ok(
++      client.includes("IntersectionObserver"),
++      "the map should load when it is about to be seen, not on mount",
++    );
++  });
++
++  test("the same facts are server-rendered as a list", () => {
++    const src = readFileSync("components/map/coverage-map.tsx", "utf8");
++    assert.ok(src.includes("export function CoverageList"), "no crawlable list alongside the map");
++    // The list must not itself be client-only.
++    assert.ok(!src.startsWith('"use client"'), "the list must render on the server");
++  });
++
++  test("/areas renders the list, so the service area survives with JavaScript off", () => {
++    const src = readFileSync("app/areas/page.tsx", "utf8");
++    assert.ok(src.includes("CoverageMap"), "/areas has no map");
++    assert.ok(
++      src.includes("coreCities.map") || src.includes("CoverageList"),
++      "/areas would lose its 32 municipalities if the map failed",
++    );
++  });
++
++  test("the map is hidden from assistive technology, because the list is not", () => {
++    const src = readFileSync("components/map/coverage-map-client.tsx", "utf8");
++    assert.ok(src.includes('aria-hidden="true"'), "a canvas of pins is noise to a screen reader");
++  });
++
++  test("OpenStreetMap attribution is present, as its licence requires", () => {
++    const src = readFileSync("components/map/coverage-map-client.tsx", "utf8");
++    assert.match(src, /openstreetmap\.org\/copyright/i, "OSM tiles require attribution");
++  });
++
++  test("tiles come from OSM directly — no keyed third-party map provider", () => {
++    const src = readFileSync("components/map/coverage-map-client.tsx", "utf8");
++    assert.ok(
++      !/api[_-]?key|access[_-]?token|mapbox|googleapis/i.test(src),
++      "a keyed map provider crept in",
++    );
++  });
++
++  test("the map does not hijack page scrolling", () => {
++    const src = readFileSync("components/map/coverage-map-client.tsx", "utf8");
++    assert.ok(src.includes("scrollWheelZoom: false"), "a scroll-jacking map on a phone is a trap");
++  });
++});
