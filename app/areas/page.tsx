@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { PageHero } from "@/components/page-hero";
-import { coreCities, extendedCities } from "@/data/areas";
+import { CoverageDisclosure, CoverageList, CoverageMap } from "@/components/map/coverage-map";
 
 export const metadata: Metadata = {
   title: "Hardwood Flooring Service Areas",
@@ -40,47 +39,37 @@ export default function AreasIndex() {
         lede="Local pages exist so homeowners, builders, and AI agents can see the housing stock we actually work in, not a dumped list of suburbs."
       />
       <div className="mx-auto max-w-6xl space-y-12 px-4 py-12 sm:py-16 sm:px-6">
+        {/*
+          The coverage map.
+
+          Pins are municipalities we serve, positioned at their real centroids
+          and carrying the locally-adjusted band — NOT a record of past jobs.
+          Nine of the portfolio entries carry AI-generated photography (see
+          docs/HONEST-LIMITS.md); placing those on a map would put invented
+          work at real addresses, which is checkable and indefensible.
+
+          The map is aria-hidden and loads only when scrolled to. Everything
+          it shows is also in the lists below, as server-rendered HTML, so a
+          crawler or an assistant reads the full service area either way.
+        */}
         <section>
-          <h2 className="font-display text-3xl">Core service area</h2>
-          <p className="mt-1 max-w-2xl text-muted">
-            Free on-site measure for any qualified hardwood, stair, or railing job.
-          </p>
-          <div className="mt-6 grid gap-5 md:grid-cols-2">
-            {coreCities.map((c) => (
-              <Link
-                key={c.slug}
-                href={`/areas/${c.slug}`}
-                className="rounded-xl bg-surface p-6 shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
-              >
-                <p className="text-xs text-accent">{c.region}</p>
-                <h3 className="mt-1 font-display text-2xl">Hardwood flooring in {c.name}</h3>
-                <p className="mt-2 text-sm text-muted">{c.blurb}</p>
-              </Link>
-            ))}
+          <h2 className="font-display text-3xl">Where we work</h2>
+          <CoverageDisclosure />
+          <div className="mt-6">
+            <CoverageMap />
           </div>
         </section>
 
-        <section>
-          <h2 className="font-display text-3xl">Travel area</h2>
-          <p className="mt-1 max-w-2xl text-muted">
-            We work in these towns regularly, but on stair packages, whole-home installs, and
-            refinishing rather than a single-room repair. Saying so up front is better than taking
-            the booking and disappointing someone.
-          </p>
-          <div className="mt-6 grid gap-5 md:grid-cols-2">
-            {extendedCities.map((c) => (
-              <Link
-                key={c.slug}
-                href={`/areas/${c.slug}`}
-                className="rounded-xl bg-surface p-6 shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
-              >
-                <p className="text-xs text-accent">{c.region}</p>
-                <h3 className="mt-1 font-display text-2xl">Hardwood flooring in {c.name}</h3>
-                <p className="mt-2 text-sm text-muted">{c.blurb}</p>
-              </Link>
-            ))}
-          </div>
-        </section>
+        {/*
+          One list, the same data the map is drawn from.
+
+          The two hand-rolled sections that were here showed a name and a
+          blurb; the map knew the distance, the job types and the local band
+          and none of that was in the HTML. A crawler or an assistant would
+          have read half the page. CoverageList renders everything the pins
+          carry, so the map is genuinely decoration.
+        */}
+        <CoverageList />
       </div>
     </>
   );

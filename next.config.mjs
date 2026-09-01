@@ -16,6 +16,8 @@ const CSP_ENFORCE = false;
 
 const CSP_POLICY = [
   "default-src 'self'",
+  // Already permissive enough for OpenStreetMap raster tiles; named here so
+  // the dependency is visible rather than incidental.
   "img-src 'self' data: blob: https:",
   "script-src 'self' https://www.googletagmanager.com https://www.google-analytics.com https://va.vercel-scripts.com",
   "connect-src 'self' https://www.google-analytics.com https://region1.google-analytics.com https://vitals.vercel-insights.com",

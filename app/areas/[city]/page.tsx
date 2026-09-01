@@ -17,6 +17,9 @@ import { projects } from "@/data/projects";
 import { SITE_URL } from "@/lib/site-url";
 import { breadcrumbLd, clampDescription, faqLd, webPageLd } from "@/lib/seo";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { CoverageMap } from "@/components/map/coverage-map";
+import { coverage } from "@/data/coverage";
+import { company } from "@/data/company";
 import { matrixForCity } from "@/data/matrix";
 
 type Params = { city: string };
@@ -68,6 +71,7 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
   if (!city) notFound();
   const localProjects = projects.filter((p) => p.citySlug === city.slug);
   const servicePages = matrixForCity(city.slug);
+  const pin = coverage.find((p) => p.city.slug === city.slug);
   const crumbs = [
     { name: "Home", path: "/" },
     { name: "Areas", path: "/areas" },
@@ -163,12 +167,7 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
                     key={p.slug}
                     className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
                   >
-                    <Photo
-            src={p.image}
-            alt={p.imageAlt}
-            ratio="16/8"
-            slot="half"
-          />
+                    <Photo src={p.image} alt={p.imageAlt} ratio="16/8" slot="half" />
                     <div className="p-4">
                       <h3 className="font-display text-xl">{p.title}</h3>
                       <p className="mt-1 text-sm text-muted">{p.summary}</p>
@@ -190,10 +189,36 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
             </Accordion>
           </div>
         </article>
-        <aside className="h-fit rounded-xl bg-surface p-6 shadow-[var(--shadow-card)]">
-          <h2 className="font-display text-2xl">On-site in {city.name}</h2>
-          <p className="mt-2 mb-4 text-sm text-muted">{tierNote(city)}</p>
-          <QuoteForm />
+        <aside className="h-fit space-y-6">
+          {/*
+            A locator, not a job map. It answers the one geographic question a
+            homeowner here actually has — do you come out this far, and how far
+            is it — using the real centroid and a computed drive distance.
+            aria-hidden: the same facts are in the text beneath it.
+          */}
+          {pin && (
+            <div className="rounded-xl bg-surface p-6 shadow-[var(--shadow-card)]">
+              <h2 className="font-display text-2xl">{city.name} from the studio</h2>
+              <p className="mt-2 text-sm text-muted">
+                {pin.distanceKm} km from {company.address.line1}.{" "}
+                {city.tier === "core"
+                  ? "Inside the core radius — the site visit is free for any qualified job."
+                  : "Outside the core radius — we travel here for stair packages, whole-home installs and refinishing."}
+              </p>
+              <div className="mt-4">
+                <CoverageMap focus={city.slug} height={260} />
+              </div>
+              <p className="mt-3 text-xs text-muted">
+                Service coverage and published bands. Not a record of past jobs.
+              </p>
+            </div>
+          )}
+
+          <div className="rounded-xl bg-surface p-6 shadow-[var(--shadow-card)]">
+            <h2 className="font-display text-2xl">On-site in {city.name}</h2>
+            <p className="mt-2 mb-4 text-sm text-muted">{tierNote(city)}</p>
+            <QuoteForm defaultCity={city.slug} />
+          </div>
         </aside>
       </div>
     </>
