@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { answers } from "@/data/answers";
 import { catalog } from "@/data/catalog";
+import { projects } from "@/data/projects";
 import { cities } from "@/data/areas";
 import { SITE_URL } from "@/lib/site-url";
 import { guides, updatedDate } from "@/data/guides";
@@ -108,6 +109,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified,
       changeFrequency: "monthly" as const,
       priority: c.category === "stairs" ? 0.85 : 0.75,
+    })),
+    // One page per job. These used to be fragments on /portfolio, which meant
+    // nine pieces of the most persuasive content on the site had no URL of
+    // their own for a search engine or an answer engine to cite.
+    ...projects.map((p) => ({
+      url: `${BASE}/portfolio/${p.slug}`,
+      lastModified,
+      changeFrequency: "monthly" as const,
+      priority: p.category === "stairs" ? 0.75 : 0.65,
+      images: [`${BASE}${p.image}`],
     })),
     ...answers.map((a) => ({
       url: `${BASE}/answers/${a.slug}`,

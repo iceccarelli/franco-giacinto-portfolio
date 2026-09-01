@@ -506,3 +506,152 @@ no cookies, no user data, and `*` without `Allow-Credentials` means credentials
 are never sent. This is a scanner finding, not an exposure. Every
 discoverability and entity result on the production suite was already green
 before this change.
+
+---
+
+## Stage 6 — Navigable work, and a map that names what is on it (2026-09-01)
+
+Two things shipped together because they are the same problem seen twice: the
+site had persuasive content that nothing could reach, and a map that showed
+where the shop works without showing what it does there.
+
+### The dead end (the critical one)
+
+`/portfolio` rendered nine `<article>` elements. Photograph, headline, spec
+list, card shadow — everything that makes a thing look clickable — and not one
+of them went anywhere, because **no `/portfolio/{slug}` route existed**. The
+catalogue deep-linked to `#slug` fragments on the same grid; site search
+returned nine results that all resolved to `/portfolio`; "related work" cards on
+every service page, every service × city page, every area page and the homepage
+had the same problem. The most persuasive assets on the site were decoration.
+
+Nothing was *broken*, which is why no type check and no build ever caught it.
+
+Shipped:
+
+- **`app/portfolio/[slug]/page.tsx`** — nine statically generated job pages,
+  ISR one hour, own canonical, breadcrumbs, `CreativeWork` JSON-LD with an
+  `ImageObject` whose `creditText` says the photograph is an illustrative
+  rendering. No rating, no review, no customer — same rule the job catalogue
+  lives under. Each page reverse-looks-up the catalogue archetypes that name it
+  in `relatedProjects`, so the spec, the failure modes and the published band
+  are one click away, and it links onward to the city page and a prefilled
+  estimate.
+- **Cards navigate.** The grid card uses a stretched link (`::after` over the
+  card) rather than an anchor wrapped around everything, because three of the
+  nine cards contain a before/after slider and a slider inside an anchor is a
+  slider you cannot drag — every drag ends in a navigation. The slider is
+  lifted above the overlay instead. Verified in a real browser: clicking the
+  photograph navigates, clicking the body copy navigates, dragging the slider
+  moves it from 52 to 79 and stays on the page.
+- `id={p.slug}` anchors kept, so anything already pointing at `/portfolio#slug`
+  still lands correctly.
+- The catalogue, site search and the sitemap now point at the nine pages.
+- **`components/before-after.tsx`**: `id="ba-range"` was a literal, so
+  `/portfolio` shipped three elements with the same DOM id and three labels
+  pointing at the first one. Now `useId()`.
+
+### The map
+
+Rebuilt in the visual language of a network explorer, and — more importantly —
+made to say what it is showing.
+
+- **Stats header card, control column (zoom, reset view, full screen), and a
+  collapsible legend.** All of it is ordinary DOM in a sibling layer at
+  z-index 650: above Leaflet's marker panes, below its popup pane. It styles
+  from the site's own tokens, renders before Leaflet loads, and stays in the
+  accessibility tree while the tile canvas below stays `aria-hidden`.
+- **Named statuses.** "Studio & workshop", "Core service area", "Extended
+  range", "Worked example" — each with a clause saying what it means. A key
+  that reads "green / ochre / ring" tells a homeowner nothing.
+- **Status is encoded by shape as well as colour**: filled bullseye for the
+  studio, solid disc for coverage, hollow pulsing ring for a worked example.
+  Colour alone fails roughly one man in twelve.
+- **`--color-map-extended: #a8742a`.** `--color-primary` (#1b3a2a) and
+  `--color-accent` (#3f6b52) are both greens; at 12px on a legend they are one
+  colour with two names, and core-versus-travel is the most commercial
+  distinction the map makes. Measured before the fix: `rgb(27,58,42)` against
+  `rgb(63,107,82)`.
+- **Numbered badge** where a municipality carries more than one worked example
+  (Toronto shows 4).
+- **Popups end in a real CTA button**, not a text link: price a job in this
+  city, or open this job.
+- The pulse stops under `prefers-reduced-motion`.
+
+### Filtered maps, per department
+
+`CoverageMap` takes a `serviceSlug`. The filter reads `CatalogEntry.serviceSlug`
+off the job types each municipality is actually offered, so it cannot drift from
+the copy: an extended town that only justifies the drive for a package drops off
+the repairs map by itself, which is exactly what `tierNote()` says in prose on
+the same page. Placed on:
+
+| Surface | Map |
+| --- | --- |
+| `/` | whole network, 380px, legend collapsed |
+| `/areas` | whole network, full size |
+| `/areas/[city]` (32) | whole network, focused on that city, 280px |
+| `/services/[slug]` (8) | that service only |
+| `/services/[slug]/[city]` (224) | that service, focused on that city |
+| `/stairs` | stairs only |
+
+`custom-inlays` has no catalogue archetype yet, so a strict filter would empty
+the map rather than narrow it; it falls back to the whole network and still
+names only its own worked example.
+
+### The honesty rule this had to clear
+
+`data/coverage.ts` may never import `data/projects.ts` — the photography is
+AI-generated (`docs/HONEST-LIMITS.md`), and pinning those entries at real
+locations would put invented work at checkable addresses. That rule stands and
+`tests/coverage.test.ts` still enforces it.
+
+The join lives in a new file, `data/showcase.ts`, under three constraints that
+`tests/showcase.test.ts` pins:
+
+1. **Municipality precision only.** A worked-example pin sits *exactly* on the
+   municipality centroid the coverage pin already uses — asserted with strict
+   equality, because a jittered "approximate" coordinate is a fabricated
+   location dressed up as an honest one. It is drawn as a hollow ring for that
+   reason.
+2. **`illustrative: true` on every pin**, rendered under a disclosure that says
+   "not a client record and not an address" in the legend, in the popup, and as
+   server-rendered HTML beneath every map.
+3. **No customer, date, quote or rating field may exist on the type.**
+
+`CoveragePin.confirmedJobs` is still empty and still gated on a real,
+permissioned, delivered job. This file is not that field.
+
+### Crawlability
+
+The client legend does not exist for a crawler. `MapWorkedExamples` renders the
+same list as real `<a>` elements under every map, which is also what turns each
+service page into an internal link into the nine job pages.
+
+### Evidence
+
+- `npm run test` — **290 pass, 0 fail** (263 before; +27 across
+  `tests/showcase.test.ts` and `tests/portfolio-navigation.test.ts`).
+- `npm run build` — 498 routes generated, **393 prerendered pages** (384
+  before; the nine job pages).
+- `npm run audit:site` — no broken links, no duplicate titles, no missing
+  canonicals, no missing alt text, **zero warnings**. (The first pass flagged
+  `/portfolio/forest-hill-heritage` at 72 characters; the title now drops its
+  location suffix rather than being truncated when it will not fit.)
+- Playwright, six viewports (320 → 1440) across ten routes including every new
+  one: **no horizontal overflow anywhere**.
+- Leaflet stays out of the shared bundle — it is its own async chunk
+  (`d0deef33`, 148 KB raw), fetched by `IntersectionObserver` when a map is
+  about to be seen. Shared bundle unchanged at 103 kB.
+- Removed the unused `note` field from the serialised map payload: 100–200
+  characters × 32 municipalities of dead weight in the RSC flight payload, on
+  every page that carries a map.
+
+### Not done
+
+- Geolocation stays disabled. A "locate me" control would need
+  `Permissions-Policy: geolocation=(self)`, and the map answers "do you come to
+  my town" better with a framed service area than with a blue dot.
+- `hardwood-railings` has no worked example. The Oakville stair carries an
+  OBC-compliant rail, but it is a stair job; filing it under railings to avoid
+  an empty list would be padding.

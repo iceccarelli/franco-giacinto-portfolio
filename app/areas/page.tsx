@@ -1,6 +1,11 @@
 import type { Metadata } from "next";
 import { PageHero } from "@/components/page-hero";
-import { CoverageDisclosure, CoverageList, CoverageMap } from "@/components/map/coverage-map";
+import {
+  CoverageDisclosure,
+  CoverageList,
+  CoverageMap,
+  MapWorkedExamples,
+} from "@/components/map/coverage-map";
 
 export const metadata: Metadata = {
   title: "Hardwood Flooring Service Areas",
@@ -58,6 +63,13 @@ export default function AreasIndex() {
           <div className="mt-6">
             <CoverageMap />
           </div>
+          {/*
+            The legend inside the map names the worked examples, but that
+            legend is client-side. This is the same list as real links, so a
+            crawler, an answer engine and a visitor with JavaScript off all
+            get it — and every one of those names is now a page.
+          */}
+          <MapWorkedExamples />
         </section>
 
         {/*

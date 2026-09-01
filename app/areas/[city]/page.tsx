@@ -163,16 +163,17 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
               <h2 className="font-display text-3xl">Work nearby</h2>
               <div className="mt-4 grid gap-4">
                 {localProjects.map((p) => (
-                  <div
+                  <Link
                     key={p.slug}
-                    className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
+                    href={`/portfolio/${p.slug}`}
+                    className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-lg"
                   >
                     <Photo src={p.image} alt={p.imageAlt} ratio="16/8" slot="half" />
                     <div className="p-4">
-                      <h3 className="font-display text-xl">{p.title}</h3>
+                      <h3 className="font-display text-xl group-hover:text-primary">{p.title}</h3>
                       <p className="mt-1 text-sm text-muted">{p.summary}</p>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -206,7 +207,7 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
                   : "Outside the core radius — we travel here for stair packages, whole-home installs and refinishing."}
               </p>
               <div className="mt-4">
-                <CoverageMap focus={city.slug} height={260} />
+                <CoverageMap focus={city.slug} height={280} compact />
               </div>
               <p className="mt-3 text-xs text-muted">
                 Service coverage and published bands. Not a record of past jobs.

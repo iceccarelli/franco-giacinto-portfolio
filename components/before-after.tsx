@@ -1,7 +1,7 @@
 "use client";
 import NextImage from "next/image";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 
 export function BeforeAfter({
   before,
@@ -15,6 +15,14 @@ export function BeforeAfter({
   afterAlt: string;
 }) {
   const [pos, setPos] = useState(52);
+  /*
+   * The slider input needs a label, and the label needs an id to point at.
+   * A literal "ba-range" was fine while one comparison existed per page;
+   * /portfolio renders three, which put three elements with the same id in
+   * one document and pointed every label at the first of them. useId gives
+   * each instance its own, stable across server and client render.
+   */
+  const rangeId = useId();
 
   return (
     <div className="relative overflow-hidden rounded-xl bg-bg-warm shadow-[var(--shadow-card)]">
@@ -54,17 +62,17 @@ export function BeforeAfter({
           After
         </span>
       </div>
-      <label className="sr-only" htmlFor="ba-range">
+      <label className="sr-only" htmlFor={rangeId}>
         Drag to compare before and after
       </label>
       <input
-        id="ba-range"
+        id={rangeId}
         type="range"
         min={4}
         max={96}
         value={pos}
         onChange={(e) => setPos(Number(e.target.value))}
-        className="absolute inset-0 z-10 cursor-ew-resize opacity-0"
+        className="absolute inset-0 z-20 cursor-ew-resize opacity-0"
       />
     </div>
   );
