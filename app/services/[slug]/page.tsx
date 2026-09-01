@@ -106,7 +106,7 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
             </p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Button asChild>
-                <Link href="/estimate">Estimate this work</Link>
+                <Link href={`/estimate?service=${service.slug}`}>Estimate this work</Link>
               </Button>
               {service.slug === "hardwood-stairs" && (
                 <Button asChild variant="outline">

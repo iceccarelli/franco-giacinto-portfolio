@@ -32,10 +32,13 @@ function SubmitButton() {
 export function QuoteForm({
   defaultService,
   defaultCity,
+  defaultSqft,
   source = "site",
 }: {
   defaultService?: string;
   defaultCity?: string;
+  /** Carried over from the estimator so nobody types the size twice. */
+  defaultSqft?: string;
   source?: string;
 }) {
   const [state, formAction] = useActionState(submitLead, initialLeadState);
@@ -211,7 +214,7 @@ export function QuoteForm({
           id={`${uid}-sqft`}
           name="sqft"
           inputMode="numeric"
-          defaultValue={val("sqft")}
+          defaultValue={val("sqft") ?? defaultSqft}
           placeholder="e.g. 1200"
           aria-invalid={Boolean(errors.sqft)}
           aria-describedby={errors.sqft ? errorId("sqft") : undefined}

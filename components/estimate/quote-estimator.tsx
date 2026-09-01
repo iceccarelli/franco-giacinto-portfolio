@@ -19,8 +19,26 @@ import {
 import { formatCad } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 
-export function QuoteEstimator({ compact = false }: { compact?: boolean }) {
-  const [input, setInput] = useState<EstimateInput>(emptyEstimate);
+export function QuoteEstimator({
+  compact = false,
+  value,
+  onChange,
+}: {
+  compact?: boolean;
+  /**
+   * Optional controlled mode.
+   *
+   * On `/estimate` the state is owned one level up by EstimateFlow, so the
+   * lead form beneath can be prefilled from whatever the visitor configured
+   * here — they should never be asked for city, service and size twice.
+   * Everywhere else (the homepage strip) the component keeps its own state and
+   * nothing changes.
+   */
+  value?: EstimateInput;
+  onChange?: (next: EstimateInput) => void;
+}) {
+  const [internal, setInternal] = useState<EstimateInput>(emptyEstimate);
+  const input = value ?? internal;
   const result = useMemo(() => calculateEstimate(input), [input]);
   const started = useRef(false);
 
@@ -30,7 +48,9 @@ export function QuoteEstimator({ compact = false }: { compact?: boolean }) {
       started.current = true;
       track({ event: "estimate_start", entry: compact ? "home" : "estimate_page" });
     }
-    setInput((prev) => ({ ...prev, [key]: value }));
+    const next = { ...input, [key]: value };
+    if (onChange) onChange(next);
+    else setInternal(next);
   }
 
   /**

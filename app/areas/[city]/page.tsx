@@ -128,7 +128,7 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
           </h1>
           <p className="mt-4 max-w-2xl text-lg text-muted">{city.blurb}</p>
           <Button asChild className="mt-6">
-            <Link href="/estimate">Estimate a {city.name} project</Link>
+            <Link href={`/estimate?city=${city.slug}`}>Estimate a {city.name} project</Link>
           </Button>
         </div>
       </section>
