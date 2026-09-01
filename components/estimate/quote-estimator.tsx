@@ -93,7 +93,7 @@ export function QuoteEstimator({ compact = false }: { compact?: boolean }) {
                 step={20}
                 value={input.sqft}
                 onChange={(e) => patch("sqft", Number(e.target.value))}
-                className="w-full accent-primary"
+                className="h-11 w-full cursor-pointer accent-primary"
               />
             </Field>
           )}
@@ -151,7 +151,7 @@ export function QuoteEstimator({ compact = false }: { compact?: boolean }) {
                 max={40}
                 value={input.stairs}
                 onChange={(e) => patch("stairs", Number(e.target.value))}
-                className="w-full accent-primary"
+                className="h-11 w-full cursor-pointer accent-primary"
               />
             </Field>
           )}
@@ -165,7 +165,7 @@ export function QuoteEstimator({ compact = false }: { compact?: boolean }) {
                 max={80}
                 value={input.railingFt}
                 onChange={(e) => patch("railingFt", Number(e.target.value))}
-                className="w-full accent-primary"
+                className="h-11 w-full cursor-pointer accent-primary"
               />
             </Field>
           )}
