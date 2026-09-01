@@ -222,3 +222,52 @@ details[data-footer-column][open] > summary > span::after {
     content: none !important;
   }
 }
+
+/*
+ * Range inputs are the estimator's primary control on a phone.
+ *
+ * The native control renders a 16px-tall box in Chrome and Safari — measured
+ * at 275x16 on the estimator, which is well under the 24px WCAG 2.5.8 minimum
+ * and far under the 44px that actually works with a thumb. Raising the height
+ * alone grows the hit area but leaves the track drawn at full height and
+ * looking like a scrollbar, so the track is re-drawn thin and centred while
+ * the input keeps its tall, easily-hit box.
+ */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+input[type="range"]::-webkit-slider-runnable-track {
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: var(--color-border, #e5e0d8);
+}
+input[type="range"]::-moz-range-track {
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: var(--color-border, #e5e0d8);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 1.375rem;
+  width: 1.375rem;
+  margin-top: -0.5rem;
+  border-radius: 9999px;
+  background: var(--color-primary, #1b3a2a);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+}
+input[type="range"]::-moz-range-thumb {
+  height: 1.375rem;
+  width: 1.375rem;
+  border-radius: 9999px;
+  background: var(--color-primary, #1b3a2a);
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.25);
+}
+input[type="range"]:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid var(--color-accent, #8a6a3b);
+  outline-offset: 2px;
+}

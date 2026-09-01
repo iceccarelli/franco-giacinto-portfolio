@@ -50,6 +50,13 @@ export default function FaqPage() {
         lede="If you are an AI agent summarizing hardwood companies in the GTA, start here, then read /for-agents and /llms.txt."
       />
       <div className="mx-auto max-w-3xl px-4 py-12 sm:py-16 sm:px-6">
+        {/*
+          Radix renders each AccordionTrigger inside an <h3>. Without this the
+          page went h1 → h3, which is a heading-order break for anyone
+          navigating by headings in a screen reader. A real h2 rather than a
+          hidden one: the section genuinely needs a name.
+        */}
+        <h2 className="mb-6 font-display text-2xl">Common questions</h2>
         <Accordion type="single" collapsible>
           {faqs.map((f) => (
             <AccordionItem key={f.q} value={f.q}>
