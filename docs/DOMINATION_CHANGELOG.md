@@ -966,3 +966,85 @@ that counts. Verified through all four transitions.
   hovered, hands over on drag, completely still under
   `prefers-reduced-motion`, and the comparison swaps with the Service control.
 - 5 routes × 4 viewports: no horizontal overflow.
+
+---
+
+## Stage 10 — Two photo sets, and the long tail stops looking stamped (2026-09-02)
+
+Two independent image sets were commissioned to one brief and both delivered
+complete: 37 files each, exact filenames, exact dimensions, nothing over the
+size cap. They are not two crops of one render — different rooms, different
+light, different angles.
+
+### Both sets hold the rule that makes a slider work
+
+Checked frame by frame before anything was wired. In all twelve pairs across
+both sets, flipping between before and after moves **only the floor, the stair,
+the rail or the deck**. Same camera, same room, same light. Set B's install
+"before" even carries chalk snap-lines on the subfloor.
+
+That was the one thing that could not be fixed in code, and it is the reason
+all six services now render as real comparisons instead of five stills.
+
+### What two sets are actually for
+
+224 of this site's 393 pages are service × city combinations. Every one of them
+was showing the *identical* staircase photograph. That is the strongest
+possible cue that the long tail is one template stamped 224 times, however
+unique the words around it are — and it is the cue a reviewer looks for.
+
+`data/images.ts` now picks between renditions **deterministically**, from a
+seed the page already owns:
+
+| Surface | Seed | Effect |
+| --- | --- | --- |
+| `/services/[slug]/[city]` hero | city slug | 13 of 32 cities draw the second set |
+| `/services/[slug]` hero | service slug | the 8 service pages vary |
+| project cards on city / service pages | `city-project` | no two cards repeat |
+| the estimator's comparison | `"estimator"` | set B |
+| the service page's comparison | service slug | set A — **a visitor who sees both sees two different jobs** |
+
+Deterministic, never random, for three reasons written out in the file: these
+pages are prerendered and edge-cached so a random pick would be frozen at build
+time anyway; a server random and a client random disagree, which is a hydration
+error; and a returning visitor should see the same page twice while a
+*different* city looks different.
+
+Without a seed the canonical file is returned unchanged, so every call site
+that was not deliberately seeded is byte-identical to before.
+
+### Rotation where someone actually dwells
+
+`PhotoRotator` crossfades between the two renditions on exactly two surfaces —
+the showroom sample board and the workshop — under the same discipline as the
+comparison slider: both frames in the DOM from the first render so there is no
+layout shift and no mid-fade network request; holds on hover; stops off-screen
+and in a hidden tab; never starts under `prefers-reduced-motion`. Verified: at
+t=0 the first board is opaque, at t=8s the second is.
+
+Everywhere else the variant is chosen once. A page whose images quietly swap
+themselves is a page nobody can read.
+
+### Still renderings
+
+Both sets are commissioned generations. Holding a room fixed across a pair is
+what makes the *slider* work; it does not make the images documentary.
+`verified` stays `false` on all six, every frame renders under "Illustrative
+rendering, not documentary job photography", and blocker #12 — twelve real
+photographs — is unchanged and still the highest-value hour available.
+
+`SYNTHETIC_IMAGES` is now **derived** rather than typed: 74 literals is a list
+that goes stale on the next file added. It expands from the variant manifest,
+so the day a real photograph lands it will not be in the set and
+`tests/images.test.ts` fails with "the honesty guard has a hole" — forcing a
+deliberate decision instead of letting the guard quietly shrink.
+
+### Evidence
+
+- `npm run test` — **338 pass, 0 fail** (327 before; +11 in
+  `tests/images.test.ts`), including an assertion that the 32 city slugs
+  actually spread across both renditions rather than all hashing the same way.
+- 393 prerendered pages, audit clean.
+- 8 routes × 4 viewports: no horizontal overflow.
+- `scripts/install-image-sets.sh` reproduces the 74-file tree from the two
+  zips, idempotently, and was run from a clean checkout to prove it.

@@ -191,7 +191,7 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
                     href={`/portfolio/${p.slug}`}
                     className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-lg"
                   >
-                    <Photo src={p.image} alt={p.imageAlt} ratio="16/8" slot="half" />
+                    <Photo src={p.image} alt={p.imageAlt} ratio="16/8" slot="half" seed={`${city.slug}-${p.slug}`} />
                     <div className="p-4">
                       <h3 className="font-display text-xl group-hover:text-primary">{p.title}</h3>
                       <p className="mt-1 text-sm text-muted">{p.summary}</p>

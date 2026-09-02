@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { PageHero } from "@/components/page-hero";
 import { company, stats } from "@/data/company";
 import { breadcrumbLd, personLd, webPageLd } from "@/lib/seo";
+import { PhotoRotator } from "@/components/photo-rotator";
 
 const description = `Franco Giacinto founded Green Hardwood after fifteen years installing and rebuilding hardwood in Toronto. Meet the craftsman behind the floors and stairs.`;
 
@@ -231,13 +232,12 @@ export default function AboutPage() {
       {/* Shop ------------------------------------------------------------- */}
       <section className="border-y border-border bg-bg-warm">
         <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-2">
-          <Image
+          <PhotoRotator
             src="/images/workshop.jpg"
             alt="Green Hardwood workshop with species racks, stain sample boards, and professional sanding equipment."
-            width={1600}
-            height={1000}
+            ratio="aspect-[16/10]"
             sizes="(min-width: 1024px) 32rem, 100vw"
-            className="aspect-[16/10] w-full rounded-xl object-cover shadow-[var(--shadow-card)]"
+            className="w-full rounded-xl shadow-[var(--shadow-card)]"
           />
           <div>
             <div className="flex items-center gap-2 text-accent">

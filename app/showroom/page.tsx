@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Photo } from "@/components/photo";
+import { PhotoRotator } from "@/components/photo-rotator";
 import Link from "next/link";
 import { JsonLd } from "@/components/json-ld";
 import { SpeciesShowroom } from "@/components/tools/species-showroom";
@@ -42,11 +42,17 @@ export default function ShowroomPage() {
       </section>
       <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
         <SpeciesShowroom />
-        <Photo
+        {/*
+            One of the two surfaces that crossfades rather than picking a
+            rendition once: a showroom is where someone lingers over material,
+            and two boards read as more range than one. Holds on hover, stops
+            off-screen, and never starts under reduced motion.
+          */}
+        <PhotoRotator
             src="/images/species-board.jpg"
             alt="White oak, red oak, walnut, maple, and hickory sample boards on a Green Hardwood workbench."
-            ratio="21/9"
-            slot="full"
+            ratio="aspect-[21/9]"
+            sizes="100vw"
             className="mt-12 rounded-xl"
           />
         <div className="mt-10 rounded-xl bg-primary px-6 py-10 text-primary-fg sm:px-10">

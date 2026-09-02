@@ -145,12 +145,23 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
               </Button>
             </div>
           </div>
+          {/*
+            Seeded by the city.
+
+            This is the hero on 224 pages, and unseeded it was the same
+            photograph 224 times — the single strongest cue that the long tail
+            is one template stamped repeatedly, no matter how unique the words
+            around it are. Two commissioned sets exist; the city slug decides
+            which one Vaughan sees and which one Markham sees, deterministically
+            so the page is stable across visits and across builds.
+          */}
           <Photo
             src={service.image}
             alt={service.imageAlt}
             ratio="4/3"
             slot="half"
             priority
+            seed={city.slug}
             className="rounded-xl shadow-[var(--shadow-card)]"
           />
         </div>
@@ -236,7 +247,7 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
                     href={`/portfolio/${p.slug}`}
                     className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-lg"
                   >
-                    <Photo src={p.image} alt={p.imageAlt} ratio="16/10" slot="card" />
+                    <Photo src={p.image} alt={p.imageAlt} ratio="16/10" slot="card" seed={`${service.slug}-${city.slug}-${p.slug}`} />
                     <div className="p-4">
                       <h3 className="font-display text-lg group-hover:text-primary">{p.title}</h3>
                       <p className="mt-1 text-sm text-muted">{p.summary}</p>

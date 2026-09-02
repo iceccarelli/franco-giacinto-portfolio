@@ -20,12 +20,20 @@ import type { ServiceKind } from "@/data/estimate";
  */
 export function ServiceComparison({
   kind,
+  seed,
   autoplay = true,
 }: {
   kind: ServiceKind;
+  /**
+   * Picks which of the two commissioned rooms this surface shows. The
+   * estimator and the service page pass different seeds on purpose, so a
+   * visitor who sees both sees two different jobs rather than one photograph
+   * twice.
+   */
+  seed?: string;
   autoplay?: boolean;
 }) {
-  const c = comparisonFor(kind);
+  const c = comparisonFor(kind, seed);
 
   return (
     <figure className="min-w-0">
