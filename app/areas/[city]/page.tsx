@@ -17,7 +17,12 @@ import { projects } from "@/data/projects";
 import { SITE_URL } from "@/lib/site-url";
 import { breadcrumbLd, clampDescription, faqLd, webPageLd } from "@/lib/seo";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { CoverageMap } from "@/components/map/coverage-map";
+import { CoverageMap, MapWorkedExamples } from "@/components/map/coverage-map";
+import {
+  JobTypesHere,
+  LocalPriceTable,
+  NearbyMunicipalities,
+} from "@/components/areas/local-depth";
 import { coverage } from "@/data/coverage";
 import { company } from "@/data/company";
 import { matrixForCity } from "@/data/matrix";
@@ -137,7 +142,14 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
         </div>
       </section>
       <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <article className="space-y-5">
+        {/*
+          min-w-0 is load-bearing. A grid item defaults to min-width:auto, so
+          the 34rem price table below propagated its own width up to the
+          column and pushed the whole page sideways on a phone — the
+          overflow-x-auto wrapper never got the chance to scroll. Measured at
+          242–312px of horizontal overflow before this.
+        */}
+        <article className="min-w-0 space-y-5">
           <h2 className="font-display text-3xl">The housing stock we walk into</h2>
           <p className="text-muted">{city.housing}</p>
           <h2 className="font-display text-3xl">Typical {city.name} specification</h2>
@@ -158,6 +170,17 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
               </li>
             ))}
           </ul>
+          {/*
+            The computed half of the page. See components/areas/local-depth.tsx
+            for why it is derived rather than written: these are the highest
+            commercial-intent pages on the site and they were the thinnest, and
+            the alternative fix — 32 paraphrases of the same paragraphs — is
+            the definition of a doorway page.
+          */}
+          <LocalPriceTable city={city} />
+          <JobTypesHere city={city} />
+          <NearbyMunicipalities city={city} />
+
           {localProjects.length > 0 && (
             <div>
               <h2 className="font-display text-3xl">Work nearby</h2>
@@ -212,6 +235,15 @@ export default async function CityPage({ params }: { params: Promise<Params> }) 
               <p className="mt-3 text-xs text-muted">
                 Service coverage and published bands. Not a record of past jobs.
               </p>
+              {/*
+                The strip that every other map placement carries and this one
+                did not. Until now the locator drew worked-example rings that
+                nothing on the page named or qualified — on /areas/barrie, nine
+                rings, none of them in Barrie. The map is now focused, so this
+                names only what it actually shows, and carries the disclosure
+                that governs a ring.
+              */}
+              <MapWorkedExamples focus={city.slug} />
             </div>
           )}
 

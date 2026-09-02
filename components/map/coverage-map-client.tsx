@@ -3,7 +3,7 @@
 // Leaflet's stylesheet. Next code-splits it with this component, so it is
 // still not on the critical path — it ships when the map does.
 import "leaflet/dist/leaflet.css";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { Map as LeafletMap, CircleMarker, Marker } from "leaflet";
 import { ChevronDown, Expand, Minus, Plus, RotateCcw, Shrink } from "lucide-react";
 import { track } from "@/lib/analytics";
@@ -122,6 +122,7 @@ export function CoverageMapClient({
   /** Homepage and city-page size: legend starts closed, chrome is trimmed. */
   compact?: boolean;
 }) {
+  const legendId = useId();
   const wrap = useRef<HTMLDivElement>(null);
   const el = useRef<HTMLDivElement>(null);
   const map = useRef<LeafletMap | null>(null);
@@ -454,14 +455,24 @@ export function CoverageMapClient({
               {showcase.length > 0 && (
                 <>
                   {/*
-                    What was built, named. Clicking one flies the map to its
-                    municipality and opens the popup, so the legend is the
-                    index into the map rather than a static key beside it.
+                    A control, not content. Clicking one flies the map to its
+                    municipality and opens the popup.
+
+                    It deliberately does NOT repeat the strip's heading. The
+                    legend is server-rendered whenever it starts open, so an
+                    identical heading put the same nine names in the document
+                    twice and a screen reader read the list through twice —
+                    once as disabled buttons, once as links. Different verb,
+                    different job, and the strip below stays the canonical
+                    place those names are linked from.
                   */}
-                  <p className="mt-3.5 border-t border-border pt-3 text-[11px] font-medium tracking-[0.12em] text-accent uppercase">
-                    Worked examples on this map
+                  <p
+                    id={`${legendId}-jump`}
+                    className="mt-3.5 border-t border-border pt-3 text-[11px] font-medium tracking-[0.12em] text-accent uppercase"
+                  >
+                    Jump the map to
                   </p>
-                  <ul className="mt-2 space-y-1">
+                  <ul className="mt-2 space-y-1" aria-labelledby={`${legendId}-jump`}>
                     {showcase.map((s) => (
                       <li key={s.slug}>
                         <button

@@ -131,6 +131,25 @@ function legendFor(hasShowcase: boolean): MapLegendItem[] {
   return items;
 }
 
+/**
+ * Which worked examples belong on one particular map. One rule, used by both
+ * the map and the crawlable strip beneath it, so they can never disagree.
+ *
+ * `focus` narrows to that municipality. Without it, a locator centred on
+ * Barrie drew nine pulsing rings, none of them in Barrie and none of them
+ * explained anywhere on the page — a ring reads as a claim, and an unexplained
+ * ring reads as a claim about the town you are looking at.
+ */
+function shownShowcase({ serviceSlug, focus }: { serviceSlug?: string; focus?: string }) {
+  const service = serviceSlug ? getService(serviceSlug) : undefined;
+  const category = service ? serviceShowcaseCategory[service.slug] : undefined;
+
+  let shown = showcase;
+  if (service) shown = category ? shown.filter((s) => s.category === category) : [];
+  if (focus) shown = shown.filter((s) => s.citySlug === focus);
+  return shown;
+}
+
 export function CoverageMap({
   focus,
   height,
@@ -156,12 +175,7 @@ export function CoverageMap({
    */
   const pins = matched.length > 0 ? matched : coverage;
 
-  const category = service ? serviceShowcaseCategory[service.slug] : undefined;
-  const shown = service
-    ? category
-      ? showcase.filter((s) => s.category === category)
-      : []
-    : showcase;
+  const shown = shownShowcase({ serviceSlug, focus });
 
   const core = pins.filter((p) => p.city.tier === "core").length;
   const stats: MapStat[] = [
@@ -201,14 +215,14 @@ export function CoverageMap({
  * This strip is the same information as real links, which is also what turns
  * every service page into an internal link into the nine job pages.
  */
-export function MapWorkedExamples({ serviceSlug }: { serviceSlug?: string }) {
-  const service = serviceSlug ? getService(serviceSlug) : undefined;
-  const category = service ? serviceShowcaseCategory[service.slug] : undefined;
-  const shown = service
-    ? category
-      ? showcase.filter((s) => s.category === category)
-      : []
-    : showcase;
+export function MapWorkedExamples({
+  serviceSlug,
+  focus,
+}: {
+  serviceSlug?: string;
+  focus?: string;
+}) {
+  const shown = shownShowcase({ serviceSlug, focus });
 
   if (shown.length === 0) return null;
 
