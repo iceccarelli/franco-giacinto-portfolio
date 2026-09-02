@@ -1,4 +1,5 @@
 import type { ServiceKind } from "@/data/estimate";
+import { IMAGES_WITH_VARIANTS, pickVariant, variantsOf } from "@/data/images";
 
 /**
  * One visual per estimator service — the thing a homeowner actually decides on.
@@ -61,27 +62,18 @@ export type Comparison = {
     }
 );
 
-/** Files known to be AI-generated. A verified pair may never use one. */
-export const SYNTHETIC_IMAGES = [
-  "/images/before-worn.jpg",
-  "/images/after-refinished.jpg",
-  "/images/hero-living.jpg",
-  "/images/hero-stairs.jpg",
-  "/images/project-etobicoke.jpg",
-  "/images/project-forest-hill.jpg",
-  "/images/project-herringbone.jpg",
-  "/images/project-inlay.jpg",
-  "/images/project-oakville-stairs.jpg",
-  "/images/railing-join.jpg",
-  "/images/service-deck.jpg",
-  "/images/service-install.jpg",
-  "/images/service-railings.jpg",
-  "/images/service-refinish.jpg",
-  "/images/service-repair.jpg",
-  "/images/service-stairs.jpg",
-  "/images/stair-studio.jpg",
-  "/images/workshop.jpg",
-] as const;
+/**
+ * Every photograph on this site is a commissioned rendering, so the synthetic
+ * set is simply all of them — derived rather than typed, because a list of 74
+ * literals is a list that goes stale the first time a file is added.
+ *
+ * The day a real photograph lands it will not be in `IMAGES_WITH_VARIANTS`,
+ * will therefore not be here, and `tests/images.test.ts` will fail with
+ * "the honesty guard has a hole". That failure is the point: it forces someone
+ * to decide deliberately whether the new file is documentary or another
+ * rendering, instead of the guard quietly shrinking.
+ */
+export const SYNTHETIC_IMAGES: readonly string[] = IMAGES_WITH_VARIANTS.flatMap(variantsOf);
 
 /** The sentence that renders under any slot that is not a verified pair. */
 export const ILLUSTRATIVE_NOTE =
@@ -94,66 +86,101 @@ export const comparisons: Record<ServiceKind, Comparison> = {
     lookFor:
       "The traffic lanes and the grey, and whether the grain comes back rather than gets buried under a darker stain.",
     mode: "pair",
-    before: "/images/before-worn.jpg",
-    after: "/images/after-refinished.jpg",
-    beforeAlt: "Worn, grey-toned hardwood boards with visible traffic wear before refinishing.",
-    afterAlt: "Refinished oak flooring in a hallway, grain legible under a matte finish.",
-    // The two frames are not the same room. Until they are photographs of one
-    // real floor, this is a demonstration of the control, not evidence.
+    before: "/images/ba-refinish-before.jpg",
+    after: "/images/ba-refinish-after.jpg",
+    beforeAlt:
+      "A bay-window living room with red oak boards dulled grey, finish worn through along the traffic lane to the hall.",
+    afterAlt:
+      "The same room after sanding and refinishing, the oak grain legible under a warm matte finish.",
     verified: false,
   },
   install: {
     kind: "install",
     label: "New hardwood install",
-    lookFor: "Board width, how the run meets the doorways, and whether the pattern is square to the room.",
-    mode: "still",
-    image: "/images/service-install.jpg",
-    alt: "Wide-plank white oak flooring running through a bright living room.",
-    pending:
-      "A subfloor before, and the finished field from the same doorway after. Two photographs, one job.",
+    lookFor:
+      "Board width, how the run meets the doorways, and whether the pattern is square to the room rather than to the longest wall.",
+    mode: "pair",
+    before: "/images/ba-install-before.jpg",
+    after: "/images/ba-install-after.jpg",
+    beforeAlt:
+      "An empty main floor with a bare plywood subfloor, chalk snap-lines still visible, trim not yet installed.",
+    afterAlt:
+      "The same floor with wide-plank white oak installed and site-finished, running toward the windows.",
+    verified: false,
   },
   stairs: {
     kind: "stairs",
     label: "Hardwood stairs",
-    lookFor: "The nosing line, the returned tread ends, and whether the stair matches the floor it lands on.",
-    mode: "still",
-    image: "/images/service-stairs.jpg",
-    alt: "White oak box stairs with iron balusters and a matched hardwood floor.",
-    pending:
-      "The carpeted flight before, and the finished flight from the same step after. This is the shop's signature job and it has no before frame.",
+    lookFor:
+      "The nosing line, the returned tread ends, and whether the stair matches the floor it lands on.",
+    mode: "pair",
+    before: "/images/ba-stairs-before.jpg",
+    after: "/images/ba-stairs-after.jpg",
+    beforeAlt:
+      "A straight interior flight covered in worn builder-grade carpet with a dated oak-veneer handrail.",
+    afterAlt:
+      "The same flight in solid white oak treads with painted risers and slim iron balusters.",
+    verified: false,
   },
   railings: {
     kind: "railings",
     label: "Hardwood railings",
-    lookFor: "Whether the rail is graspable, how the newel meets the floor, and the joint at the turn.",
-    mode: "still",
-    image: "/images/service-railings.jpg",
-    alt: "Hardwood handrail with through-bolted newel post and iron balusters.",
-    pending: "The original rail before, and the code-compliant replacement from the same landing.",
+    lookFor:
+      "Whether the rail is graspable, how the newel meets the floor, and the joint at the turn.",
+    mode: "pair",
+    before: "/images/ba-railings-before.jpg",
+    after: "/images/ba-railings-after.jpg",
+    beforeAlt:
+      "An open-to-below landing with a low flat-top wooden railing and wide-spaced spindles.",
+    afterAlt:
+      "The same landing with a graspable oak handrail at code height, through-bolted newel and iron balusters.",
+    verified: false,
   },
   repair: {
     kind: "repair",
     label: "Repair & restoration",
-    lookFor: "Where the replaced boards are. On a job that went right, you should not be able to tell.",
-    mode: "still",
-    image: "/images/service-repair.jpg",
-    alt: "Grain-matched replacement boards being fitted into a damaged oak floor.",
-    pending:
-      "The damage before, and the same square metre after. This is the service where a comparison does the most work, because the whole claim is that the repair disappears.",
+    lookFor:
+      "Where the replaced boards are. On a job that went right, you should not be able to tell.",
+    mode: "pair",
+    before: "/images/ba-repair-before.jpg",
+    after: "/images/ba-repair-after.jpg",
+    beforeAlt:
+      "Red oak flooring by a kitchen toe-kick, cupped and blackened across a patch about a metre wide.",
+    afterAlt:
+      "The same square metre with grain-matched boards let in and blended, the repair no longer findable.",
+    verified: false,
   },
   deck: {
     kind: "deck",
     label: "Hardwood deck / porch",
-    lookFor: "The fastener pattern, the ledger detail at the wall, and how the boards meet the rail posts.",
-    mode: "still",
-    image: "/images/service-deck.jpg",
-    alt: "Hardwood deck with hidden fasteners and a cable rail behind a brick house.",
-    pending: "The weathered deck before, and the rebuilt one from the same corner of the yard.",
+    lookFor:
+      "The fastener pattern, the ledger detail at the wall, and how the boards meet the rail posts.",
+    mode: "pair",
+    before: "/images/ba-deck-before.jpg",
+    after: "/images/ba-deck-after.jpg",
+    beforeAlt:
+      "A weathered grey back deck on a brick house, boards splitting and a section sagging near the wall.",
+    afterAlt:
+      "The same deck rebuilt in dense dark hardwood with hidden fasteners and a stainless cable rail.",
+    verified: false,
   },
 };
 
-export function comparisonFor(kind: ServiceKind) {
-  return comparisons[kind];
+/**
+ * The comparison for one service, optionally in its second rendition.
+ *
+ * Two sets were commissioned, so the estimator and the service page can show
+ * different rooms for the same job — which reads as a shop that has done this
+ * many times rather than one that owns a single photograph.
+ */
+export function comparisonFor(kind: ServiceKind, seed?: string): Comparison {
+  const c = comparisons[kind];
+  if (!seed || c.mode !== "pair") return c;
+  return {
+    ...c,
+    before: pickVariant(c.before, seed),
+    after: pickVariant(c.after, seed),
+  };
 }
 
 /** True when a real, photographed comparison exists for this service. */

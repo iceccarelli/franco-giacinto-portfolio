@@ -128,6 +128,7 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
             ratio="4/3"
             slot="half"
             priority
+            seed={service.slug}
             className="rounded-xl shadow-[var(--shadow-card)]"
           />
         </div>
@@ -157,7 +158,7 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
                     href={`/portfolio/${p.slug}`}
                     className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-lg"
                   >
-                    <Photo src={p.image} alt={p.imageAlt} ratio="16/10" slot="card" />
+                    <Photo src={p.image} alt={p.imageAlt} ratio="16/10" slot="card" seed={`${service.slug}-${p.slug}`} />
                     <div className="p-4">
                       <h3 className="font-display text-lg group-hover:text-primary">{p.title}</h3>
                       <p className="mt-1 text-sm text-muted">{p.summary}</p>
@@ -180,7 +181,7 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
                 What {service.shortName.toLowerCase()} looks like
               </h2>
               <div className="mt-4 max-w-2xl">
-                <ServiceComparison kind={kind} />
+                <ServiceComparison kind={kind} seed={service.slug} />
               </div>
             </div>
           )}

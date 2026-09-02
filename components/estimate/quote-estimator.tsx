@@ -208,7 +208,7 @@ export function QuoteEstimator({
         */}
         {!compact && (
           <div className="mt-7 border-t border-border pt-6">
-            <ServiceComparison kind={input.service} />
+            <ServiceComparison kind={input.service} seed="estimator" />
           </div>
         )}
       </div>

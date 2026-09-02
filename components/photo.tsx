@@ -1,4 +1,5 @@
 import NextImage from "next/image";
+import { pickVariant } from "@/data/images";
 import { cn } from "@/lib/utils";
 
 /**
@@ -63,6 +64,7 @@ export function Photo({
   ratio = "4/3",
   slot = "card",
   priority = false,
+  seed,
   className,
   imageClassName,
 }: {
@@ -77,6 +79,17 @@ export function Photo({
    * and the real one arrives later than it would have.
    */
   priority?: boolean;
+  /**
+   * Which of the two renditions to show, chosen deterministically from a
+   * string the page already owns — a city slug, a service, its own slug.
+   *
+   * Two independent photo sets exist for every image (see data/images.ts).
+   * Without a seed the canonical file is used, so an unseeded call site is
+   * unchanged. With one, 224 service × city pages stop showing the identical
+   * staircase, which is the difference between a long tail and a template
+   * stamped 224 times.
+   */
+  seed?: string;
   /** Classes for the frame — rounding, shadow, border. */
   className?: string;
   /** Classes for the image itself — hover transforms, object-position. */
@@ -85,7 +98,7 @@ export function Photo({
   return (
     <div className={cn("relative overflow-hidden", RATIO[ratio], className)}>
       <NextImage
-        src={src}
+        src={pickVariant(src, seed)}
         alt={alt}
         fill
         sizes={SIZES[slot]}
