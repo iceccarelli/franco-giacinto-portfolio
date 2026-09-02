@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { ArrowUpRight, Check, Clock, MapPin, Wallet } from "lucide-react";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { JsonLd } from "@/components/json-ld";
+import { CoverageMap, MapWorkedExamples } from "@/components/map/coverage-map";
 import { QuoteForm } from "@/components/estimate/quote-form";
 import { Button } from "@/components/ui/button";
 import {
@@ -230,21 +231,17 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
               <h2 className="mt-10 font-display text-3xl">Work near {city.name}</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 {localProjects.map((p) => (
-                  <article
+                  <Link
                     key={p.slug}
-                    className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
+                    href={`/portfolio/${p.slug}`}
+                    className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-lg"
                   >
-                    <Photo
-            src={p.image}
-            alt={p.imageAlt}
-            ratio="16/10"
-            slot="card"
-          />
+                    <Photo src={p.image} alt={p.imageAlt} ratio="16/10" slot="card" />
                     <div className="p-4">
-                      <h3 className="font-display text-lg">{p.title}</h3>
+                      <h3 className="font-display text-lg group-hover:text-primary">{p.title}</h3>
                       <p className="mt-1 text-sm text-muted">{p.summary}</p>
                     </div>
-                  </article>
+                  </Link>
                 ))}
               </div>
             </>
@@ -261,6 +258,25 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
               </AccordionItem>
             ))}
           </Accordion>
+
+          {/*
+            The department map, centred on this city. Same filter as the
+            parent service page — only the municipalities where this service is
+            actually taken — so a visitor can see at a glance whether their
+            neighbours are inside the core radius or on the travel tier.
+          */}
+          <div className="mt-10">
+            <h2 className="font-display text-2xl">
+              {service.shortName} around {city.name}
+            </h2>
+            <p className="mt-2 text-sm text-muted">
+              Service coverage and 2026 published bands. Not a record of past jobs.
+            </p>
+            <div className="mt-4">
+              <CoverageMap serviceSlug={service.slug} focus={city.slug} height={320} compact />
+            </div>
+            <MapWorkedExamples serviceSlug={service.slug} />
+          </div>
 
           <p className="mt-8 text-sm text-muted">
             Looking for the full service detail rather than the {city.name} view?{" "}

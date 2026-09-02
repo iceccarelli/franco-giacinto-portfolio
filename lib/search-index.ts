@@ -274,7 +274,9 @@ export const searchDocs: SearchDoc[] = [
     kind: "Project",
     title: p.title,
     description: p.summary,
-    path: "/portfolio",
+    // Was "/portfolio" for every project, so nine distinct search results all
+    // landed on the same grid and the visitor had to find the card again.
+    path: `/portfolio/${p.slug}`,
     primary: p.title,
     keywords: [p.location, p.type, ...p.specs],
   })),

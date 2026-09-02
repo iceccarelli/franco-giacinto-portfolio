@@ -211,7 +211,7 @@ export default async function CatalogEntryPage({ params }: { params: Promise<Par
             <ul className="mt-4 grid gap-2 sm:grid-cols-2">
               {jobs.map((p) => (
                 <li key={p.slug}>
-                  <Link className="text-primary hover:underline" href={`/portfolio#${p.slug}`}>
+                  <Link className="text-primary hover:underline" href={`/portfolio/${p.slug}`}>
                     Job: {p.title}
                   </Link>
                 </li>

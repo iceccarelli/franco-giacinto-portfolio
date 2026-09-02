@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight, MapPin } from "lucide-react";
 import { BeforeAfter } from "@/components/before-after";
 import { QuoteEstimator } from "@/components/estimate/quote-estimator";
+import { CoverageMap, MapWorkedExamples } from "@/components/map/coverage-map";
 import { HomeHero } from "@/components/home/hero";
 import { ToolsRow } from "@/components/home/tools-row";
 import { WhyUs } from "@/components/home/why-us";
@@ -209,18 +210,68 @@ export default function Home() {
         </div>
         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {projects.slice(0, 6).map((p) => (
-            <article
+            <Link
               key={p.slug}
-              className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
+              href={`/portfolio/${p.slug}`}
+              className="group flex flex-col overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-lg"
             >
               <Photo src={p.image} alt={p.imageAlt} ratio="4/3" slot="card" />
-              <div className="p-5">
+              <div className="flex flex-1 flex-col p-5">
                 <Badge>{p.location}</Badge>
-                <h3 className="mt-3 font-display text-xl">{p.title}</h3>
-                <p className="mt-1 text-sm text-muted">{p.summary}</p>
+                <h3 className="mt-3 font-display text-xl group-hover:text-primary">{p.title}</h3>
+                <p className="mt-1 flex-1 text-sm text-muted">{p.summary}</p>
+                <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary">
+                  Open the job
+                  <ArrowRight
+                    className="size-3.5 transition-transform group-hover:translate-x-0.5"
+                    aria-hidden
+                  />
+                </span>
               </div>
-            </article>
+            </Link>
           ))}
+        </div>
+      </section>
+
+      {/*
+        The service network, on the landing page.
+
+        Small deliberately — 380px, legend collapsed — because the homepage's
+        job is to get someone to the estimator, not to hold them in a map. It
+        is here at all because "do you come to my town" is the second question
+        every enquiry starts with, and answering it above the fold of the
+        second screen removes a reason to bounce.
+
+        Everything the pins carry is also linked underneath as HTML, and the
+        Leaflet chunk is only fetched once the section scrolls into view, so
+        this costs the homepage nothing on the critical path.
+      */}
+      <section className="border-y border-border bg-bg-warm">
+        <div className="mx-auto max-w-6xl px-4 py-16 sm:py-24 sm:px-6">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="max-w-2xl">
+              <p className="text-xs font-medium tracking-[0.18em] text-accent uppercase">
+                Service network
+              </p>
+              <h2 className="mt-2 font-display text-3xl sm:text-4xl">
+                Thirty-two municipalities, one workshop door.
+              </h2>
+              <p className="mt-3 text-muted">
+                Twenty inside the core radius with a free on-site measure; twelve we travel to for
+                stair packages, whole-home installs and refinishing. Pins are coverage and published
+                bands — not a record of past jobs.
+              </p>
+            </div>
+            <Button asChild variant="outline">
+              <Link href="/areas">
+                All service areas <ArrowRight className="size-4" />
+              </Link>
+            </Button>
+          </div>
+          <div className="mt-8">
+            <CoverageMap height={380} compact />
+          </div>
+          <MapWorkedExamples />
         </div>
       </section>
 

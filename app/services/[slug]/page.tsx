@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { CoverageMap, MapWorkedExamples } from "@/components/map/coverage-map";
 import { Photo } from "@/components/photo";
 import { notFound } from "next/navigation";
 import Link from "next/link";
@@ -148,25 +149,42 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
               <h2 className="font-display text-2xl">Related GTA work</h2>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 {related.map((p) => (
-                  <article
+                  <Link
                     key={p.slug}
-                    className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
+                    href={`/portfolio/${p.slug}`}
+                    className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-lg"
                   >
-                    <Photo
-            src={p.image}
-            alt={p.imageAlt}
-            ratio="16/10"
-            slot="card"
-          />
+                    <Photo src={p.image} alt={p.imageAlt} ratio="16/10" slot="card" />
                     <div className="p-4">
-                      <h3 className="font-display text-lg">{p.title}</h3>
+                      <h3 className="font-display text-lg group-hover:text-primary">{p.title}</h3>
                       <p className="mt-1 text-sm text-muted">{p.summary}</p>
                     </div>
-                  </article>
+                  </Link>
                 ))}
               </div>
             </div>
           )}
+          {/*
+            The same network map, narrowed to this department.
+
+            A municipality appears here when one of the job types it is
+            actually offered belongs to this service — read off
+            CatalogEntry.serviceSlug, not from a second list that could drift.
+            So an extended town that only justifies the drive for a package
+            drops off the repairs map by itself, which is exactly what
+            tierNote() says in prose on the same page.
+          */}
+          <div className="mt-10">
+            <h2 className="font-display text-2xl">Where we take {service.shortName.toLowerCase()}</h2>
+            <p className="mt-2 max-w-2xl text-sm text-muted">
+              Pins are service coverage and published bands, not a record of past jobs. Open one for
+              the local band and what we take on there.
+            </p>
+            <div className="mt-5">
+              <CoverageMap serviceSlug={service.slug} height={420} />
+            </div>
+            <MapWorkedExamples serviceSlug={service.slug} />
+          </div>
           {serviceMethods.length > 0 && (
             <div className="mt-10">
               <h2 className="font-display text-2xl">How we do it</h2>

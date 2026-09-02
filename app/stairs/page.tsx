@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Photo } from "@/components/photo";
 import Link from "next/link";
 import { JsonLd } from "@/components/json-ld";
+import { CoverageMap, MapWorkedExamples } from "@/components/map/coverage-map";
 import { StairStudio } from "@/components/tools/stair-studio";
 import { Button } from "@/components/ui/button";
 import { projects } from "@/data/projects";
@@ -165,25 +166,37 @@ export default function StairsHub() {
           <h2 className="font-display text-3xl">Stairs you can inspect</h2>
           <div className="mt-8 grid gap-5 md:grid-cols-2">
             {stairJobs.map((p) => (
-              <article
+              <Link
                 key={p.slug}
-                className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
+                href={`/portfolio/${p.slug}`}
+                className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-lg"
               >
-                <Photo
-            src={p.image}
-            alt={p.imageAlt}
-            ratio="16/10"
-            slot="card"
-          />
+                <Photo src={p.image} alt={p.imageAlt} ratio="16/10" slot="card" />
                 <div className="p-5">
-                  <h3 className="font-display text-xl">{p.title}</h3>
+                  <h3 className="font-display text-xl group-hover:text-primary">{p.title}</h3>
                   <p className="mt-1 text-sm text-muted">{p.summary}</p>
                 </div>
-              </article>
+              </Link>
             ))}
           </div>
         </section>
       )}
+
+      {/* The stair department's own map: only the municipalities where stair
+          work is taken, and only the stair worked examples. */}
+      <section className="border-t border-border bg-bg-warm">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
+          <h2 className="font-display text-3xl">Where we build stairs</h2>
+          <p className="mt-3 max-w-2xl text-muted">
+            Service coverage and the 2026 stair band for each municipality — not a record of past
+            jobs. Open a pin for the local number.
+          </p>
+          <div className="mt-8">
+            <CoverageMap serviceSlug="hardwood-stairs" height={440} />
+          </div>
+          <MapWorkedExamples serviceSlug="hardwood-stairs" />
+        </div>
+      </section>
     </>
   );
 }
