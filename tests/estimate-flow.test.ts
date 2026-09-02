@@ -179,3 +179,40 @@ describe("what is remembered, and what is never remembered", () => {
     );
   });
 });
+
+/**
+ * The carry-over has to reach the field that is actually submitted.
+ *
+ * `defaultValue` is applied by React once, at mount, and ignored afterwards.
+ * So configuring the estimator BEFORE the form mounted worked, and changing
+ * the service after it had mounted did not. Measured in a browser: set the
+ * estimator to "deck" and the summary panel read deck while the select the
+ * visitor submits still read "install" — a deck enquiry arriving labelled as
+ * an installation, which is a misrouted lead rather than a cosmetic bug.
+ *
+ * The summary panel was right the whole time, which is what made it invisible.
+ */
+describe("the carried-over configuration reaches the submitted field", () => {
+  const src = readFileSync("components/estimate/quote-form.tsx", "utf8");
+
+  test("service, city and size are controlled, not defaultValue", () => {
+    for (const field of ["service", "city", "sqft"]) {
+      const block = src.slice(src.indexOf(`name="${field}"`), src.indexOf(`name="${field}"`) + 220);
+      assert.ok(
+        !block.includes("defaultValue"),
+        `the ${field} field uses defaultValue, so it cannot follow the estimator after mount`,
+      );
+      assert.match(block, /value=\{/, `the ${field} field is not controlled`);
+      assert.match(block, /onChange=/, `the ${field} field is controlled with no way to edit it`);
+    }
+  });
+
+  test("each one re-seeds when the estimator changes", () => {
+    for (const prop of ["defaultService", "defaultCity", "defaultSqft"]) {
+      assert.ok(
+        new RegExp(`\\[${prop}\\]`).test(src),
+        `nothing re-seeds the form when ${prop} changes`,
+      );
+    }
+  });
+});
