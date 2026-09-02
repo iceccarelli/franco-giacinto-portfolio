@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { ServiceComparison } from "@/components/comparison/service-comparison";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { NativeSelect } from "@/components/ui/input";
@@ -190,6 +191,26 @@ export function QuoteEstimator({
             </Field>
           )}
         </div>
+
+        {/*
+          The work, next to the number.
+
+          A price band on its own is an abstraction — a homeowner reading
+          "$5,981 – $8,485" has no way to picture what they would be buying.
+          This swaps with the Service control above it, so choosing "Repair &
+          restoration" shows repair work while the band for repair work is
+          still on screen. It is the single place on the site where the money
+          and the craft are in the same glance.
+
+          On the compact homepage strip it is left out: that block exists to
+          get someone to /estimate, and a second image there competes with the
+          hero rather than helping it.
+        */}
+        {!compact && (
+          <div className="mt-7 border-t border-border pt-6">
+            <ServiceComparison kind={input.service} />
+          </div>
+        )}
       </div>
       <div className="flex flex-col justify-between rounded-xl bg-primary p-5 text-primary-fg shadow-[var(--shadow-card)] sm:p-7">
         <div>

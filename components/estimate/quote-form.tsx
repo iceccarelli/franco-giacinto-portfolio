@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useId, useRef, type ReactNode } from "react";
+import { type ReactNode, useActionState, useEffect, useId, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import { CheckCircle2, Loader2, Phone } from "lucide-react";
 import { submitLead } from "@/app/actions/lead";
@@ -44,6 +44,36 @@ export function QuoteForm({
   const [state, formAction] = useActionState(submitLead, initialLeadState);
   const uid = useId();
   const counted = useRef(false);
+
+  /**
+   * Service, city and size follow the estimator above.
+   *
+   * These were `defaultValue`, which React applies once at mount and never
+   * again. So configuring the estimator BEFORE scrolling to the form worked —
+   * the props were right on first render — but changing the service after the
+   * form had mounted left this select behind. Measured in a browser: set the
+   * estimator to "deck", and the summary panel updated to deck while the
+   * select the visitor actually submits still read "install". A deck enquiry
+   * arrived labelled as an installation.
+   *
+   * Controlled, seeded from the props, and re-seeded whenever the estimator
+   * changes — with a manual edit here still winning until the estimator moves
+   * again, because the two are meant to be one configuration and the last
+   * deliberate action should be the one that counts.
+   */
+  const [service, setService] = useState(state.values.service ?? defaultService ?? "install");
+  const [city, setCity] = useState(state.values.city ?? defaultCity ?? "toronto");
+  const [sqft, setSqft] = useState(state.values.sqft ?? defaultSqft ?? "");
+
+  useEffect(() => {
+    if (defaultService) setService(defaultService);
+  }, [defaultService]);
+  useEffect(() => {
+    if (defaultCity) setCity(defaultCity);
+  }, [defaultCity]);
+  useEffect(() => {
+    if (defaultSqft) setSqft(defaultSqft);
+  }, [defaultSqft]);
 
   /**
    * The conversion, fired from the server's verdict rather than from the
@@ -174,7 +204,8 @@ export function QuoteForm({
         <NativeSelect
           id={`${uid}-service`}
           name="service"
-          defaultValue={val("service") ?? defaultService ?? "install"}
+          value={service}
+          onChange={(e) => setService(e.target.value)}
           aria-invalid={Boolean(errors.service)}
           aria-describedby={errors.service ? errorId("service") : undefined}
         >
@@ -190,7 +221,8 @@ export function QuoteForm({
         <NativeSelect
           id={`${uid}-city`}
           name="city"
-          defaultValue={val("city") ?? defaultCity ?? "toronto"}
+          value={city}
+          onChange={(e) => setCity(e.target.value)}
           aria-invalid={Boolean(errors.city)}
           aria-describedby={errors.city ? errorId("city") : undefined}
         >
@@ -214,7 +246,8 @@ export function QuoteForm({
           id={`${uid}-sqft`}
           name="sqft"
           inputMode="numeric"
-          defaultValue={val("sqft") ?? defaultSqft}
+          value={sqft}
+          onChange={(e) => setSqft(e.target.value)}
           placeholder="e.g. 1200"
           aria-invalid={Boolean(errors.sqft)}
           aria-describedby={errors.sqft ? errorId("sqft") : undefined}

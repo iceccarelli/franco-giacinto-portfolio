@@ -206,3 +206,62 @@ published ceiling by more than 15%, none may ever fall *below* the published
 floor, and only installation and decking may sit outside their range at all.
 If the estimator or the published bands move and a third service drifts out,
 the build fails and this decision comes back to the surface.
+
+---
+
+## 12. Twelve photographs — **the highest-value hour you can spend on this site**
+
+Not a task for the code. A phone, twelve pictures, and the discipline to take
+the first one before the crew starts.
+
+Every image in `public/images` is AI-generated. The site now has a before/after
+slider that moves on its own so the comparison is actually seen — and exactly
+one pair to put in it, whose two frames are not even the same room (the
+"before" is a bare floor by a window, the "after" is a hallway with a
+staircase). It renders labelled as a rendering, because a manufactured
+before-and-after is not a weaker version of proof, it is a fabrication.
+
+`data/comparisons.ts` has a slot ready for each of the six services. Fill one
+and it goes live at the next deploy with `verified: true`, the disclaimer
+disappears, and the slider starts doing the job it was built for.
+
+### The shot list
+
+Two photographs per service, six services:
+
+| Service | Before | After |
+| --- | --- | --- |
+| Sanding & refinishing | the grey, worn floor, before the sander comes in | the same floor, finished |
+| New hardwood install | the bare subfloor | the finished field |
+| Hardwood stairs | the carpeted flight | the finished flight |
+| Hardwood railings | the original rail | the replacement |
+| Repair & restoration | the damage | the same square metre, repaired |
+| Deck / porch | the weathered deck | the rebuilt one |
+
+### The only four rules that matter
+
+1. **Same position.** Stand in the same spot for both frames. Mark it with tape
+   if you have to. A before and after from two different places is not a
+   comparison, it is two photographs.
+2. **Same height and angle.** Chest height, phone level. Do not crouch for one
+   and stand for the other.
+3. **Same light.** Same time of day, same lights on or off. A dim before and a
+   sunlit after is the oldest trick in home improvement and everyone can smell
+   it.
+4. **Take the before even when the job looks boring.** You cannot go back for
+   it. The before frame is the one that is always missing, on every trade site,
+   which is exactly why having it is worth something.
+
+Wide enough to show the room, not so wide the floor is a sliver. Landscape.
+No filter, no straightening, no HDR.
+
+### Why this outranks everything else on this list
+
+A prospective client deciding between three quotes at $18,000 is looking for a
+reason to trust one of them. A real before-and-after of a real floor — with the
+awkward radiator and the cat bowl still in the frame — is the most convincing
+thing a flooring company can show, and it is the one thing a competitor cannot
+copy, buy, or fake. It costs nothing. It needs no photographer.
+
+Repair is the one to shoot first: the whole claim of that service is that the
+repair disappears, and a slider is the only way to prove it.

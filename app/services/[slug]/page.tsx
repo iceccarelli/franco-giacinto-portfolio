@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ServiceComparison } from "@/components/comparison/service-comparison";
 import { CoverageMap, MapWorkedExamples } from "@/components/map/coverage-map";
 import { Photo } from "@/components/photo";
 import { notFound } from "next/navigation";
@@ -14,6 +15,7 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { projects } from "@/data/projects";
+import { serviceKindFrom } from "@/lib/estimate-prefill";
 import { getService, seoNameOf, services } from "@/data/services";
 import { breadcrumbLd, clampDescription, faqLd, serviceLd, webPageLd } from "@/lib/seo";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -76,6 +78,7 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
     { name: "Services", path: "/services" },
     { name: service.shortName, path: `/services/${service.slug}` },
   ];
+  const kind = serviceKindFrom(service.slug);
   const related = projects.filter((p) => p.category === categoryMap[service.slug]).slice(0, 2);
 
   return (
@@ -164,6 +167,24 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
               </div>
             </div>
           )}
+          {/*
+            The comparison for this department, above the map.
+
+            The order is deliberate: what the work looks like, then where we
+            do it, then what it costs. A price is easier to accept once the
+            craft has been seen.
+          */}
+          {kind && (
+            <div className="mt-10">
+              <h2 className="font-display text-2xl">
+                What {service.shortName.toLowerCase()} looks like
+              </h2>
+              <div className="mt-4 max-w-2xl">
+                <ServiceComparison kind={kind} />
+              </div>
+            </div>
+          )}
+
           {/*
             The same network map, narrowed to this department.
 

@@ -862,3 +862,107 @@ original bug stated as a rule.
 - `npm run audit:site` — clean, zero warnings.
 - Playwright, 8 routes × 4 viewports: no horizontal overflow. Disclosure
   verified working with JavaScript disabled.
+
+---
+
+## Stage 9 — The comparison shows itself (2026-09-02)
+
+### The slider now moves
+
+A comparison slider parked at 52% is a photograph with a line through it. Most
+visitors never touch it, so most visitors never see the comparison — which is
+the only reason the component exists.
+
+`components/before-after.tsx` now sweeps slowly between 22% and 78% on a sine
+easing, so it decelerates at each end where the eye needs a beat to read the
+difference. It hands control over the instant anyone reaches for it.
+
+Motion that cannot be stopped is worse than no motion, so the drift stops:
+
+- while a pointer is over it or focus is inside it — you are looking, it holds
+- the moment a drag or key press starts, and for 5 seconds after the last one,
+  so a deliberate position is not yanked away mid-thought
+- when scrolled out of view (`IntersectionObserver`), so nothing off-screen
+  burns a frame loop
+- when the tab is hidden
+- entirely, under `prefers-reduced-motion: reduce`
+
+The control is still a real `<input type="range">`: arrow keys work, the value
+is announced, and it is operable with no pointer at all.
+
+### Where it goes
+
+Inside the estimator, under the controls, swapping with the Service dropdown —
+so choosing "Repair & restoration" shows repair work while the repair band is
+still on screen. It is the one place on the site where the money and the craft
+are in the same glance. Also on all 8 service pages, above the coverage map:
+what the work looks like, then where we do it, then what it costs.
+
+Left off the compact homepage strip on purpose — that block exists to move
+someone to `/estimate`, and a second image there competes with the hero.
+
+### What could not be delivered honestly, and why
+
+Six services were asked for. There is **one** pair in the repository, and its
+two frames are not the same room: `before-worn.jpg` is a bare-boarded floor by
+a window, `after-refinished.jpg` is a hallway with a staircase. Two unrelated
+renders that happen to sit either side of a divider.
+
+Pairing renders behind a Before/After label on all six would have looked
+exactly like what was asked for. It would also be manufacturing evidence — two
+frames either side of a divider assert *this floor became that floor*, and no
+caption softens that. It is the invented-testimonial mistake with a slider
+attached, and this site has already paid for that lesson once.
+
+So `data/comparisons.ts` gives every service a real visual and marks which are
+comparisons. Refinishing renders in the slider, labelled a rendering. The other
+five render as a single photograph with one line naming the frame that is
+missing — "the carpeted flight before, and the finished flight from the same
+step after" — which is more persuasive than a fake pair and costs nothing to be
+right about.
+
+`tests/comparisons.test.ts` makes it structural: a pair marked `verified` while
+pointing at any file in the known AI-generated set fails the build. Setting the
+flag honestly is a one-line change per service the day the photographs exist.
+
+### The shot list is the deliverable
+
+**Blocker #12**: twelve photographs, a phone, four rules — same position, same
+height, same light, and take the before even when the job looks boring. Repair
+first, because the whole claim of that service is that the repair disappears
+and a slider is the only way to prove it.
+
+That is the highest-value hour anyone can spend on this website. A real
+before-and-after with the awkward radiator still in frame is the one asset a
+competitor cannot copy, buy, or fake.
+
+### A misrouted lead, found while looking at the screenshot
+
+Placing the comparison inside the estimator put the lead form in the same frame
+for the first time, and the screenshot showed the summary panel reading
+"Sanding & refinishing" while the form's Service select still read "New
+hardwood install".
+
+Confirmed in a browser: set the estimator to `deck`, and the submitted field
+stayed `install`. A deck enquiry arrived labelled as an installation.
+
+`defaultValue` is applied by React once, at mount, and ignored after. So
+configuring the estimator *before* the form mounted worked — which is the path
+anyone testing it would take — and changing the service afterwards silently did
+not. The carried-over summary was right the whole time, which is exactly what
+made it invisible.
+
+Service, city and size are controlled now, re-seeded whenever the estimator
+moves, with a manual edit in the form still winning until it moves again — the
+two are one configuration, and the last deliberate action should be the one
+that counts. Verified through all four transitions.
+
+### Evidence
+
+- `npm run test` — **327 pass, 0 fail** (313 before; +12 in
+  `tests/comparisons.test.ts`, +2 in `tests/estimate-flow.test.ts`).
+- 393 prerendered pages, audit clean.
+- Browser-verified: drifts unattended (64 → 78 → 60 over 3.2s), holds while
+  hovered, hands over on drag, completely still under
+  `prefers-reduced-motion`, and the comparison swaps with the Service control.
+- 5 routes × 4 viewports: no horizontal overflow.
