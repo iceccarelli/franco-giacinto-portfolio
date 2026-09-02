@@ -1,0 +1,646 @@
+From ba00b7dfeacc362745b196a076edb292f9650b76 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 2 Sep 2026 17:25:14 +0000
+Subject: [PATCH] fix(disclosure): put the FAQ answers back in the HTML, on 275
+ pages
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Found by auditing rendered word counts, not by reading source. /faq measured
+142 words of main content while displaying eighteen questions, which made no
+sense until I looked at what was actually in the <body>.
+
+@radix-ui/react-accordion unmounts the content of a closed item. Measured on
+the built output:
+
+  /faq            53 data-state="closed" nodes, 0 answers in <body>
+  /               0 answers in <body>
+  /areas/barrie   0 answers in <body>
+
+The answer text existed in exactly two places: the RSC flight payload, which
+is inside a <script> and is not page content, and the FAQPage JSON-LD. Google
+executes JavaScript but does not click accordions. So on 275 pages — the
+homepage, /faq, 8 service pages, 224 service x city pages, 32 city hubs and 9
+method pages — the rendered body carried every question and not one answer.
+
+That is every FAQ this shop has written, which is the long-tail phrasing
+those pages exist to rank for, discarded by a component choice. The JSON-LD
+kept Google's FAQ understanding partly intact, which is why nothing looked
+broken; an answer engine reading HTML saw questions with nothing under them.
+
+Rebuilt components/ui/accordion.tsx on native <details>/<summary>, keeping
+the exported API so no call site changed. Content is in the DOM open or shut,
+the browser supplies correct disclosure semantics, and it is a server
+component now — so those pages stop shipping an accordion library.
+
+Given up, both stated in the component: exclusive open (native `name` needs a
+shared id a server component cannot mint, and reading two answers at once is
+not worse), and the open/close animation — which was already dead, since the
+classes named animate-accordion-up/down and no such keyframes exist anywhere
+in this repo.
+
+Body words:  /faq 142 -> 721.  / 1,614 -> 2,193.
+             /services/hardwood-stairs ~626 -> 989.
+             /services/hardwood-stairs/vaughan ~626 -> 804.
+             /areas/barrie 981 -> 1,085.
+
+First-load JS went DOWN at the same time, because the dependency left with it:
+/, /areas/[city], /services/[slug] and /services/[slug]/[city] all 148 -> 140
+kB; /faq 126 -> 117 kB. Shared bundle unchanged at 103 kB.
+@radix-ui/react-accordion removed from package.json and the lockfile.
+
+No test caught this because every FAQ assertion was about the DATA — questions
+unique, answers non-empty, bands agreeing — and none asked whether the answer
+survived rendering. tests/disclosure.test.ts now asserts the mechanism:
+native <details>, no accordion library in the imports, the dependency absent
+from package.json, and AccordionContent never gating its children on open
+state, which is the original bug written as a rule.
+
+313 tests pass (308 before). 393 pages, audit clean. 8 routes x 4 viewports,
+no horizontal overflow. Disclosure verified working with JavaScript disabled:
+18 details, first answer 368 chars in the DOM, summary click still opens it.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DNw2m5xoC4nVhuAs5WuzDG
+---
+ components/ui/accordion.tsx  | 125 ++++++++++++++++++++------
+ docs/DOMINATION_CHANGELOG.md | 105 ++++++++++++++++++++++
+ package-lock.json            | 169 ++++++++++++++---------------------
+ package.json                 |   1 -
+ tests/disclosure.test.ts     |  83 +++++++++++++++++
+ 5 files changed, 352 insertions(+), 131 deletions(-)
+ create mode 100644 tests/disclosure.test.ts
+
+diff --git a/components/ui/accordion.tsx b/components/ui/accordion.tsx
+index 185b95d..64bb561 100644
+--- a/components/ui/accordion.tsx
++++ b/components/ui/accordion.tsx
+@@ -1,37 +1,111 @@
+-"use client";
+-
+-import type { ComponentProps } from "react";
+-import * as AccordionPrimitive from "@radix-ui/react-accordion";
++import type { ComponentProps, ReactNode } from "react";
+ import { ChevronDown } from "lucide-react";
+ import { cn } from "@/lib/utils";
+ 
+-export const Accordion = AccordionPrimitive.Root;
++/**
++ * Disclosure built on native <details>, not on a JavaScript accordion.
++ *
++ * ── Why this was rewritten ────────────────────────────────────────────────
++ *
++ * This was `@radix-ui/react-accordion`. Radix unmounts the content of a closed
++ * item, which means the answer text existed in the browser only after a human
++ * clicked. Measured on the built output before this change:
++ *
++ *   /faq                 53 items with data-state="closed", 0 answers in <body>
++ *   /                    0 answers in <body>
++ *   /areas/barrie        0 answers in <body>
++ *
++ * The answers were reachable in exactly two places: the RSC flight payload
++ * (inside a <script>, which is not page content) and the FAQPage JSON-LD.
++ * Google renders JavaScript but does not click accordions, so on 275 pages —
++ * the homepage, /faq, 8 service pages, 224 service × city pages, 32 city hubs
++ * and 9 method pages — the visible body carried the questions and none of the
++ * answers.
++ *
++ * That is the whole long-tail phrasing of every FAQ this shop has written,
++ * invisible to search and to any answer engine that reads HTML rather than
++ * parsing JSON-LD. On a site whose stated first priority is discoverability,
++ * it was the most expensive thing on the page being thrown away by a
++ * component choice.
++ *
++ * ── What <details> buys ───────────────────────────────────────────────────
++ *
++ * The content is in the DOM whether the item is open or shut, so it is
++ * crawlable and quotable. Screen readers get correct disclosure semantics from
++ * the browser rather than from an ARIA reimplementation. It works with
++ * JavaScript off. And it is a server component, so 275 pages stop shipping an
++ * accordion library they no longer need.
++ *
++ * ── What was given up, honestly ───────────────────────────────────────────
++ *
++ * Two things, both cheap.
++ *
++ * 1. Exclusive open ("type=single collapsible"). Items now open independently.
++ *    The native `name` attribute would restore it, but it needs a shared
++ *    identifier that a server component cannot mint, and reading several
++ *    answers at once is not worse behaviour for an FAQ.
++ * 2. The open/close animation. It was already dead: the classes referenced
++ *    `animate-accordion-up` / `animate-accordion-down`, and no such keyframes
++ *    exist anywhere in this repo. It has been animating nothing for as long as
++ *    it has been here.
++ *
++ * The call sites are unchanged — `type` and `collapsible` are accepted and
++ * ignored so no page had to be touched.
++ */
++
++export function Accordion({
++  className,
++  children,
++  // Accepted and discarded: the Radix API that call sites still pass.
++  type: _type,
++  collapsible: _collapsible,
++  ...props
++}: ComponentProps<"div"> & { type?: "single" | "multiple"; collapsible?: boolean }) {
++  return (
++    <div className={cn("border-t border-border", className)} {...props}>
++      {children}
++    </div>
++  );
++}
+ 
+ export function AccordionItem({
+   className,
++  children,
++  /** Radix required a value per item; kept in the signature, off the DOM. */
++  value: _value,
++  defaultOpen,
+   ...props
+-}: ComponentProps<typeof AccordionPrimitive.Item>) {
+-  return <AccordionPrimitive.Item className={cn("border-b border-border", className)} {...props} />;
++}: Omit<ComponentProps<"details">, "open"> & { value?: string; defaultOpen?: boolean }) {
++  return (
++    <details
++      className={cn("group border-b border-border", className)}
++      open={defaultOpen}
++      {...props}
++    >
++      {children}
++    </details>
++  );
+ }
+ 
+ export function AccordionTrigger({
+   className,
+   children,
+   ...props
+-}: ComponentProps<typeof AccordionPrimitive.Trigger>) {
++}: ComponentProps<"summary">) {
+   return (
+-    <AccordionPrimitive.Header className="flex">
+-      <AccordionPrimitive.Trigger
+-        className={cn(
+-          "flex flex-1 items-center justify-between gap-4 py-5 text-left font-display text-lg font-medium transition-colors hover:text-accent [&[data-state=open]>svg]:rotate-180",
+-          className,
+-        )}
+-        {...props}
+-      >
+-        {children}
+-        <ChevronDown className="size-5 shrink-0 text-muted transition-transform duration-200" />
+-      </AccordionPrimitive.Trigger>
+-    </AccordionPrimitive.Header>
++    <summary
++      className={cn(
++        "flex cursor-pointer list-none items-center justify-between gap-4 py-5 text-left font-display text-lg font-medium transition-colors hover:text-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent [&::-webkit-details-marker]:hidden",
++        className,
++      )}
++      {...props}
++    >
++      {children}
++      <ChevronDown
++        className="size-5 shrink-0 text-muted transition-transform duration-200 group-open:rotate-180"
++        aria-hidden
++      />
++    </summary>
+   );
+ }
+ 
+@@ -39,13 +113,10 @@ export function AccordionContent({
+   className,
+   children,
+   ...props
+-}: ComponentProps<typeof AccordionPrimitive.Content>) {
++}: ComponentProps<"div"> & { children?: ReactNode }) {
+   return (
+-    <AccordionPrimitive.Content
+-      className="overflow-hidden text-muted data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
+-      {...props}
+-    >
+-      <div className={cn("pb-5 leading-relaxed", className)}>{children}</div>
+-    </AccordionPrimitive.Content>
++    <div className={cn("pb-5 leading-relaxed text-muted", className)} {...props}>
++      {children}
++    </div>
+   );
+ }
+diff --git a/docs/DOMINATION_CHANGELOG.md b/docs/DOMINATION_CHANGELOG.md
+index b26ad2f..4e20c6e 100644
+--- a/docs/DOMINATION_CHANGELOG.md
++++ b/docs/DOMINATION_CHANGELOG.md
+@@ -757,3 +757,108 @@ third service drifting out fails the build.
+   specification sits under the service name instead of clipping the timeline.
+ - Map focus verified in a browser: Barrie 0 worked-example rings, Toronto 1
+   grouped marker badged 4.
++
++---
++
++## Stage 8 — The FAQ answers were never in the HTML (2026-09-02)
++
++Found by auditing rendered word counts across all 393 pages rather than by
++reading source. `/faq` measured **142 words of main content** while the page
++displays eighteen questions — a number that made no sense until I looked at
++what was actually in the `<body>`.
++
++### What was wrong
++
++`@radix-ui/react-accordion` unmounts the content of a closed item. Measured on
++the built output:
++
++```
++/faq             18 <details>-equivalent items, 53 data-state="closed" nodes,
++                 0 answers in <body>
++/                0 answers in <body>
++/areas/barrie    0 answers in <body>
++```
++
++The answer text existed in exactly two places: the RSC flight payload — inside
++a `<script>`, which is not page content — and the FAQPage JSON-LD. Google
++executes JavaScript but does not click accordions, so on **275 pages** the
++rendered body carried every question and not one answer:
++
++| Surface | Pages |
++| --- | --- |
++| `/` and `/faq` | 2 |
++| `/services/[slug]` | 8 |
++| `/services/[slug]/[city]` | 224 |
++| `/areas/[city]` | 32 |
++| `/methods/[slug]` | 9 |
++
++That is every FAQ this shop has written — the long-tail phrasing that these
++pages exist to rank for — thrown away by a component choice. The JSON-LD kept
++Google's FAQ *understanding* partly intact, which is why nothing looked broken;
++but any answer engine reading HTML rather than parsing JSON-LD saw questions
++with nothing under them, and the body text never counted toward the page.
++
++### The fix
++
++Rebuilt `components/ui/accordion.tsx` on native `<details>`/`<summary>`,
++keeping the same exported API so no call site changed.
++
++- Content is in the DOM whether the item is open or shut — crawlable, quotable.
++- Correct disclosure semantics from the browser instead of an ARIA
++  reimplementation.
++- It is a **server** component now, so 275 pages stop shipping an accordion
++  library.
++- It works with JavaScript off — verified in a browser with JS disabled: 18
++  `<details>`, first answer 368 characters present in the DOM, and clicking a
++  `<summary>` still opens it.
++
++Two things were given up, both cheap and both stated in the component:
++
++1. **Exclusive open.** Items now open independently. Native `name` would
++   restore it but needs a shared identifier a server component cannot mint,
++   and reading two answers at once is not worse behaviour for an FAQ.
++2. **The open/close animation** — which was already dead. The classes named
++   `animate-accordion-up` / `animate-accordion-down`, and no such keyframes
++   exist anywhere in this repo. It has been animating nothing the whole time.
++
++### Result
++
++| Page | Body words before | After |
++| --- | --- | --- |
++| `/faq` | 142 | **721** |
++| `/` | 1,614 | **2,193** |
++| `/services/hardwood-stairs` | ~626 | **989** |
++| `/services/hardwood-stairs/vaughan` | ~626 | **804** |
++| `/areas/barrie` | 981 | **1,085** |
++
++And the JavaScript went *down* at the same time, because the dependency left
++with it:
++
++| Route | First load before | After |
++| --- | --- | --- |
++| `/` | 148 kB | **140 kB** |
++| `/areas/[city]` (32) | 148 kB | **140 kB** |
++| `/services/[slug]` (8) | 148 kB | **140 kB** |
++| `/services/[slug]/[city]` (224) | 148 kB | **140 kB** |
++| `/faq` | 126 kB | **117 kB** |
++
++Shared bundle unchanged at 103 kB. `@radix-ui/react-accordion` removed from
++`package.json` and the lockfile.
++
++### Why no test caught it
++
++Every existing assertion about FAQs was about the **data** — that questions are
++unique, that answers say something, that the bands agree with
++`data/services.ts`. None asked whether the answer survived *rendering*.
++`tests/disclosure.test.ts` now asserts the mechanism: native `<details>`, no
++accordion library in the imports, the dependency absent from `package.json`,
++and `AccordionContent` never gating its children on open state — which is the
++original bug stated as a rule.
++
++### Evidence
++
++- `npm run test` — **313 pass, 0 fail** (308 before).
++- `npm run build` — 393 prerendered pages, unchanged.
++- `npm run audit:site` — clean, zero warnings.
++- Playwright, 8 routes × 4 viewports: no horizontal overflow. Disclosure
++  verified working with JavaScript disabled.
+diff --git a/package-lock.json b/package-lock.json
+index 627652e..34d80e1 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -8,7 +8,6 @@
+       "name": "green-hardwood",
+       "version": "2.0.0",
+       "dependencies": {
+-        "@radix-ui/react-accordion": "^1.2.12",
+         "@radix-ui/react-dialog": "^1.1.15",
+         "@radix-ui/react-label": "^2.1.8",
+         "@radix-ui/react-slot": "^1.2.4",
+@@ -1512,93 +1511,6 @@
+       "integrity": "sha512-rqWnm76nYT8HoNNqEjpgJ7Pw/DrBj5iBTrmEPo6HTX5+VJyBNOqTdv4g89G63HuR5g0AaENoAcH7Is5fF2kZ8Q==",
+       "license": "MIT"
+     },
+-    "node_modules/@radix-ui/react-accordion": {
+-      "version": "1.2.20",
+-      "resolved": "https://registry.npmjs.org/@radix-ui/react-accordion/-/react-accordion-1.2.20.tgz",
+-      "integrity": "sha512-jDhG9FvAEnlhnjrsINbNXcUa4G+L1KqSkJSunkbKEzFRcAb52jvM0PjPxPRvhe1HNc5F5yc0yzzWeeqlH4yBIg==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "@radix-ui/primitive": "1.1.7",
+-        "@radix-ui/react-collapsible": "1.1.20",
+-        "@radix-ui/react-collection": "1.1.15",
+-        "@radix-ui/react-compose-refs": "1.1.5",
+-        "@radix-ui/react-context": "1.2.2",
+-        "@radix-ui/react-direction": "1.1.4",
+-        "@radix-ui/react-id": "1.1.4",
+-        "@radix-ui/react-primitive": "2.1.10",
+-        "@radix-ui/react-use-controllable-state": "1.2.6"
+-      },
+-      "peerDependencies": {
+-        "@types/react": "*",
+-        "@types/react-dom": "*",
+-        "react": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc",
+-        "react-dom": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc"
+-      },
+-      "peerDependenciesMeta": {
+-        "@types/react": {
+-          "optional": true
+-        },
+-        "@types/react-dom": {
+-          "optional": true
+-        }
+-      }
+-    },
+-    "node_modules/@radix-ui/react-collapsible": {
+-      "version": "1.1.20",
+-      "resolved": "https://registry.npmjs.org/@radix-ui/react-collapsible/-/react-collapsible-1.1.20.tgz",
+-      "integrity": "sha512-mcGesGplBnzN2sbvJETzpCNfSMyPnb29q1GRLU+Ib7bJrpIG2ywmRoh2V5VbA2uNvKikKUlVbAPks7JDjz4A8Q==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "@radix-ui/primitive": "1.1.7",
+-        "@radix-ui/react-compose-refs": "1.1.5",
+-        "@radix-ui/react-context": "1.2.2",
+-        "@radix-ui/react-id": "1.1.4",
+-        "@radix-ui/react-presence": "1.1.10",
+-        "@radix-ui/react-primitive": "2.1.10",
+-        "@radix-ui/react-use-controllable-state": "1.2.6",
+-        "@radix-ui/react-use-layout-effect": "1.1.4"
+-      },
+-      "peerDependencies": {
+-        "@types/react": "*",
+-        "@types/react-dom": "*",
+-        "react": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc",
+-        "react-dom": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc"
+-      },
+-      "peerDependenciesMeta": {
+-        "@types/react": {
+-          "optional": true
+-        },
+-        "@types/react-dom": {
+-          "optional": true
+-        }
+-      }
+-    },
+-    "node_modules/@radix-ui/react-collection": {
+-      "version": "1.1.15",
+-      "resolved": "https://registry.npmjs.org/@radix-ui/react-collection/-/react-collection-1.1.15.tgz",
+-      "integrity": "sha512-9W+B9NPF0NaaPh/1NJd3+KqsnlLqU9H7T2rvww+fp+T/evVXdNAyYcnfRQZFOjkR1ajQp3yORlqnI8soawLvNA==",
+-      "license": "MIT",
+-      "dependencies": {
+-        "@radix-ui/react-compose-refs": "1.1.5",
+-        "@radix-ui/react-context": "1.2.2",
+-        "@radix-ui/react-primitive": "2.1.10",
+-        "@radix-ui/react-slot": "1.3.3"
+-      },
+-      "peerDependencies": {
+-        "@types/react": "*",
+-        "@types/react-dom": "*",
+-        "react": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc",
+-        "react-dom": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc"
+-      },
+-      "peerDependenciesMeta": {
+-        "@types/react": {
+-          "optional": true
+-        },
+-        "@types/react-dom": {
+-          "optional": true
+-        }
+-      }
+-    },
+     "node_modules/@radix-ui/react-compose-refs": {
+       "version": "1.1.5",
+       "resolved": "https://registry.npmjs.org/@radix-ui/react-compose-refs/-/react-compose-refs-1.1.5.tgz",
+@@ -1666,21 +1578,6 @@
+         }
+       }
+     },
+-    "node_modules/@radix-ui/react-direction": {
+-      "version": "1.1.4",
+-      "resolved": "https://registry.npmjs.org/@radix-ui/react-direction/-/react-direction-1.1.4.tgz",
+-      "integrity": "sha512-5pzg4FGQNpExhnhT2zlrP1wZFaYCd1K0nYWoFAdcYoYK868IEigqMX3B3f8yIoRlAhAeDWciLI6ZdCKHF9P4Vg==",
+-      "license": "MIT",
+-      "peerDependencies": {
+-        "@types/react": "*",
+-        "react": "^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc"
+-      },
+-      "peerDependenciesMeta": {
+-        "@types/react": {
+-          "optional": true
+-        }
+-      }
+-    },
+     "node_modules/@radix-ui/react-dismissable-layer": {
+       "version": "1.1.19",
+       "resolved": "https://registry.npmjs.org/@radix-ui/react-dismissable-layer/-/react-dismissable-layer-1.1.19.tgz",
+@@ -2191,6 +2088,72 @@
+         "node": ">=14.0.0"
+       }
+     },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@emnapi/core": {
++      "version": "1.11.1",
++      "dev": true,
++      "inBundle": true,
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "@emnapi/wasi-threads": "1.2.2",
++        "tslib": "^2.4.0"
++      }
++    },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@emnapi/runtime": {
++      "version": "1.11.1",
++      "dev": true,
++      "inBundle": true,
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "tslib": "^2.4.0"
++      }
++    },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@emnapi/wasi-threads": {
++      "version": "1.2.2",
++      "dev": true,
++      "inBundle": true,
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "tslib": "^2.4.0"
++      }
++    },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@napi-rs/wasm-runtime": {
++      "version": "1.1.4",
++      "dev": true,
++      "inBundle": true,
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "@tybys/wasm-util": "^0.10.1"
++      },
++      "funding": {
++        "type": "github",
++        "url": "https://github.com/sponsors/Brooooooklyn"
++      },
++      "peerDependencies": {
++        "@emnapi/core": "^1.7.1",
++        "@emnapi/runtime": "^1.7.1"
++      }
++    },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/@tybys/wasm-util": {
++      "version": "0.10.2",
++      "dev": true,
++      "inBundle": true,
++      "license": "MIT",
++      "optional": true,
++      "dependencies": {
++        "tslib": "^2.4.0"
++      }
++    },
++    "node_modules/@tailwindcss/oxide-wasm32-wasi/node_modules/tslib": {
++      "version": "2.8.1",
++      "dev": true,
++      "inBundle": true,
++      "license": "0BSD",
++      "optional": true
++    },
+     "node_modules/@tailwindcss/oxide-win32-arm64-msvc": {
+       "version": "4.3.3",
+       "resolved": "https://registry.npmjs.org/@tailwindcss/oxide-win32-arm64-msvc/-/oxide-win32-arm64-msvc-4.3.3.tgz",
+diff --git a/package.json b/package.json
+index 8fee3d3..9224d1a 100644
+--- a/package.json
++++ b/package.json
+@@ -16,7 +16,6 @@
+     "verify:live": "bash scripts/verify-live.sh"
+   },
+   "dependencies": {
+-    "@radix-ui/react-accordion": "^1.2.12",
+     "@radix-ui/react-dialog": "^1.1.15",
+     "@radix-ui/react-label": "^2.1.8",
+     "@radix-ui/react-slot": "^1.2.4",
+diff --git a/tests/disclosure.test.ts b/tests/disclosure.test.ts
+new file mode 100644
+index 0000000..843d0fc
+--- /dev/null
++++ b/tests/disclosure.test.ts
+@@ -0,0 +1,83 @@
++import { test, describe } from "node:test";
++import assert from "node:assert/strict";
++import { readFileSync, readdirSync, statSync } from "node:fs";
++import { join } from "node:path";
++
++/**
++ * FAQ answers must be in the HTML.
++ *
++ * They were not. `@radix-ui/react-accordion` unmounts the content of a closed
++ * item, so on the homepage, /faq, 8 service pages, 224 service × city pages,
++ * 32 city hubs and 9 method pages, the rendered <body> carried every question
++ * and not one answer. /faq shipped 53 items with `data-state="closed"` and no
++ * answer text at all. The copy existed only in the RSC flight payload and in
++ * the FAQPage JSON-LD; Google renders JavaScript but does not click
++ * accordions, and an answer engine reading HTML saw questions with nothing
++ * under them.
++ *
++ * Nothing in the test suite noticed, because every assertion about FAQs was
++ * about the DATA — that the questions exist, that the bands agree — and none
++ * about whether the answer survived rendering. These are the ones that would
++ * have caught it, and they are deliberately about the component's mechanism
++ * rather than about a snapshot, so they keep holding if the markup is restyled.
++ */
++
++describe("disclosure content is not unmounted when collapsed", () => {
++  const src = readFileSync("components/ui/accordion.tsx", "utf8");
++
++  test("the accordion is built on native <details>", () => {
++    assert.match(src, /<details/, "the disclosure no longer uses <details>");
++    assert.match(src, /<summary/, "a disclosure needs a <summary> to be one");
++  });
++
++  test("no JavaScript accordion library is used for it", () => {
++    // An import, not a mention: the file explains at length WHY Radix was
++    // removed, and that explanation must not trip its own guard. (Third time
++    // this session that a comment has failed a regex written against it.)
++    const imports = src
++      .split("\n")
++      .filter((l) => /^\s*import\b/.test(l))
++      .join("\n");
++    assert.ok(
++      !/radix-ui/.test(imports),
++      "Radix unmounts closed content, which is what hid every FAQ answer from search",
++    );
++    assert.ok(
++      !src.startsWith('"use client"'),
++      "the disclosure should render on the server; it needs no client state",
++    );
++  });
++
++  test("the dependency is gone from package.json too", () => {
++    const pkg = readFileSync("package.json", "utf8");
++    assert.ok(
++      !pkg.includes("@radix-ui/react-accordion"),
++      "the accordion package is still installed and can be reached for again",
++    );
++  });
++
++  test("content is never conditionally rendered away", () => {
++    // The specific failure mode: `open && <div>…` or a state check that
++    // removes the answer from the tree.
++    const content = src.slice(src.indexOf("export function AccordionContent"));
++    assert.ok(
++      !/\bopen\s*&&/.test(content) && !/useState/.test(content),
++      "AccordionContent gates its children on open state — that is the original bug",
++    );
++  });
++
++  test("every page that asks a question still renders through this component", () => {
++    const pages: string[] = [];
++    const walk = (dir: string) => {
++      for (const entry of readdirSync(dir, { withFileTypes: true })) {
++        const full = join(dir, entry.name);
++        if (statSync(full).isDirectory()) walk(full);
++        else if (entry.name === "page.tsx" && readFileSync(full, "utf8").includes("AccordionContent"))
++          pages.push(full);
++      }
++    };
++    walk("app");
++    // homepage, /faq, services/[slug], services/[slug]/[city], areas/[city], methods/[slug]
++    assert.ok(pages.length >= 6, `only ${pages.length} pages use the disclosure; expected 6`);
++  });
++});
+-- 
+2.43.0
+
