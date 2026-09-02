@@ -1048,3 +1048,65 @@ deliberate decision instead of letting the guard quietly shrink.
 - 8 routes × 4 viewports: no horizontal overflow.
 - `scripts/install-image-sets.sh` reproduces the 74-file tree from the two
   zips, idempotently, and was run from a clean checkout to prove it.
+
+---
+
+## Stage 11 — The guides stop being stubs (2026-09-02)
+
+`/guides` was the thinnest section left: 21 pages at a **median of 175 words**,
+the shortest at 137. Eleven of them carried two sections of one paragraph each.
+
+These are the authority pages. A 137-word guide called "How long to acclimate
+hardwood in the GTA" does not rank, does not get quoted by an answer engine,
+and does not persuade a homeowner who has just been told by a contractor that
+five days is enough.
+
+### Why these could be written and the city hubs could not
+
+Stage 7 refused to write local colour for 32 municipalities, because that would
+be inventing knowledge about places Franco knows and I do not. Guides are the
+opposite case: acclimation, subfloor flatness tolerance, radiant commissioning,
+nail-down versus glue-down, herringbone layout, nosing geometry. This is
+general trade knowledge, checkable against NWFA practice and the Ontario
+Building Code, and none of it makes a claim about a job this shop did.
+
+The line held in both directions — that is the point of having one.
+
+### Result
+
+**All 20 guides now run 502–775 words, median 552.**
+
+| | Before | After |
+| --- | --- | --- |
+| Minimum | 137 | **502** |
+| Median | 175 | **552** |
+
+Written to the section's existing voice — opinionated, specific, willing to
+say what not to buy. Each guide now names the failure mode, not just the
+method: what squeaks and why, what cups and why, which quote to walk away from.
+
+### Numbers come from one place, again
+
+The stair-code guide and the nosing guide now interpolate `OBC_LIMITS` from
+`data/obc.ts` rather than restating rise, run, tread, nosing, handrail and
+guard dimensions as prose. The same discipline `data/services.ts` already has
+for prices: a code number lives in one file, and prose quotes it.
+
+That also caught a live drift. `carpet-to-hardwood-stairs-gta` claimed a
+13-step flight "typically runs **$5,000–$11,000**" as a typed literal. The
+estimator, banded across every city multiplier, computes **$6,100–$9,800**. The
+guide now interpolates the computed figure, so a homeowner reading the guide
+and a homeowner using the estimator get the same number.
+
+### Evidence
+
+- `npm run test` — **338 pass, 0 fail**. The suite caught two paragraphs I
+  wrote under its own 80-character stub threshold, which is the rule working.
+- 393 prerendered pages, audit clean, no new URLs.
+
+### What is still thin
+
+`/answers` — 40 pages at a median of 258 words — and the nine
+`/portfolio/[slug]` pages at 237. The answers pages are deliberately direct, so
+some of that is correct; the portfolio pages are mine from Stage 6 and could
+carry the specification reasoning that currently only lives in the catalogue.
