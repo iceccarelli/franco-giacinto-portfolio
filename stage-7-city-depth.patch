@@ -1,0 +1,1156 @@
+From b600eab38867d2eacfb8a9a1a4efa51b93468aab Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 2 Sep 2026 16:56:35 +0000
+Subject: [PATCH] feat(areas): computed local depth on the 32 city hubs, and
+ two Stage 6 fixes
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Stage 6 left two defects that only showed up in the rendered output.
+
+1. Thirty-two city pages drew worked-example rings that nothing on the page
+   named. /areas/barrie rendered nine pulsing rings, none of them in Barrie,
+   with neither the names nor SHOWCASE_DISCLOSURE anywhere in the HTML. A ring
+   reads as a claim; an unexplained ring reads as a claim about the town you
+   are looking at.
+
+   Fixed at the root: shownShowcase() is now one rule used by both the map and
+   the crawlable strip, and `focus` narrows it to that municipality. Barrie
+   draws nothing and says nothing. Toronto draws one grouped marker badged 4.
+
+   tests/showcase.test.ts passed the whole time because it asserted the
+   disclosure existed in a FILE. The new assertion is about every page that
+   draws a pin, which is what the rule always meant.
+
+2. The legend repeated the strip's heading verbatim, and the legend is
+   server-rendered whenever it starts open — so /areas, /stairs and the eight
+   service pages each shipped the same names twice and a screen reader read
+   the list through twice. The legend list is a control; it now reads "Jump
+   the map to" and carries its own aria-labelledby.
+
+Then the substantive work. The 32 hub pages rank for "hardwood flooring in
+{city}", the highest commercial-intent query this shop has, and were
+rendering 308-420 words of main content.
+
+The standard fix is four paragraphs of local colour per town. That is
+inventing knowledge about places Franco knows and I do not, and 32
+paraphrases of the same paragraphs is the definition of a doorway page. So
+the depth is derived instead:
+
+  LocalPriceTable       all six priceable services, banded by that city's
+                        own multiplier through calculateEstimate
+  JobTypesHere          the catalogue archetypes actually offered there,
+                        read off the coverage tier (12 core, 7 extended)
+  NearbyMunicipalities  the six nearest served towns, haversine
+
+981-1,217 words, median 1,030. Every figure is checkable against /estimate,
+and tests/city-depth.test.ts asserts it against the estimator rather than a
+snapshot. No new URLs — the matrix stays frozen.
+
+The neighbour block is the first sideways link between city hubs; all 32
+previously linked upward to /areas and nowhere else. 192 proximity-ordered
+body links, reciprocal enough to be a graph rather than a star.
+
+Rendering bands per square foot next to the published ranges exposed a
+disagreement that has been in the estimator since it was written and was
+never shown in comparable units: installation prices above its published
+$11-$22/sq ft ceiling in all 32 municipalities. Both numbers are honest and
+measure different things — the published range spans every specification,
+the table prices one, and not the cheap one — and the page now says so and
+names the cheap end. Closing the gap means either raising the ceiling or
+making the estimator's default less rich, and both are the shop setting its
+own prices, so it is written up as blocker #11 with the one-line change for
+each. The drift is bounded meanwhile: nothing may exceed a published ceiling
+by more than 15%, nothing may fall below a floor, and only install and deck
+may sit outside at all.
+
+Playwright caught one layout bug: the price table propagated its width up
+through a grid item whose default min-width:auto stopped the scroll container
+from scrolling, giving 242-312px of horizontal page overflow on a phone.
+min-w-0 on the column, and the specification moved under the service name so
+the timeline stops clipping.
+
+308 tests pass (290 before). 393 prerendered pages, unchanged. Audit clean.
+13 routes x 6 viewports, no horizontal overflow.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DNw2m5xoC4nVhuAs5WuzDG
+---
+ app/areas/[city]/page.tsx              |  36 +++-
+ app/services/[slug]/[city]/page.tsx    |   2 +-
+ components/areas/local-depth.tsx       | 216 ++++++++++++++++++++
+ components/map/coverage-map-client.tsx |  25 ++-
+ components/map/coverage-map.tsx        |  42 ++--
+ data/coverage.ts                       | 201 ++++++++++++++++++-
+ docs/DOMINATION_CHANGELOG.md           | 102 ++++++++++
+ docs/OFFSITE_BLOCKERS.md               |  40 ++++
+ tests/city-depth.test.ts               | 260 +++++++++++++++++++++++++
+ 9 files changed, 899 insertions(+), 25 deletions(-)
+ create mode 100644 components/areas/local-depth.tsx
+ create mode 100644 tests/city-depth.test.ts
+
+diff --git a/app/areas/[city]/page.tsx b/app/areas/[city]/page.tsx
+index 65ed254..924a62d 100644
+--- a/app/areas/[city]/page.tsx
++++ b/app/areas/[city]/page.tsx
+@@ -17,7 +17,12 @@ import { projects } from "@/data/projects";
+ import { SITE_URL } from "@/lib/site-url";
+ import { breadcrumbLd, clampDescription, faqLd, webPageLd } from "@/lib/seo";
+ import { Breadcrumbs } from "@/components/breadcrumbs";
+-import { CoverageMap } from "@/components/map/coverage-map";
++import { CoverageMap, MapWorkedExamples } from "@/components/map/coverage-map";
++import {
++  JobTypesHere,
++  LocalPriceTable,
++  NearbyMunicipalities,
++} from "@/components/areas/local-depth";
+ import { coverage } from "@/data/coverage";
+ import { company } from "@/data/company";
+ import { matrixForCity } from "@/data/matrix";
+@@ -137,7 +142,14 @@ export default async function CityPage({ params }: { params: Promise<Params> })
+         </div>
+       </section>
+       <div className="mx-auto grid max-w-6xl gap-12 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-[1.2fr_0.8fr]">
+-        <article className="space-y-5">
++        {/*
++          min-w-0 is load-bearing. A grid item defaults to min-width:auto, so
++          the 34rem price table below propagated its own width up to the
++          column and pushed the whole page sideways on a phone — the
++          overflow-x-auto wrapper never got the chance to scroll. Measured at
++          242–312px of horizontal overflow before this.
++        */}
++        <article className="min-w-0 space-y-5">
+           <h2 className="font-display text-3xl">The housing stock we walk into</h2>
+           <p className="text-muted">{city.housing}</p>
+           <h2 className="font-display text-3xl">Typical {city.name} specification</h2>
+@@ -158,6 +170,17 @@ export default async function CityPage({ params }: { params: Promise<Params> })
+               </li>
+             ))}
+           </ul>
++          {/*
++            The computed half of the page. See components/areas/local-depth.tsx
++            for why it is derived rather than written: these are the highest
++            commercial-intent pages on the site and they were the thinnest, and
++            the alternative fix — 32 paraphrases of the same paragraphs — is
++            the definition of a doorway page.
++          */}
++          <LocalPriceTable city={city} />
++          <JobTypesHere city={city} />
++          <NearbyMunicipalities city={city} />
++
+           {localProjects.length > 0 && (
+             <div>
+               <h2 className="font-display text-3xl">Work nearby</h2>
+@@ -212,6 +235,15 @@ export default async function CityPage({ params }: { params: Promise<Params> })
+               <p className="mt-3 text-xs text-muted">
+                 Service coverage and published bands. Not a record of past jobs.
+               </p>
++              {/*
++                The strip that every other map placement carries and this one
++                did not. Until now the locator drew worked-example rings that
++                nothing on the page named or qualified — on /areas/barrie, nine
++                rings, none of them in Barrie. The map is now focused, so this
++                names only what it actually shows, and carries the disclosure
++                that governs a ring.
++              */}
++              <MapWorkedExamples focus={city.slug} />
+             </div>
+           )}
+ 
+diff --git a/app/services/[slug]/[city]/page.tsx b/app/services/[slug]/[city]/page.tsx
+index 1e59bf3..8f0d08e 100644
+--- a/app/services/[slug]/[city]/page.tsx
++++ b/app/services/[slug]/[city]/page.tsx
+@@ -275,7 +275,7 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
+             <div className="mt-4">
+               <CoverageMap serviceSlug={service.slug} focus={city.slug} height={320} compact />
+             </div>
+-            <MapWorkedExamples serviceSlug={service.slug} />
++            <MapWorkedExamples serviceSlug={service.slug} focus={city.slug} />
+           </div>
+ 
+           <p className="mt-8 text-sm text-muted">
+diff --git a/components/areas/local-depth.tsx b/components/areas/local-depth.tsx
+new file mode 100644
+index 0000000..2a193b2
+--- /dev/null
++++ b/components/areas/local-depth.tsx
+@@ -0,0 +1,216 @@
++import Link from "next/link";
++import { ArrowUpRight } from "lucide-react";
++import { localPricing, nearestServed, coverage } from "@/data/coverage";
++import { tierNote, type City } from "@/data/areas";
++import { company } from "@/data/company";
++
++/**
++ * The computed half of a city hub.
++ *
++ * These three blocks exist because the 32 hub pages — the ones that rank for
++ * "hardwood flooring in {city}", the highest commercial-intent query this shop
++ * has — were rendering 308 to 420 words each. Thin pages on high-intent
++ * queries lose to thicker ones, and no amount of technical SEO compensates.
++ *
++ * What they are NOT is 32 paraphrases of the same three paragraphs with the
++ * town name swapped, which is the standard fix and the reason "doorway page"
++ * is a manual-action category. Every figure here is computed from this
++ * municipality's own multiplier, its own centroid and the catalogue this shop
++ * actually publishes. A reader can put the same inputs into /estimate and get
++ * the same number back, which is the test any local claim should have to pass.
++ */
++
++const fmt = (n: number) => `$${n.toLocaleString("en-CA")}`;
++const rate = (n: number) => (n >= 100 ? Math.round(n).toLocaleString("en-CA") : n.toFixed(2));
++
++/**
++ * Every priceable service, banded for this municipality.
++ *
++ * Six of eight services. Custom inlays and commercial fit-outs are absent on
++ * purpose: an inlay is quoted from a drawing and a fit-out from a phasing
++ * plan, and inventing a sq-ft band for either would be the one dishonest cell
++ * in an otherwise checkable table.
++ */
++export function LocalPriceTable({ city }: { city: City }) {
++  const rows = localPricing(city.slug);
++  const pin = coverage.find((p) => p.city.slug === city.slug);
++
++  return (
++    <section className="min-w-0">
++      <h2 className="font-display text-3xl">What hardwood costs in {city.name}</h2>
++      <p className="mt-3 text-muted">
++        2026 bands, computed with {city.name}&rsquo;s own labour, access and travel multiplier —
++        not a GTA average with a place name on it. HST is extra and a firm number follows a
++        moisture reading on site.
++        {pin && pin.city.tier === "extended" && (
++          <> The drive is priced in: {pin.distanceKm} km each way is a real cost, not a rounding.</>
++        )}
++      </p>
++
++      <div className="mt-5 overflow-x-auto">
++        <table className="w-full min-w-[30rem] border-collapse text-left text-sm">
++          <caption className="sr-only">
++            Indicative 2026 price bands for hardwood services in {city.name}
++          </caption>
++          <thead>
++            <tr className="border-b border-border">
++              <th scope="col" className="py-2 pr-5 font-medium">
++                Service &amp; specification
++              </th>
++              <th scope="col" className="py-2 pr-5 font-medium whitespace-nowrap">
++                {city.name} band
++              </th>
++              <th scope="col" className="py-2 pr-5 font-medium whitespace-nowrap">
++                Per unit
++              </th>
++              <th scope="col" className="py-2 font-medium whitespace-nowrap">
++                On site
++              </th>
++            </tr>
++          </thead>
++          <tbody>
++            {rows.map((row) => (
++              <tr key={row.kind} className="border-b border-border/60 align-top">
++                {/*
++                  The basis sits under the service name rather than in a column
++                  of its own. As a fifth column it wrapped five lines deep and
++                  squeezed the timeline into an ellipsis; the specification is
++                  a qualifier on the service, not a peer of the price.
++                */}
++                <th scope="row" className="max-w-[15rem] py-3 pr-5 font-normal">
++                  <Link
++                    href={`/services/${row.serviceSlug}/${city.slug}`}
++                    className="font-medium text-primary hover:underline"
++                  >
++                    {row.label}
++                  </Link>
++                  <span className="mt-0.5 block text-xs text-muted">{row.basis}</span>
++                </th>
++                <td className="py-3 pr-5 tabular-nums whitespace-nowrap">
++                  {fmt(row.low)} – {fmt(row.high)}
++                </td>
++                <td className="py-3 pr-5 text-muted tabular-nums whitespace-nowrap">
++                  ${rate(row.perUnitLow)}–${rate(row.perUnitHigh)} / {row.unit}
++                </td>
++                <td className="py-3 text-muted whitespace-nowrap">{row.timeline}</td>
++              </tr>
++            ))}
++          </tbody>
++        </table>
++      </div>
++
++      {/*
++        Said out loud rather than left for a reader to trip over.
++
++        The per-unit column is directly comparable with the "From $x–$y" range
++        on each service page, and for installation it runs through the top of
++        that range and past it. Both numbers are true and they measure
++        different things — the published range is the envelope across every
++        specification, this row is one specification and not the cheap one.
++        See bandVsPublished() in data/coverage.ts for the decision that
++        belongs to the shop rather than to this component.
++      */}
++      <p className="mt-4 text-sm text-muted">
++        The per-unit column is the same band divided by the quantity, so it can be checked against
++        the range on each service page. Those ranges span every specification we install: the
++        bottom is engineered board, prefinished; this table prices solid white oak with a
++        site-applied finish, which is the upper half of the range and, in the towns furthest from
++        the shop, a little above it. A budget specification in {city.name} lands lower — the
++        estimator will show you exactly how much lower.
++      </p>
++
++      <p className="mt-4 text-sm text-muted">
++        Custom inlays and commercial fit-outs are not in the table because neither is priceable
++        from a square-foot box — an inlay is quoted from a drawing, a fit-out from a phasing plan.{" "}
++        <Link href="/estimate" className="text-primary hover:underline">
++          Configure your own job
++        </Link>{" "}
++        to move any of these bands with species, pattern and finish.
++      </p>
++    </section>
++  );
++}
++
++/**
++ * What this shop will actually take on here — read off the coverage tier, so
++ * the list shortens by itself in a town we only travel to for packages. The
++ * page cannot promise a single-room repair in Barrie, because the data does
++ * not offer one.
++ */
++export function JobTypesHere({ city }: { city: City }) {
++  const pin = coverage.find((p) => p.city.slug === city.slug);
++  if (!pin) return null;
++
++  return (
++    <section>
++      <h2 className="font-display text-3xl">What we take on in {city.name}</h2>
++      <p className="mt-3 text-muted">{tierNote(city)}</p>
++      <ul className="mt-5 grid gap-3 sm:grid-cols-2">
++        {pin.jobTypes.map((job) => (
++          <li key={job.slug}>
++            <Link
++              href={`/catalog/${job.slug}`}
++              className="group flex h-full flex-col rounded-xl border border-border bg-surface p-4 transition-shadow hover:shadow-[var(--shadow-card)]"
++            >
++              <span className="font-medium group-hover:text-primary">{job.name}</span>
++              <span className="mt-1 text-sm text-muted">{job.summary}</span>
++            </Link>
++          </li>
++        ))}
++      </ul>
++      {city.tier === "extended" && (
++        <p className="mt-4 text-sm text-muted">
++          Five of the twelve job types are missing from this list on purpose. Driving{" "}
++          {pin.distanceKm} km for a single-room repair is not a service, it is a promise nobody
++          intends to keep — so we do not list it here.
++        </p>
++      )}
++    </section>
++  );
++}
++
++/**
++ * The neighbours.
++ *
++ * For a reader it answers the question behind the question — "you're in
++ * Vaughan, do you come to Maple" — and for the site it is a real geographic
++ * link mesh. Before this, the 32 hubs linked upward to /areas and nowhere
++ * sideways, so every one of them was a leaf.
++ */
++export function NearbyMunicipalities({ city }: { city: City }) {
++  const neighbours = nearestServed(city.slug, 6);
++  const pin = coverage.find((p) => p.city.slug === city.slug);
++  if (neighbours.length === 0) return null;
++
++  return (
++    <section>
++      <h2 className="font-display text-3xl">Around {city.name}</h2>
++      <p className="mt-3 text-muted">
++        {pin && (
++          <>
++            {city.name} is {pin.distanceKm} km from the workshop at {company.address.line1}, and{" "}
++          </>
++        )}
++        the same crew covers these on the way in and out. Distances are centre to centre — a way
++        to order the list, not a drive time.
++      </p>
++      <ul className="mt-5 flex flex-wrap gap-2">
++        {neighbours.map(({ pin: n, km }) => (
++          <li key={n.city.slug}>
++            <Link
++              href={`/areas/${n.city.slug}`}
++              className="group inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3.5 py-2 text-sm transition-colors hover:bg-bg-warm"
++            >
++              <span className="font-medium">{n.city.name}</span>
++              <span className="tabular-nums text-muted">{km} km</span>
++              <ArrowUpRight
++                className="size-3.5 opacity-40 transition-opacity group-hover:opacity-100"
++                aria-hidden
++              />
++            </Link>
++          </li>
++        ))}
++      </ul>
++    </section>
++  );
++}
+diff --git a/components/map/coverage-map-client.tsx b/components/map/coverage-map-client.tsx
+index 2594a8e..da1891a 100644
+--- a/components/map/coverage-map-client.tsx
++++ b/components/map/coverage-map-client.tsx
+@@ -3,7 +3,7 @@
+ // Leaflet's stylesheet. Next code-splits it with this component, so it is
+ // still not on the critical path — it ships when the map does.
+ import "leaflet/dist/leaflet.css";
+-import { useCallback, useEffect, useRef, useState } from "react";
++import { useCallback, useEffect, useId, useRef, useState } from "react";
+ import type { Map as LeafletMap, CircleMarker, Marker } from "leaflet";
+ import { ChevronDown, Expand, Minus, Plus, RotateCcw, Shrink } from "lucide-react";
+ import { track } from "@/lib/analytics";
+@@ -122,6 +122,7 @@ export function CoverageMapClient({
+   /** Homepage and city-page size: legend starts closed, chrome is trimmed. */
+   compact?: boolean;
+ }) {
++  const legendId = useId();
+   const wrap = useRef<HTMLDivElement>(null);
+   const el = useRef<HTMLDivElement>(null);
+   const map = useRef<LeafletMap | null>(null);
+@@ -454,14 +455,24 @@ export function CoverageMapClient({
+               {showcase.length > 0 && (
+                 <>
+                   {/*
+-                    What was built, named. Clicking one flies the map to its
+-                    municipality and opens the popup, so the legend is the
+-                    index into the map rather than a static key beside it.
++                    A control, not content. Clicking one flies the map to its
++                    municipality and opens the popup.
++
++                    It deliberately does NOT repeat the strip's heading. The
++                    legend is server-rendered whenever it starts open, so an
++                    identical heading put the same nine names in the document
++                    twice and a screen reader read the list through twice —
++                    once as disabled buttons, once as links. Different verb,
++                    different job, and the strip below stays the canonical
++                    place those names are linked from.
+                   */}
+-                  <p className="mt-3.5 border-t border-border pt-3 text-[11px] font-medium tracking-[0.12em] text-accent uppercase">
+-                    Worked examples on this map
++                  <p
++                    id={`${legendId}-jump`}
++                    className="mt-3.5 border-t border-border pt-3 text-[11px] font-medium tracking-[0.12em] text-accent uppercase"
++                  >
++                    Jump the map to
+                   </p>
+-                  <ul className="mt-2 space-y-1">
++                  <ul className="mt-2 space-y-1" aria-labelledby={`${legendId}-jump`}>
+                     {showcase.map((s) => (
+                       <li key={s.slug}>
+                         <button
+diff --git a/components/map/coverage-map.tsx b/components/map/coverage-map.tsx
+index 89e30c4..02d872a 100644
+--- a/components/map/coverage-map.tsx
++++ b/components/map/coverage-map.tsx
+@@ -131,6 +131,25 @@ function legendFor(hasShowcase: boolean): MapLegendItem[] {
+   return items;
+ }
+ 
++/**
++ * Which worked examples belong on one particular map. One rule, used by both
++ * the map and the crawlable strip beneath it, so they can never disagree.
++ *
++ * `focus` narrows to that municipality. Without it, a locator centred on
++ * Barrie drew nine pulsing rings, none of them in Barrie and none of them
++ * explained anywhere on the page — a ring reads as a claim, and an unexplained
++ * ring reads as a claim about the town you are looking at.
++ */
++function shownShowcase({ serviceSlug, focus }: { serviceSlug?: string; focus?: string }) {
++  const service = serviceSlug ? getService(serviceSlug) : undefined;
++  const category = service ? serviceShowcaseCategory[service.slug] : undefined;
++
++  let shown = showcase;
++  if (service) shown = category ? shown.filter((s) => s.category === category) : [];
++  if (focus) shown = shown.filter((s) => s.citySlug === focus);
++  return shown;
++}
++
+ export function CoverageMap({
+   focus,
+   height,
+@@ -156,12 +175,7 @@ export function CoverageMap({
+    */
+   const pins = matched.length > 0 ? matched : coverage;
+ 
+-  const category = service ? serviceShowcaseCategory[service.slug] : undefined;
+-  const shown = service
+-    ? category
+-      ? showcase.filter((s) => s.category === category)
+-      : []
+-    : showcase;
++  const shown = shownShowcase({ serviceSlug, focus });
+ 
+   const core = pins.filter((p) => p.city.tier === "core").length;
+   const stats: MapStat[] = [
+@@ -201,14 +215,14 @@ export function CoverageMap({
+  * This strip is the same information as real links, which is also what turns
+  * every service page into an internal link into the nine job pages.
+  */
+-export function MapWorkedExamples({ serviceSlug }: { serviceSlug?: string }) {
+-  const service = serviceSlug ? getService(serviceSlug) : undefined;
+-  const category = service ? serviceShowcaseCategory[service.slug] : undefined;
+-  const shown = service
+-    ? category
+-      ? showcase.filter((s) => s.category === category)
+-      : []
+-    : showcase;
++export function MapWorkedExamples({
++  serviceSlug,
++  focus,
++}: {
++  serviceSlug?: string;
++  focus?: string;
++}) {
++  const shown = shownShowcase({ serviceSlug, focus });
+ 
+   if (shown.length === 0) return null;
+ 
+diff --git a/data/coverage.ts b/data/coverage.ts
+index e84a3de..6f2bbc4 100644
+--- a/data/coverage.ts
++++ b/data/coverage.ts
+@@ -1,6 +1,13 @@
+ import { cities, tierNote, type City } from "@/data/areas";
+ import { catalog, type CatalogEntry } from "@/data/catalog";
+-import { calculateEstimate, emptyEstimate } from "@/data/estimate";
++import {
++  calculateEstimate,
++  emptyEstimate,
++  serviceKinds,
++  type EstimateInput,
++  type ServiceKind,
++} from "@/data/estimate";
++import { getService } from "@/data/services";
+ import { company } from "@/data/company";
+ 
+ /**
+@@ -205,3 +212,195 @@ export function coverageSummary() {
+ }
+ 
+ export { tierNote };
++
++/* ══════════════════════════════════════════════════════════════════════════
++   Local depth, computed.
++
++   The 32 city hubs are the pages that rank for "hardwood flooring in {city}",
++   and they were the thinnest pages on the site — 308 to 420 words of rendered
++   content, against competitors running 800 to 1,500. Thin money pages are the
++   single biggest remaining weakness in the program.
++
++   The tempting fix is to write four paragraphs of local colour per town. That
++   would be inventing knowledge about places this shop's owner knows and I do
++   not — the same failure as the invented testimonials, wearing a municipal
++   crest. `docs/HONEST-LIMITS.md` says one real job photo is worth the whole
++   AI-generated set; the same is true of one real sentence about Barrie.
++
++   So the depth here is *derived* rather than written. Every number below comes
++   out of `calculateEstimate` with this municipality's own multiplier, every
++   job type comes out of the catalogue the shop publishes, and every distance
++   is haversine from the studio. It is unique per city because the inputs are
++   unique per city — not because someone paraphrased a sentence 32 times. And
++   it is all checkable: a reader can put the same inputs into /estimate and get
++   the same band back.
++   ══════════════════════════════════════════════════════════════════════════ */
++
++/**
++ * Which published service each estimator kind prices.
++ *
++ * Two of the eight services — custom inlays and commercial — have no estimator
++ * kind, because neither is priceable from a sq-ft box: an inlay is quoted from
++ * a drawing and a commercial fit-out from a phasing plan. They are named in
++ * the copy rather than given a fake number.
++ */
++const KIND_TO_SERVICE: Record<ServiceKind, string> = {
++  install: "hardwood-installation",
++  refinish: "sanding-refinishing",
++  stairs: "hardwood-stairs",
++  railings: "hardwood-railings",
++  repair: "hardwood-repairs",
++  deck: "hardwood-decks",
++};
++
++/** The basis each band is quoted on. Stated, so the number is checkable. */
++const KIND_BASIS: Record<
++  ServiceKind,
++  { basis: string; qty: number; unit: string; input: Partial<EstimateInput> }
++> = {
++  install: {
++    basis: "800 sq ft, solid white oak, site-finished matte",
++    qty: 800,
++    unit: "sq ft",
++    input: { sqft: 800 },
++  },
++  refinish: {
++    basis: "800 sq ft, dust-contained, waterborne 2K",
++    qty: 800,
++    unit: "sq ft",
++    input: { sqft: 800 },
++  },
++  stairs: { basis: "13 steps, treads and risers", qty: 13, unit: "step", input: { stairs: 13 } },
++  railings: {
++    basis: "24 linear feet, handrail and newels",
++    qty: 24,
++    unit: "lin ft",
++    input: { railingFt: 24 },
++  },
++  repair: {
++    basis: "120 sq ft affected, replace and blend",
++    qty: 120,
++    unit: "sq ft",
++    input: { sqft: 120 },
++  },
++  deck: {
++    basis: "300 sq ft, dense hardwood decking",
++    qty: 300,
++    unit: "sq ft",
++    input: { sqft: 300 },
++  },
++};
++
++export type LocalPrice = {
++  kind: ServiceKind;
++  label: string;
++  serviceSlug: string;
++  serviceName: string;
++  basis: string;
++  low: number;
++  high: number;
++  /** The same band expressed per unit, so it can be checked against the
++   *  published range on the service page rather than merely coexisting
++   *  with it. See `bandVsPublished` below for why that matters. */
++  perUnitLow: number;
++  perUnitHigh: number;
++  unit: string;
++  timeline: string;
++};
++
++/**
++ * Every priceable service, banded for one municipality.
++ *
++ * Same estimator, same multiplier, same rounding as /estimate — so the city
++ * page and the tool can never disagree. `tests/city-depth.test.ts` asserts
++ * exactly that, and asserts the bands actually differ between a 1.10 town and
++ * a 0.98 one, which is what makes the page worth having at all.
++ */
++export function localPricing(citySlug: string): LocalPrice[] {
++  return serviceKinds.map(({ id, label }) => {
++    const { basis, qty, unit, input } = KIND_BASIS[id];
++    const result = calculateEstimate({ ...emptyEstimate(), city: citySlug, service: id, ...input });
++    const service = getService(KIND_TO_SERVICE[id]);
++    return {
++      kind: id,
++      label,
++      serviceSlug: KIND_TO_SERVICE[id],
++      serviceName: service?.name ?? label,
++      basis,
++      low: Math.round(result.low),
++      high: Math.round(result.high),
++      perUnitLow: result.low / qty,
++      perUnitHigh: result.high / qty,
++      unit,
++      timeline: result.timeline,
++    };
++  });
++}
++
++/**
++ * The nearest municipalities this shop also serves.
++ *
++ * Two jobs at once. For a reader it answers the question behind the question —
++ * "you're in Vaughan, do you come to Maple" — with the neighbouring towns and
++ * how far apart they actually are. For the site it builds a real geographic
++ * link mesh between 32 hub pages that previously only linked upward to /areas,
++ * so authority moves sideways between them instead of pooling at the top.
++ *
++ * Distances are centroid-to-centroid, which is honest about what it is: a way
++ * to order the list, not a drive time.
++ */
++export function nearestServed(citySlug: string, limit = 5) {
++  const origin = coverage.find((p) => p.city.slug === citySlug);
++  if (!origin) return [];
++  return coverage
++    .filter((p) => p.city.slug !== citySlug)
++    .map((p) => ({ pin: p, km: haversineKm([origin.lat, origin.lng], [p.lat, p.lng]) }))
++    .sort((a, b) => a.km - b.km || a.pin.city.name.localeCompare(b.pin.city.name))
++    .slice(0, limit);
++}
++
++/**
++ * Where a computed local band sits against the published range — and why the
++ * answer is sometimes "above it".
++ *
++ * ── The finding ───────────────────────────────────────────────────────────
++ *
++ * `data/services.ts` publishes installation at "From $11–$22 / sq ft
++ * installed". The estimator's default configuration is solid white oak with a
++ * site-applied matte finish, and in all 32 municipalities that configuration
++ * prices at roughly $16–$24 / sq ft — through the top of the published range
++ * and, in the dearest towns, past it.
++ *
++ * This is not a bug introduced by the city tables. It has been true of
++ * /estimate since the estimator was written; the tables are simply the first
++ * surface to render the number per square foot next to the published one,
++ * where a reader can hold them side by side.
++ *
++ * ── Why both numbers are honest ───────────────────────────────────────────
++ *
++ * They measure different things. The published range is the envelope across
++ * every specification this shop installs: $11 is engineered board, prefinished
++ * — the estimator returns $11.50–$16.31 / sq ft for exactly that in Toronto —
++ * and $22 is the premium end. The table prices ONE specification, and it is
++ * not the cheap one. So the city pages say which specification they are
++ * quoting, and say plainly that a budget specification lands lower.
++ *
++ * ── The decision that belongs to Franco, not to me ────────────────────────
++ *
++ * Two ways to close the gap, and both are business calls:
++ *
++ *   1. The published ceiling is wrong and should be about $25, because solid
++ *      white oak site-finished in Oakville genuinely costs that.
++ *   2. The published ceiling is right and the estimator's default spec is too
++ *      rich — it should default to engineered/prefinished.
++ *
++ * Picking one silently would be me setting this shop's prices. Until it is
++ * picked, `tests/city-depth.test.ts` bounds the drift so it cannot widen
++ * unnoticed, and the copy tells the reader what they are looking at.
++ */
++export function bandVsPublished(row: LocalPrice, published: { low: number; high: number } | null) {
++  if (!published) return "unpublished" as const;
++  if (row.perUnitHigh > published.high) return "above" as const;
++  if (row.perUnitLow < published.low) return "below" as const;
++  return "inside" as const;
++}
+diff --git a/docs/DOMINATION_CHANGELOG.md b/docs/DOMINATION_CHANGELOG.md
+index 8c79c4e..b26ad2f 100644
+--- a/docs/DOMINATION_CHANGELOG.md
++++ b/docs/DOMINATION_CHANGELOG.md
+@@ -655,3 +655,105 @@ service page into an internal link into the nine job pages.
+ - `hardwood-railings` has no worked example. The Oakville stair carries an
+   OBC-compliant rail, but it is a stair job; filing it under railings to avoid
+   an empty list would be padding.
++
++---
++
++## Stage 7 — Depth on the money pages (2026-09-02)
++
++Two corrections to Stage 6, then the thing that actually moves rankings.
++
++### The two Stage 6 defects, closed
++
++Both were found by auditing the *rendered output* rather than the source, which
++is the only way either would have shown up.
++
++- **32 city pages drew worked-example rings that nothing on the page named.**
++  `/areas/barrie` rendered nine pulsing rings, none of them in Barrie, with
++  neither the names nor `SHOWCASE_DISCLOSURE` anywhere in the HTML. A ring
++  reads as a claim, and an unexplained ring reads as a claim about the town you
++  are looking at.
++
++  Fixed at the root rather than by adding a caption: `shownShowcase()` is now
++  one rule used by both the map and the strip, and `focus` narrows to that
++  municipality. Barrie draws no rings and says nothing, because there is
++  nothing to say. Toronto draws one grouped marker badged **4**. Verified in a
++  browser, not inferred.
++
++  `tests/showcase.test.ts` passed throughout, because it asserted the
++  disclosure existed *in a file*. The new assertion is about every page that
++  draws a pin, which is what the rule always meant.
++
++- **The legend repeated the strip's heading verbatim.** The legend is
++  server-rendered whenever it starts open, so `/areas`, `/stairs` and the eight
++  service pages each carried the same names twice — measured, two occurrences
++  per page — and a screen reader read the list through twice, once as disabled
++  buttons and once as links. The legend list is a control; it now says "Jump
++  the map to" and carries its own `aria-labelledby`.
++
++### City hubs: 343 → 1,030 words, all of it computed
++
++The 32 hub pages rank for `hardwood flooring in {city}` — the highest
++commercial-intent query this shop has — and were rendering **308 to 420 words**
++of main content. Thin pages lose that query to thick ones and no amount of
++technical SEO compensates.
++
++The standard fix is four paragraphs of local colour per town. That is inventing
++knowledge about places Franco knows and I do not — the invented-testimonial
++failure wearing a municipal crest — and 32 paraphrases of the same three
++paragraphs is the definition of a doorway page. So the depth is **derived**:
++
++| Block | What it is | Why it is unique per city |
++| --- | --- | --- |
++| `LocalPriceTable` | All six priceable services, banded | `calculateEstimate` with that municipality's own multiplier |
++| `JobTypesHere` | The catalogue archetypes offered there | Read off the coverage tier — 12 core, 7 extended |
++| `NearbyMunicipalities` | Six nearest served towns, with distance | Haversine from that centroid |
++
++Result: **981–1,217 words, median 1,030**. Every figure is checkable — a reader
++can put the same inputs into `/estimate` and get the same band back, and
++`tests/city-depth.test.ts` asserts exactly that against the estimator rather
++than against a snapshot.
++
++The neighbour block is also the first sideways link this site has had between
++city hubs. Before it, all 32 linked upward to `/areas` and nowhere else; every
++one of them was a leaf. Now each carries six proximity-ordered links in body
++content — 192 across the set, and reciprocal enough to be a graph rather than a
++star (asserted).
++
++### What the tables exposed
++
++Rendering the bands per square foot next to the published ranges surfaced a
++disagreement that has been in the estimator since it was written and had simply
++never been displayed in comparable units: **installation prices above its
++published `$11–$22 / sq ft` ceiling in all 32 municipalities** (Barrie
++$17.22–$24.42), and decking exceeds its ceiling in Barrie alone. 31 of 192
++city × service cells.
++
++Both numbers are honest and they measure different things — the published range
++is the envelope across every specification, the table prices one specification
++and not the cheap one. The page now says so in as many words, and names the
++cheap end. But closing the gap means either raising the published ceiling or
++making the estimator's default less rich, and both are the shop setting its own
++prices. It is written up as **blocker #11** with the one-line change for each
++option.
++
++Meanwhile the drift is bounded rather than left to chance: no computed band may
++exceed its published ceiling by more than 15%, none may ever fall *below* a
++published floor, and only installation and decking may sit outside at all. A
++third service drifting out fails the build.
++
++### Evidence
++
++- `npm run test` — **308 pass, 0 fail** (290 before; +18 in
++  `tests/city-depth.test.ts`).
++- `npm run build` — 393 prerendered pages, unchanged. No new URLs: this is
++  depth on the pages that exist, not more pages. The matrix stays frozen.
++- `npm run audit:site` — no broken links, no duplicate titles, no missing
++  canonicals or alt text, zero warnings.
++- Playwright, 13 routes × 6 viewports (320 → 1440): **no horizontal overflow**.
++  It found one on the first pass — the price table propagated its width up
++  through a grid item whose default `min-width: auto` stopped the scroll
++  container from ever scrolling, 242–312px of page overflow on a phone.
++  `min-w-0` on the column fixed it, and the table was restructured so the
++  specification sits under the service name instead of clipping the timeline.
++- Map focus verified in a browser: Barrie 0 worked-example rings, Toronto 1
++  grouped marker badged 4.
+diff --git a/docs/OFFSITE_BLOCKERS.md b/docs/OFFSITE_BLOCKERS.md
+index 709bfb7..b2a012b 100644
+--- a/docs/OFFSITE_BLOCKERS.md
++++ b/docs/OFFSITE_BLOCKERS.md
+@@ -166,3 +166,43 @@ not pick.
+ - The video slot, the testimonial schema, and the vCard NAP
+ - Entity disambiguation from the inactive `GREEN HARDWOOD FLOORING INC.`
+   (corporation number 784550-2), on every page and every machine surface
++
++---
++
++## 11. Decide which installation number is right — **a decision, not a task**
++
++This one is not off-site work. It is a business call that only the shop can
++make, and it is here because it is the only thing on the site where two of our
++own published numbers disagree.
++
++`data/services.ts` publishes installation at **From $11–$22 / sq ft
++installed**. The estimator's default configuration — solid white oak, site
++finished matte — prices at roughly **$16–$24 / sq ft** once a municipality's
++multiplier is applied. So the top of the computed band sits above the top of
++the published range in every one of the 32 municipalities, and in Barrie it is
++$24.42 against a published ceiling of $22.
++
++Nothing is broken and nothing is dishonest. The two numbers measure different
++things: the published range is the envelope across every specification (the
++estimator returns $11.50–$16.31 / sq ft for engineered board, prefinished, in
++Toronto — the bottom of it), and the table on each city page prices one
++specification, which is not the cheap one. The city pages now say exactly that
++in the paragraph under the table.
++
++But a reader comparing the service page with the city page sees $22 and $24.42,
++and so does an answer engine. Two ways to close it:
++
++1. **The published ceiling is low.** Solid white oak, site-finished, in
++   Oakville genuinely costs more than $22 / sq ft. Raise the published range to
++   about $11–$25 in `data/services.ts` and the gap disappears.
++2. **The estimator's default is too rich.** Change `emptyEstimate()` in
++   `data/estimate.ts` to default to engineered/prefinished, and the tables land
++   inside the published range.
++
++Either is a one-line change; picking one is setting this shop's prices, which
++is not a decision the code should make on its own. Until it is picked,
++`tests/city-depth.test.ts` bounds the drift — no computed band may exceed its
++published ceiling by more than 15%, none may ever fall *below* the published
++floor, and only installation and decking may sit outside their range at all.
++If the estimator or the published bands move and a third service drifts out,
++the build fails and this decision comes back to the surface.
+diff --git a/tests/city-depth.test.ts b/tests/city-depth.test.ts
+new file mode 100644
+index 0000000..6c2ba9f
+--- /dev/null
++++ b/tests/city-depth.test.ts
+@@ -0,0 +1,260 @@
++import { test, describe } from "node:test";
++import assert from "node:assert/strict";
++import { readdirSync, readFileSync, statSync } from "node:fs";
++import { join } from "node:path";
++import { bandVsPublished, coverage, localPricing, nearestServed } from "../data/coverage";
++import { calculateEstimate, emptyEstimate, cityMult, serviceKinds } from "../data/estimate";
++import { cities } from "../data/areas";
++import { getService, parsePriceBand } from "../data/services";
++
++/**
++ * The 32 city hubs rank for the highest commercial-intent query this shop has
++ * — "hardwood flooring in {city}" — and were rendering 308 to 420 words each.
++ *
++ * The fix had to be depth that is *derived*, because the alternative is 32
++ * paraphrases of the same three paragraphs, which is a doorway page with a
++ * municipal crest on it. These tests are what keep it derived: every band must
++ * come back out of the same estimator the tool uses, and the bands must
++ * actually differ between towns, or the whole exercise is decoration.
++ */
++
++describe("local pricing is computed, not written", () => {
++  test("every priceable service is banded for every municipality", () => {
++    for (const city of cities) {
++      const rows = localPricing(city.slug);
++      assert.equal(rows.length, serviceKinds.length, `${city.slug} is missing a service band`);
++      for (const row of rows) {
++        assert.ok(row.high > row.low && row.low > 0, `${city.slug}/${row.kind}: incoherent band`);
++        assert.ok(row.basis.length > 8, `${city.slug}/${row.kind}: no stated basis`);
++        assert.ok(row.timeline.length > 0, `${city.slug}/${row.kind}: no timeline`);
++      }
++    }
++  });
++
++  test("a city page quotes exactly what /estimate would quote", () => {
++    // The whole claim of the table is that a reader can check it. If these
++    // ever diverge, the page is quoting a number the tool will not honour.
++    for (const city of [cities[0]!, cities[20]!, cities[cities.length - 1]!]) {
++      const stairs = localPricing(city.slug).find((r) => r.kind === "stairs")!;
++      const direct = calculateEstimate({
++        ...emptyEstimate(),
++        city: city.slug,
++        service: "stairs",
++        stairs: 13,
++      });
++      assert.equal(stairs.low, Math.round(direct.low), `${city.slug}: table and estimator differ`);
++      assert.equal(stairs.high, Math.round(direct.high), `${city.slug}: table and estimator differ`);
++    }
++  });
++
++  test("the numbers actually differ between municipalities", () => {
++    // If a cheap town and an expensive one quote the same figure, the pages
++    // are 32 copies and the multiplier is doing nothing.
++    const dearest = Object.entries(cityMult).sort((a, b) => b[1] - a[1])[0]![0];
++    const cheapest = Object.entries(cityMult).sort((a, b) => a[1] - b[1])[0]![0];
++    const a = localPricing(dearest);
++    const b = localPricing(cheapest);
++    for (let i = 0; i < a.length; i++) {
++      assert.notEqual(
++        a[i]!.low,
++        b[i]!.low,
++        `${a[i]!.kind}: ${dearest} and ${cheapest} quote the same number`,
++      );
++    }
++  });
++
++  test("every banded service links to a real service page", () => {
++    for (const row of localPricing("toronto")) {
++      assert.ok(getService(row.serviceSlug), `${row.kind} points at a missing service`);
++    }
++  });
++
++  test("no dollar figure is typed into the component", () => {
++    const src = readFileSync("components/areas/local-depth.tsx", "utf8");
++    assert.ok(!/\$\d[\d,]{2,}/.test(src), "a hard-coded price crept into the city depth component");
++  });
++});
++
++describe("the neighbour mesh", () => {
++  test("every municipality has neighbours, and none is its own", () => {
++    for (const city of cities) {
++      const near = nearestServed(city.slug, 6);
++      assert.ok(near.length > 0, `${city.slug} has no neighbours`);
++      assert.ok(!near.some((n) => n.pin.city.slug === city.slug), `${city.slug} links to itself`);
++    }
++  });
++
++  test("neighbours come back nearest first", () => {
++    for (const city of cities) {
++      const km = nearestServed(city.slug, 6).map((n) => n.km);
++      assert.deepEqual([...km].sort((a, b) => a - b), km, `${city.slug}: neighbours are unordered`);
++    }
++  });
++
++  test("the mesh is mutual enough to be a graph, not a star", () => {
++    // Every hub used to link upward to /areas and nowhere sideways. Assert
++    // that the sideways links exist in both directions often enough to matter.
++    let mutual = 0;
++    for (const city of cities) {
++      for (const n of nearestServed(city.slug, 6)) {
++        if (nearestServed(n.pin.city.slug, 6).some((m) => m.pin.city.slug === city.slug)) mutual++;
++      }
++    }
++    assert.ok(mutual > cities.length, `only ${mutual} reciprocal links across ${cities.length} hubs`);
++  });
++});
++
++describe("what a city page promises matches its tier", () => {
++  test("an extended town is never offered the whole catalogue", () => {
++    for (const pin of coverage.filter((p) => p.city.tier === "extended")) {
++      assert.ok(
++        pin.jobTypes.length < 12,
++        `${pin.city.slug} lists every job type despite being outside the core radius`,
++      );
++    }
++  });
++});
++
++/**
++ * The rule the last stage broke.
++ *
++ * `tests/showcase.test.ts` asserted the disclosure exists in the map
++ * component's source. It did — and 32 city pages still rendered worked-example
++ * rings with nothing naming or qualifying them, because the assertion was
++ * about a file rather than about every page that draws a pin. This is the
++ * version that would have caught it.
++ */
++describe("every map placement carries its own disclosure", () => {
++  const pagesWithMaps: string[] = [];
++  const walk = (dir: string) => {
++    for (const entry of readdirSync(dir, { withFileTypes: true })) {
++      const full = join(dir, entry.name);
++      if (statSync(full).isDirectory()) walk(full);
++      else if (entry.name === "page.tsx" && readFileSync(full, "utf8").includes("<CoverageMap")) {
++        pagesWithMaps.push(full);
++      }
++    }
++  };
++  walk("app");
++
++  test("the placements are the ones we think they are", () => {
++    assert.ok(pagesWithMaps.length >= 6, `only ${pagesWithMaps.length} map placements found`);
++  });
++
++  test("a page that draws pins also names what they are", () => {
++    for (const file of pagesWithMaps) {
++      const src = readFileSync(file, "utf8");
++      assert.ok(
++        src.includes("<MapWorkedExamples"),
++        `${file} draws worked-example rings but nothing on the page names them`,
++      );
++    }
++  });
++
++  test("a focused map and its strip are focused on the same city", () => {
++    for (const file of pagesWithMaps) {
++      const src = readFileSync(file, "utf8");
++      const mapFocused = /<CoverageMap[^>]*focus=/.test(src);
++      const stripFocused = /<MapWorkedExamples[^>]*focus=/.test(src);
++      assert.equal(
++        mapFocused,
++        stripFocused,
++        `${file}: the map and its strip disagree about which city they show`,
++      );
++    }
++  });
++
++  test("the legend does not repeat the strip's heading", () => {
++    // Both are server-rendered when the legend starts open, so an identical
++    // heading put the same names in the document twice.
++    const client = readFileSync("components/map/coverage-map-client.tsx", "utf8");
++    assert.ok(
++      !client.includes("Worked examples on this map"),
++      "the legend repeats the crawlable strip's heading verbatim",
++    );
++  });
++});
++
++/**
++ * The published range and the computed band.
++ *
++ * These two numbers were never compared on a page before the city tables put
++ * them side by side, and they do not agree for installation: the estimator's
++ * default specification prices above the published ceiling in all 32
++ * municipalities. `bandVsPublished()` documents why both are honest and what
++ * the decision is.
++ *
++ * What must not happen is the gap widening unnoticed, or spreading to services
++ * where it is not currently true. So this records the state exactly and bounds
++ * the drift.
++ */
++describe("computed bands against published ranges", () => {
++  const outOfRange = () => {
++    const rows: { city: string; kind: string; verdict: string; ratio: number }[] = [];
++    for (const city of cities) {
++      for (const row of localPricing(city.slug)) {
++        const published = parsePriceBand(getService(row.serviceSlug)?.priceFrom);
++        const verdict = bandVsPublished(row, published);
++        if (verdict !== "inside" && verdict !== "unpublished" && published) {
++          rows.push({
++            city: city.slug,
++            kind: row.kind,
++            verdict,
++            ratio: row.perUnitHigh / published.high,
++          });
++        }
++      }
++    }
++    return rows;
++  };
++
++  test("only installation and decking sit outside their published range", () => {
++    const kinds = [...new Set(outOfRange().map((r) => r.kind))].sort();
++    assert.deepEqual(
++      kinds,
++      ["deck", "install"],
++      "a service has drifted outside its published range — either the estimator or " +
++        "data/services.ts moved, and the city tables now contradict the service page",
++    );
++  });
++
++  test("no computed band exceeds its published ceiling by more than 15%", () => {
++    for (const row of outOfRange()) {
++      assert.ok(
++        row.ratio < 1.15,
++        `${row.city}/${row.kind} prices ${((row.ratio - 1) * 100).toFixed(0)}% above the ` +
++          "published ceiling — that is no longer a specification difference, it is a wrong number",
++      );
++    }
++  });
++
++  test("no computed band ever falls BELOW its published floor", () => {
++    // Quoting under the published minimum is the dangerous direction: it is a
++    // number this shop would have to honour.
++    assert.deepEqual(
++      outOfRange().filter((r) => r.verdict === "below"),
++      [],
++      "a city page quotes below the published floor",
++    );
++  });
++
++  test("the cheap specification really is cheaper, which is what the copy claims", () => {
++    // The page tells a reader a budget spec lands lower. If that stops being
++    // true, the page is making an excuse rather than a statement.
++    const premium = calculateEstimate({ ...emptyEstimate(), city: "toronto", service: "install" });
++    const budget = calculateEstimate({
++      ...emptyEstimate(),
++      city: "toronto",
++      service: "install",
++      species: "engineered",
++      finish: "prefinished",
++    });
++    assert.ok(budget.high < premium.low, "engineered prefinished is not meaningfully cheaper");
++  });
++
++  test("the page says which specification it is quoting", () => {
++    const src = readFileSync("components/areas/local-depth.tsx", "utf8");
++    assert.match(src, /engineered board, prefinished/i, "the copy does not name the cheap end");
++    assert.match(src, /solid white oak/i, "the copy does not name the specification it quotes");
++  });
++});
+-- 
+2.43.0
+
