@@ -275,7 +275,7 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
             <div className="mt-4">
               <CoverageMap serviceSlug={service.slug} focus={city.slug} height={320} compact />
             </div>
-            <MapWorkedExamples serviceSlug={service.slug} />
+            <MapWorkedExamples serviceSlug={service.slug} focus={city.slug} />
           </div>
 
           <p className="mt-8 text-sm text-muted">

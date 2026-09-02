@@ -166,3 +166,43 @@ not pick.
 - The video slot, the testimonial schema, and the vCard NAP
 - Entity disambiguation from the inactive `GREEN HARDWOOD FLOORING INC.`
   (corporation number 784550-2), on every page and every machine surface
+
+---
+
+## 11. Decide which installation number is right — **a decision, not a task**
+
+This one is not off-site work. It is a business call that only the shop can
+make, and it is here because it is the only thing on the site where two of our
+own published numbers disagree.
+
+`data/services.ts` publishes installation at **From $11–$22 / sq ft
+installed**. The estimator's default configuration — solid white oak, site
+finished matte — prices at roughly **$16–$24 / sq ft** once a municipality's
+multiplier is applied. So the top of the computed band sits above the top of
+the published range in every one of the 32 municipalities, and in Barrie it is
+$24.42 against a published ceiling of $22.
+
+Nothing is broken and nothing is dishonest. The two numbers measure different
+things: the published range is the envelope across every specification (the
+estimator returns $11.50–$16.31 / sq ft for engineered board, prefinished, in
+Toronto — the bottom of it), and the table on each city page prices one
+specification, which is not the cheap one. The city pages now say exactly that
+in the paragraph under the table.
+
+But a reader comparing the service page with the city page sees $22 and $24.42,
+and so does an answer engine. Two ways to close it:
+
+1. **The published ceiling is low.** Solid white oak, site-finished, in
+   Oakville genuinely costs more than $22 / sq ft. Raise the published range to
+   about $11–$25 in `data/services.ts` and the gap disappears.
+2. **The estimator's default is too rich.** Change `emptyEstimate()` in
+   `data/estimate.ts` to default to engineered/prefinished, and the tables land
+   inside the published range.
+
+Either is a one-line change; picking one is setting this shop's prices, which
+is not a decision the code should make on its own. Until it is picked,
+`tests/city-depth.test.ts` bounds the drift — no computed band may exceed its
+published ceiling by more than 15%, none may ever fall *below* the published
+floor, and only installation and decking may sit outside their range at all.
+If the estimator or the published bands move and a third service drifts out,
+the build fails and this decision comes back to the surface.

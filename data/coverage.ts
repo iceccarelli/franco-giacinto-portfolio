@@ -1,6 +1,13 @@
 import { cities, tierNote, type City } from "@/data/areas";
 import { catalog, type CatalogEntry } from "@/data/catalog";
-import { calculateEstimate, emptyEstimate } from "@/data/estimate";
+import {
+  calculateEstimate,
+  emptyEstimate,
+  serviceKinds,
+  type EstimateInput,
+  type ServiceKind,
+} from "@/data/estimate";
+import { getService } from "@/data/services";
 import { company } from "@/data/company";
 
 /**
@@ -205,3 +212,195 @@ export function coverageSummary() {
 }
 
 export { tierNote };
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Local depth, computed.
+
+   The 32 city hubs are the pages that rank for "hardwood flooring in {city}",
+   and they were the thinnest pages on the site — 308 to 420 words of rendered
+   content, against competitors running 800 to 1,500. Thin money pages are the
+   single biggest remaining weakness in the program.
+
+   The tempting fix is to write four paragraphs of local colour per town. That
+   would be inventing knowledge about places this shop's owner knows and I do
+   not — the same failure as the invented testimonials, wearing a municipal
+   crest. `docs/HONEST-LIMITS.md` says one real job photo is worth the whole
+   AI-generated set; the same is true of one real sentence about Barrie.
+
+   So the depth here is *derived* rather than written. Every number below comes
+   out of `calculateEstimate` with this municipality's own multiplier, every
+   job type comes out of the catalogue the shop publishes, and every distance
+   is haversine from the studio. It is unique per city because the inputs are
+   unique per city — not because someone paraphrased a sentence 32 times. And
+   it is all checkable: a reader can put the same inputs into /estimate and get
+   the same band back.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Which published service each estimator kind prices.
+ *
+ * Two of the eight services — custom inlays and commercial — have no estimator
+ * kind, because neither is priceable from a sq-ft box: an inlay is quoted from
+ * a drawing and a commercial fit-out from a phasing plan. They are named in
+ * the copy rather than given a fake number.
+ */
+const KIND_TO_SERVICE: Record<ServiceKind, string> = {
+  install: "hardwood-installation",
+  refinish: "sanding-refinishing",
+  stairs: "hardwood-stairs",
+  railings: "hardwood-railings",
+  repair: "hardwood-repairs",
+  deck: "hardwood-decks",
+};
+
+/** The basis each band is quoted on. Stated, so the number is checkable. */
+const KIND_BASIS: Record<
+  ServiceKind,
+  { basis: string; qty: number; unit: string; input: Partial<EstimateInput> }
+> = {
+  install: {
+    basis: "800 sq ft, solid white oak, site-finished matte",
+    qty: 800,
+    unit: "sq ft",
+    input: { sqft: 800 },
+  },
+  refinish: {
+    basis: "800 sq ft, dust-contained, waterborne 2K",
+    qty: 800,
+    unit: "sq ft",
+    input: { sqft: 800 },
+  },
+  stairs: { basis: "13 steps, treads and risers", qty: 13, unit: "step", input: { stairs: 13 } },
+  railings: {
+    basis: "24 linear feet, handrail and newels",
+    qty: 24,
+    unit: "lin ft",
+    input: { railingFt: 24 },
+  },
+  repair: {
+    basis: "120 sq ft affected, replace and blend",
+    qty: 120,
+    unit: "sq ft",
+    input: { sqft: 120 },
+  },
+  deck: {
+    basis: "300 sq ft, dense hardwood decking",
+    qty: 300,
+    unit: "sq ft",
+    input: { sqft: 300 },
+  },
+};
+
+export type LocalPrice = {
+  kind: ServiceKind;
+  label: string;
+  serviceSlug: string;
+  serviceName: string;
+  basis: string;
+  low: number;
+  high: number;
+  /** The same band expressed per unit, so it can be checked against the
+   *  published range on the service page rather than merely coexisting
+   *  with it. See `bandVsPublished` below for why that matters. */
+  perUnitLow: number;
+  perUnitHigh: number;
+  unit: string;
+  timeline: string;
+};
+
+/**
+ * Every priceable service, banded for one municipality.
+ *
+ * Same estimator, same multiplier, same rounding as /estimate — so the city
+ * page and the tool can never disagree. `tests/city-depth.test.ts` asserts
+ * exactly that, and asserts the bands actually differ between a 1.10 town and
+ * a 0.98 one, which is what makes the page worth having at all.
+ */
+export function localPricing(citySlug: string): LocalPrice[] {
+  return serviceKinds.map(({ id, label }) => {
+    const { basis, qty, unit, input } = KIND_BASIS[id];
+    const result = calculateEstimate({ ...emptyEstimate(), city: citySlug, service: id, ...input });
+    const service = getService(KIND_TO_SERVICE[id]);
+    return {
+      kind: id,
+      label,
+      serviceSlug: KIND_TO_SERVICE[id],
+      serviceName: service?.name ?? label,
+      basis,
+      low: Math.round(result.low),
+      high: Math.round(result.high),
+      perUnitLow: result.low / qty,
+      perUnitHigh: result.high / qty,
+      unit,
+      timeline: result.timeline,
+    };
+  });
+}
+
+/**
+ * The nearest municipalities this shop also serves.
+ *
+ * Two jobs at once. For a reader it answers the question behind the question —
+ * "you're in Vaughan, do you come to Maple" — with the neighbouring towns and
+ * how far apart they actually are. For the site it builds a real geographic
+ * link mesh between 32 hub pages that previously only linked upward to /areas,
+ * so authority moves sideways between them instead of pooling at the top.
+ *
+ * Distances are centroid-to-centroid, which is honest about what it is: a way
+ * to order the list, not a drive time.
+ */
+export function nearestServed(citySlug: string, limit = 5) {
+  const origin = coverage.find((p) => p.city.slug === citySlug);
+  if (!origin) return [];
+  return coverage
+    .filter((p) => p.city.slug !== citySlug)
+    .map((p) => ({ pin: p, km: haversineKm([origin.lat, origin.lng], [p.lat, p.lng]) }))
+    .sort((a, b) => a.km - b.km || a.pin.city.name.localeCompare(b.pin.city.name))
+    .slice(0, limit);
+}
+
+/**
+ * Where a computed local band sits against the published range — and why the
+ * answer is sometimes "above it".
+ *
+ * ── The finding ───────────────────────────────────────────────────────────
+ *
+ * `data/services.ts` publishes installation at "From $11–$22 / sq ft
+ * installed". The estimator's default configuration is solid white oak with a
+ * site-applied matte finish, and in all 32 municipalities that configuration
+ * prices at roughly $16–$24 / sq ft — through the top of the published range
+ * and, in the dearest towns, past it.
+ *
+ * This is not a bug introduced by the city tables. It has been true of
+ * /estimate since the estimator was written; the tables are simply the first
+ * surface to render the number per square foot next to the published one,
+ * where a reader can hold them side by side.
+ *
+ * ── Why both numbers are honest ───────────────────────────────────────────
+ *
+ * They measure different things. The published range is the envelope across
+ * every specification this shop installs: $11 is engineered board, prefinished
+ * — the estimator returns $11.50–$16.31 / sq ft for exactly that in Toronto —
+ * and $22 is the premium end. The table prices ONE specification, and it is
+ * not the cheap one. So the city pages say which specification they are
+ * quoting, and say plainly that a budget specification lands lower.
+ *
+ * ── The decision that belongs to Franco, not to me ────────────────────────
+ *
+ * Two ways to close the gap, and both are business calls:
+ *
+ *   1. The published ceiling is wrong and should be about $25, because solid
+ *      white oak site-finished in Oakville genuinely costs that.
+ *   2. The published ceiling is right and the estimator's default spec is too
+ *      rich — it should default to engineered/prefinished.
+ *
+ * Picking one silently would be me setting this shop's prices. Until it is
+ * picked, `tests/city-depth.test.ts` bounds the drift so it cannot widen
+ * unnoticed, and the copy tells the reader what they are looking at.
+ */
+export function bandVsPublished(row: LocalPrice, published: { low: number; high: number } | null) {
+  if (!published) return "unpublished" as const;
+  if (row.perUnitHigh > published.high) return "above" as const;
+  if (row.perUnitLow < published.low) return "below" as const;
+  return "inside" as const;
+}

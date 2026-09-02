@@ -655,3 +655,105 @@ service page into an internal link into the nine job pages.
 - `hardwood-railings` has no worked example. The Oakville stair carries an
   OBC-compliant rail, but it is a stair job; filing it under railings to avoid
   an empty list would be padding.
+
+---
+
+## Stage 7 — Depth on the money pages (2026-09-02)
+
+Two corrections to Stage 6, then the thing that actually moves rankings.
+
+### The two Stage 6 defects, closed
+
+Both were found by auditing the *rendered output* rather than the source, which
+is the only way either would have shown up.
+
+- **32 city pages drew worked-example rings that nothing on the page named.**
+  `/areas/barrie` rendered nine pulsing rings, none of them in Barrie, with
+  neither the names nor `SHOWCASE_DISCLOSURE` anywhere in the HTML. A ring
+  reads as a claim, and an unexplained ring reads as a claim about the town you
+  are looking at.
+
+  Fixed at the root rather than by adding a caption: `shownShowcase()` is now
+  one rule used by both the map and the strip, and `focus` narrows to that
+  municipality. Barrie draws no rings and says nothing, because there is
+  nothing to say. Toronto draws one grouped marker badged **4**. Verified in a
+  browser, not inferred.
+
+  `tests/showcase.test.ts` passed throughout, because it asserted the
+  disclosure existed *in a file*. The new assertion is about every page that
+  draws a pin, which is what the rule always meant.
+
+- **The legend repeated the strip's heading verbatim.** The legend is
+  server-rendered whenever it starts open, so `/areas`, `/stairs` and the eight
+  service pages each carried the same names twice — measured, two occurrences
+  per page — and a screen reader read the list through twice, once as disabled
+  buttons and once as links. The legend list is a control; it now says "Jump
+  the map to" and carries its own `aria-labelledby`.
+
+### City hubs: 343 → 1,030 words, all of it computed
+
+The 32 hub pages rank for `hardwood flooring in {city}` — the highest
+commercial-intent query this shop has — and were rendering **308 to 420 words**
+of main content. Thin pages lose that query to thick ones and no amount of
+technical SEO compensates.
+
+The standard fix is four paragraphs of local colour per town. That is inventing
+knowledge about places Franco knows and I do not — the invented-testimonial
+failure wearing a municipal crest — and 32 paraphrases of the same three
+paragraphs is the definition of a doorway page. So the depth is **derived**:
+
+| Block | What it is | Why it is unique per city |
+| --- | --- | --- |
+| `LocalPriceTable` | All six priceable services, banded | `calculateEstimate` with that municipality's own multiplier |
+| `JobTypesHere` | The catalogue archetypes offered there | Read off the coverage tier — 12 core, 7 extended |
+| `NearbyMunicipalities` | Six nearest served towns, with distance | Haversine from that centroid |
+
+Result: **981–1,217 words, median 1,030**. Every figure is checkable — a reader
+can put the same inputs into `/estimate` and get the same band back, and
+`tests/city-depth.test.ts` asserts exactly that against the estimator rather
+than against a snapshot.
+
+The neighbour block is also the first sideways link this site has had between
+city hubs. Before it, all 32 linked upward to `/areas` and nowhere else; every
+one of them was a leaf. Now each carries six proximity-ordered links in body
+content — 192 across the set, and reciprocal enough to be a graph rather than a
+star (asserted).
+
+### What the tables exposed
+
+Rendering the bands per square foot next to the published ranges surfaced a
+disagreement that has been in the estimator since it was written and had simply
+never been displayed in comparable units: **installation prices above its
+published `$11–$22 / sq ft` ceiling in all 32 municipalities** (Barrie
+$17.22–$24.42), and decking exceeds its ceiling in Barrie alone. 31 of 192
+city × service cells.
+
+Both numbers are honest and they measure different things — the published range
+is the envelope across every specification, the table prices one specification
+and not the cheap one. The page now says so in as many words, and names the
+cheap end. But closing the gap means either raising the published ceiling or
+making the estimator's default less rich, and both are the shop setting its own
+prices. It is written up as **blocker #11** with the one-line change for each
+option.
+
+Meanwhile the drift is bounded rather than left to chance: no computed band may
+exceed its published ceiling by more than 15%, none may ever fall *below* a
+published floor, and only installation and decking may sit outside at all. A
+third service drifting out fails the build.
+
+### Evidence
+
+- `npm run test` — **308 pass, 0 fail** (290 before; +18 in
+  `tests/city-depth.test.ts`).
+- `npm run build` — 393 prerendered pages, unchanged. No new URLs: this is
+  depth on the pages that exist, not more pages. The matrix stays frozen.
+- `npm run audit:site` — no broken links, no duplicate titles, no missing
+  canonicals or alt text, zero warnings.
+- Playwright, 13 routes × 6 viewports (320 → 1440): **no horizontal overflow**.
+  It found one on the first pass — the price table propagated its width up
+  through a grid item whose default `min-width: auto` stopped the scroll
+  container from ever scrolling, 242–312px of page overflow on a phone.
+  `min-w-0` on the column fixed it, and the table was restructured so the
+  specification sits under the service name instead of clipping the timeline.
+- Map focus verified in a browser: Barrie 0 worked-example rings, Toronto 1
+  grouped marker badged 4.
