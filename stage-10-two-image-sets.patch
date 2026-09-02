@@ -1,0 +1,1034 @@
+From d11d90e6a9c2246abff95c23cfe2711575c836ef Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 2 Sep 2026 18:54:30 +0000
+Subject: [PATCH] feat(images): two photo sets, seeded so 224 pages stop
+ looking stamped
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Both commissioned sets arrived complete — 37 files each, exact filenames,
+exact dimensions, none over the size cap — and both hold the rule that makes
+a comparison work. Checked frame by frame: in all twelve pairs across both
+sets, flipping between before and after moves only the floor, the stair, the
+rail or the deck. Same camera, same room, same light. Set B's install
+"before" even carries chalk snap-lines on the subfloor.
+
+That was the one thing code could not fix, and it is why all six services now
+render as real comparisons instead of one pair and five stills.
+
+The second set earns its keep somewhere specific. 224 of this site's 393
+pages are service x city combinations and every one of them showed the
+IDENTICAL staircase photograph — the strongest possible cue that the long
+tail is one template stamped 224 times, however unique the words around it
+are.
+
+data/images.ts now picks between renditions deterministically, from a seed
+the page already owns: the city slug on a matrix hero (13 of 32 cities draw
+the second set), the service slug on a service hero, city+project on cards.
+The estimator's comparison is seeded "estimator" and the service page's by
+its slug, so a visitor who sees both sees two different jobs.
+
+Deterministic, never random, for three reasons written out in the file: these
+pages are prerendered and edge-cached, so a random pick would be frozen at
+build time anyway; a server random and a client random disagree, which is a
+hydration error; and a returning visitor should see the same page twice while
+a different city looks different. Without a seed the canonical file comes
+back unchanged, so every unseeded call site is byte-identical to before.
+
+PhotoRotator crossfades the two renditions on exactly two dwell surfaces —
+the showroom sample board and the workshop — under the same discipline as the
+slider: both frames in the DOM from first render so there is no layout shift
+and no mid-fade request, holds on hover, stops off-screen and in a hidden
+tab, never starts under prefers-reduced-motion. Everywhere else the variant
+is chosen once; a page whose images quietly swap themselves is unreadable.
+
+These are still commissioned renderings. Holding a room fixed across a pair
+makes the slider work; it does not make the images documentary. verified
+stays false on all six, every frame renders under "Illustrative rendering,
+not documentary job photography", and blocker #12 is unchanged.
+
+SYNTHETIC_IMAGES is derived now rather than typed — 74 literals is a list
+that goes stale on the next file added. It expands from the variant manifest,
+so the day a real photograph lands it will not be in the set and
+tests/images.test.ts fails with "the honesty guard has a hole", forcing a
+deliberate decision instead of letting the guard quietly shrink.
+
+The images themselves are not in this patch: 38 MB of binaries do not belong
+in a diff, and both zips are already on main. scripts/install-image-sets.sh
+installs them idempotently and was run from a clean checkout to prove it
+reproduces the 74-file tree exactly.
+
+338 tests pass (327 before), including an assertion that the 32 city slugs
+actually spread across both renditions rather than all hashing the same way.
+393 pages, audit clean, 8 routes x 4 viewports with no overflow.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DNw2m5xoC4nVhuAs5WuzDG
+---
+ app/about/page.tsx                           |   8 +-
+ app/areas/[city]/page.tsx                    |   2 +-
+ app/services/[slug]/[city]/page.tsx          |  13 +-
+ app/services/[slug]/page.tsx                 |   5 +-
+ app/showroom/page.tsx                        |  14 +-
+ components/comparison/service-comparison.tsx |  10 +-
+ components/estimate/quote-estimator.tsx      |   2 +-
+ components/photo-rotator.tsx                 | 105 ++++++++++++++
+ components/photo.tsx                         |  15 +-
+ data/comparisons.ts                          | 141 +++++++++++--------
+ data/images.ts                               | 115 +++++++++++++++
+ docs/DOMINATION_CHANGELOG.md                 |  82 +++++++++++
+ scripts/install-image-sets.sh                |  59 ++++++++
+ tests/images.test.ts                         | 137 ++++++++++++++++++
+ 14 files changed, 636 insertions(+), 72 deletions(-)
+ create mode 100644 components/photo-rotator.tsx
+ create mode 100644 data/images.ts
+ create mode 100755 scripts/install-image-sets.sh
+ create mode 100644 tests/images.test.ts
+
+diff --git a/app/about/page.tsx b/app/about/page.tsx
+index f7392cc..01844a8 100644
+--- a/app/about/page.tsx
++++ b/app/about/page.tsx
+@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
+ import { PageHero } from "@/components/page-hero";
+ import { company, stats } from "@/data/company";
+ import { breadcrumbLd, personLd, webPageLd } from "@/lib/seo";
++import { PhotoRotator } from "@/components/photo-rotator";
+ 
+ const description = `Franco Giacinto founded Green Hardwood after fifteen years installing and rebuilding hardwood in Toronto. Meet the craftsman behind the floors and stairs.`;
+ 
+@@ -231,13 +232,12 @@ export default function AboutPage() {
+       {/* Shop ------------------------------------------------------------- */}
+       <section className="border-y border-border bg-bg-warm">
+         <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-12 sm:py-16 sm:px-6 lg:grid-cols-2">
+-          <Image
++          <PhotoRotator
+             src="/images/workshop.jpg"
+             alt="Green Hardwood workshop with species racks, stain sample boards, and professional sanding equipment."
+-            width={1600}
+-            height={1000}
++            ratio="aspect-[16/10]"
+             sizes="(min-width: 1024px) 32rem, 100vw"
+-            className="aspect-[16/10] w-full rounded-xl object-cover shadow-[var(--shadow-card)]"
++            className="w-full rounded-xl shadow-[var(--shadow-card)]"
+           />
+           <div>
+             <div className="flex items-center gap-2 text-accent">
+diff --git a/app/areas/[city]/page.tsx b/app/areas/[city]/page.tsx
+index 924a62d..dc04e30 100644
+--- a/app/areas/[city]/page.tsx
++++ b/app/areas/[city]/page.tsx
+@@ -191,7 +191,7 @@ export default async function CityPage({ params }: { params: Promise<Params> })
+                     href={`/portfolio/${p.slug}`}
+                     className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-lg"
+                   >
+-                    <Photo src={p.image} alt={p.imageAlt} ratio="16/8" slot="half" />
++                    <Photo src={p.image} alt={p.imageAlt} ratio="16/8" slot="half" seed={`${city.slug}-${p.slug}`} />
+                     <div className="p-4">
+                       <h3 className="font-display text-xl group-hover:text-primary">{p.title}</h3>
+                       <p className="mt-1 text-sm text-muted">{p.summary}</p>
+diff --git a/app/services/[slug]/[city]/page.tsx b/app/services/[slug]/[city]/page.tsx
+index 8f0d08e..907f023 100644
+--- a/app/services/[slug]/[city]/page.tsx
++++ b/app/services/[slug]/[city]/page.tsx
+@@ -145,12 +145,23 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
+               </Button>
+             </div>
+           </div>
++          {/*
++            Seeded by the city.
++
++            This is the hero on 224 pages, and unseeded it was the same
++            photograph 224 times — the single strongest cue that the long tail
++            is one template stamped repeatedly, no matter how unique the words
++            around it are. Two commissioned sets exist; the city slug decides
++            which one Vaughan sees and which one Markham sees, deterministically
++            so the page is stable across visits and across builds.
++          */}
+           <Photo
+             src={service.image}
+             alt={service.imageAlt}
+             ratio="4/3"
+             slot="half"
+             priority
++            seed={city.slug}
+             className="rounded-xl shadow-[var(--shadow-card)]"
+           />
+         </div>
+@@ -236,7 +247,7 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
+                     href={`/portfolio/${p.slug}`}
+                     className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-lg"
+                   >
+-                    <Photo src={p.image} alt={p.imageAlt} ratio="16/10" slot="card" />
++                    <Photo src={p.image} alt={p.imageAlt} ratio="16/10" slot="card" seed={`${service.slug}-${city.slug}-${p.slug}`} />
+                     <div className="p-4">
+                       <h3 className="font-display text-lg group-hover:text-primary">{p.title}</h3>
+                       <p className="mt-1 text-sm text-muted">{p.summary}</p>
+diff --git a/app/services/[slug]/page.tsx b/app/services/[slug]/page.tsx
+index 1da1616..c329ab1 100644
+--- a/app/services/[slug]/page.tsx
++++ b/app/services/[slug]/page.tsx
+@@ -128,6 +128,7 @@ export default async function ServicePage({ params }: { params: Promise<Params>
+             ratio="4/3"
+             slot="half"
+             priority
++            seed={service.slug}
+             className="rounded-xl shadow-[var(--shadow-card)]"
+           />
+         </div>
+@@ -157,7 +158,7 @@ export default async function ServicePage({ params }: { params: Promise<Params>
+                     href={`/portfolio/${p.slug}`}
+                     className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-lg"
+                   >
+-                    <Photo src={p.image} alt={p.imageAlt} ratio="16/10" slot="card" />
++                    <Photo src={p.image} alt={p.imageAlt} ratio="16/10" slot="card" seed={`${service.slug}-${p.slug}`} />
+                     <div className="p-4">
+                       <h3 className="font-display text-lg group-hover:text-primary">{p.title}</h3>
+                       <p className="mt-1 text-sm text-muted">{p.summary}</p>
+@@ -180,7 +181,7 @@ export default async function ServicePage({ params }: { params: Promise<Params>
+                 What {service.shortName.toLowerCase()} looks like
+               </h2>
+               <div className="mt-4 max-w-2xl">
+-                <ServiceComparison kind={kind} />
++                <ServiceComparison kind={kind} seed={service.slug} />
+               </div>
+             </div>
+           )}
+diff --git a/app/showroom/page.tsx b/app/showroom/page.tsx
+index e51f682..f9600fc 100644
+--- a/app/showroom/page.tsx
++++ b/app/showroom/page.tsx
+@@ -1,5 +1,5 @@
+ import type { Metadata } from "next";
+-import { Photo } from "@/components/photo";
++import { PhotoRotator } from "@/components/photo-rotator";
+ import Link from "next/link";
+ import { JsonLd } from "@/components/json-ld";
+ import { SpeciesShowroom } from "@/components/tools/species-showroom";
+@@ -42,11 +42,17 @@ export default function ShowroomPage() {
+       </section>
+       <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
+         <SpeciesShowroom />
+-        <Photo
++        {/*
++            One of the two surfaces that crossfades rather than picking a
++            rendition once: a showroom is where someone lingers over material,
++            and two boards read as more range than one. Holds on hover, stops
++            off-screen, and never starts under reduced motion.
++          */}
++        <PhotoRotator
+             src="/images/species-board.jpg"
+             alt="White oak, red oak, walnut, maple, and hickory sample boards on a Green Hardwood workbench."
+-            ratio="21/9"
+-            slot="full"
++            ratio="aspect-[21/9]"
++            sizes="100vw"
+             className="mt-12 rounded-xl"
+           />
+         <div className="mt-10 rounded-xl bg-primary px-6 py-10 text-primary-fg sm:px-10">
+diff --git a/components/comparison/service-comparison.tsx b/components/comparison/service-comparison.tsx
+index 810de05..18fad23 100644
+--- a/components/comparison/service-comparison.tsx
++++ b/components/comparison/service-comparison.tsx
+@@ -20,12 +20,20 @@ import type { ServiceKind } from "@/data/estimate";
+  */
+ export function ServiceComparison({
+   kind,
++  seed,
+   autoplay = true,
+ }: {
+   kind: ServiceKind;
++  /**
++   * Picks which of the two commissioned rooms this surface shows. The
++   * estimator and the service page pass different seeds on purpose, so a
++   * visitor who sees both sees two different jobs rather than one photograph
++   * twice.
++   */
++  seed?: string;
+   autoplay?: boolean;
+ }) {
+-  const c = comparisonFor(kind);
++  const c = comparisonFor(kind, seed);
+ 
+   return (
+     <figure className="min-w-0">
+diff --git a/components/estimate/quote-estimator.tsx b/components/estimate/quote-estimator.tsx
+index 927aced..f220a41 100644
+--- a/components/estimate/quote-estimator.tsx
++++ b/components/estimate/quote-estimator.tsx
+@@ -208,7 +208,7 @@ export function QuoteEstimator({
+         */}
+         {!compact && (
+           <div className="mt-7 border-t border-border pt-6">
+-            <ServiceComparison kind={input.service} />
++            <ServiceComparison kind={input.service} seed="estimator" />
+           </div>
+         )}
+       </div>
+diff --git a/components/photo-rotator.tsx b/components/photo-rotator.tsx
+new file mode 100644
+index 0000000..eca2b97
+--- /dev/null
++++ b/components/photo-rotator.tsx
+@@ -0,0 +1,105 @@
++"use client";
++
++import NextImage from "next/image";
++import { useEffect, useRef, useState } from "react";
++import { variantsOf } from "@/data/images";
++import { cn } from "@/lib/utils";
++
++/**
++ * A photograph that crossfades between its two renditions.
++ *
++ * Reserved for the few surfaces a visitor actually dwells on — the showroom,
++ * the workshop. Everywhere else the variant is picked once, deterministically,
++ * by `Photo`'s `seed`: a page full of images quietly swapping themselves is
++ * a page nobody can read.
++ *
++ * Same discipline as the comparison slider, for the same reasons:
++ *
++ *   · both frames are in the DOM from the first render, so there is no layout
++ *     shift and no second network request mid-fade
++ *   · it holds while a pointer is over it — you are looking, it stops
++ *   · it stops off-screen and in a hidden tab
++ *   · it does not start at all under `prefers-reduced-motion: reduce`
++ *
++ * The first frame renders identically to a plain `Photo`, so a visitor who
++ * never triggers the effect — crawler, reduced motion, JavaScript off — sees
++ * exactly the image the server rendered.
++ */
++export function PhotoRotator({
++  src,
++  alt,
++  ratio,
++  sizes,
++  intervalMs = 7000,
++  className,
++}: {
++  src: string;
++  alt: string;
++  /** Tailwind aspect class, e.g. "aspect-[4/3]". */
++  ratio: string;
++  sizes: string;
++  intervalMs?: number;
++  className?: string;
++}) {
++  const frames = variantsOf(src);
++  const [index, setIndex] = useState(0);
++  const wrap = useRef<HTMLDivElement>(null);
++  const paused = useRef(false);
++
++  useEffect(() => {
++    if (frames.length < 2) return;
++    const node = wrap.current;
++    if (!node) return;
++    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
++
++    let onScreen = false;
++    const io =
++      typeof IntersectionObserver === "undefined"
++        ? null
++        : new IntersectionObserver((es) => {
++            onScreen = es.some((e) => e.isIntersecting);
++          }, { threshold: 0.3 });
++    if (io) io.observe(node);
++    else onScreen = true;
++
++    const id = window.setInterval(() => {
++      if (paused.current || !onScreen || document.visibilityState !== "visible") return;
++      setIndex((i) => (i + 1) % frames.length);
++    }, intervalMs);
++
++    return () => {
++      window.clearInterval(id);
++      io?.disconnect();
++    };
++  }, [frames.length, intervalMs]);
++
++  return (
++    <div
++      ref={wrap}
++      className={cn("relative overflow-hidden", ratio, className)}
++      onPointerEnter={() => {
++        paused.current = true;
++      }}
++      onPointerLeave={() => {
++        paused.current = false;
++      }}
++    >
++      {frames.map((f, i) => (
++        <NextImage
++          key={f}
++          src={f}
++          // Only the visible frame carries the description; the other is the
++          // same subject photographed twice, and announcing it again is noise.
++          alt={i === index ? alt : ""}
++          aria-hidden={i !== index}
++          fill
++          sizes={sizes}
++          className={cn(
++            "object-cover transition-opacity duration-1000 ease-in-out",
++            i === index ? "opacity-100" : "opacity-0",
++          )}
++        />
++      ))}
++    </div>
++  );
++}
+diff --git a/components/photo.tsx b/components/photo.tsx
+index 99413a8..8567e05 100644
+--- a/components/photo.tsx
++++ b/components/photo.tsx
+@@ -1,4 +1,5 @@
+ import NextImage from "next/image";
++import { pickVariant } from "@/data/images";
+ import { cn } from "@/lib/utils";
+ 
+ /**
+@@ -63,6 +64,7 @@ export function Photo({
+   ratio = "4/3",
+   slot = "card",
+   priority = false,
++  seed,
+   className,
+   imageClassName,
+ }: {
+@@ -77,6 +79,17 @@ export function Photo({
+    * and the real one arrives later than it would have.
+    */
+   priority?: boolean;
++  /**
++   * Which of the two renditions to show, chosen deterministically from a
++   * string the page already owns — a city slug, a service, its own slug.
++   *
++   * Two independent photo sets exist for every image (see data/images.ts).
++   * Without a seed the canonical file is used, so an unseeded call site is
++   * unchanged. With one, 224 service × city pages stop showing the identical
++   * staircase, which is the difference between a long tail and a template
++   * stamped 224 times.
++   */
++  seed?: string;
+   /** Classes for the frame — rounding, shadow, border. */
+   className?: string;
+   /** Classes for the image itself — hover transforms, object-position. */
+@@ -85,7 +98,7 @@ export function Photo({
+   return (
+     <div className={cn("relative overflow-hidden", RATIO[ratio], className)}>
+       <NextImage
+-        src={src}
++        src={pickVariant(src, seed)}
+         alt={alt}
+         fill
+         sizes={SIZES[slot]}
+diff --git a/data/comparisons.ts b/data/comparisons.ts
+index f9b5c86..40b47de 100644
+--- a/data/comparisons.ts
++++ b/data/comparisons.ts
+@@ -1,4 +1,5 @@
+ import type { ServiceKind } from "@/data/estimate";
++import { IMAGES_WITH_VARIANTS, pickVariant, variantsOf } from "@/data/images";
+ 
+ /**
+  * One visual per estimator service — the thing a homeowner actually decides on.
+@@ -61,27 +62,18 @@ export type Comparison = {
+     }
+ );
+ 
+-/** Files known to be AI-generated. A verified pair may never use one. */
+-export const SYNTHETIC_IMAGES = [
+-  "/images/before-worn.jpg",
+-  "/images/after-refinished.jpg",
+-  "/images/hero-living.jpg",
+-  "/images/hero-stairs.jpg",
+-  "/images/project-etobicoke.jpg",
+-  "/images/project-forest-hill.jpg",
+-  "/images/project-herringbone.jpg",
+-  "/images/project-inlay.jpg",
+-  "/images/project-oakville-stairs.jpg",
+-  "/images/railing-join.jpg",
+-  "/images/service-deck.jpg",
+-  "/images/service-install.jpg",
+-  "/images/service-railings.jpg",
+-  "/images/service-refinish.jpg",
+-  "/images/service-repair.jpg",
+-  "/images/service-stairs.jpg",
+-  "/images/stair-studio.jpg",
+-  "/images/workshop.jpg",
+-] as const;
++/**
++ * Every photograph on this site is a commissioned rendering, so the synthetic
++ * set is simply all of them — derived rather than typed, because a list of 74
++ * literals is a list that goes stale the first time a file is added.
++ *
++ * The day a real photograph lands it will not be in `IMAGES_WITH_VARIANTS`,
++ * will therefore not be here, and `tests/images.test.ts` will fail with
++ * "the honesty guard has a hole". That failure is the point: it forces someone
++ * to decide deliberately whether the new file is documentary or another
++ * rendering, instead of the guard quietly shrinking.
++ */
++export const SYNTHETIC_IMAGES: readonly string[] = IMAGES_WITH_VARIANTS.flatMap(variantsOf);
+ 
+ /** The sentence that renders under any slot that is not a verified pair. */
+ export const ILLUSTRATIVE_NOTE =
+@@ -94,66 +86,101 @@ export const comparisons: Record<ServiceKind, Comparison> = {
+     lookFor:
+       "The traffic lanes and the grey, and whether the grain comes back rather than gets buried under a darker stain.",
+     mode: "pair",
+-    before: "/images/before-worn.jpg",
+-    after: "/images/after-refinished.jpg",
+-    beforeAlt: "Worn, grey-toned hardwood boards with visible traffic wear before refinishing.",
+-    afterAlt: "Refinished oak flooring in a hallway, grain legible under a matte finish.",
+-    // The two frames are not the same room. Until they are photographs of one
+-    // real floor, this is a demonstration of the control, not evidence.
++    before: "/images/ba-refinish-before.jpg",
++    after: "/images/ba-refinish-after.jpg",
++    beforeAlt:
++      "A bay-window living room with red oak boards dulled grey, finish worn through along the traffic lane to the hall.",
++    afterAlt:
++      "The same room after sanding and refinishing, the oak grain legible under a warm matte finish.",
+     verified: false,
+   },
+   install: {
+     kind: "install",
+     label: "New hardwood install",
+-    lookFor: "Board width, how the run meets the doorways, and whether the pattern is square to the room.",
+-    mode: "still",
+-    image: "/images/service-install.jpg",
+-    alt: "Wide-plank white oak flooring running through a bright living room.",
+-    pending:
+-      "A subfloor before, and the finished field from the same doorway after. Two photographs, one job.",
++    lookFor:
++      "Board width, how the run meets the doorways, and whether the pattern is square to the room rather than to the longest wall.",
++    mode: "pair",
++    before: "/images/ba-install-before.jpg",
++    after: "/images/ba-install-after.jpg",
++    beforeAlt:
++      "An empty main floor with a bare plywood subfloor, chalk snap-lines still visible, trim not yet installed.",
++    afterAlt:
++      "The same floor with wide-plank white oak installed and site-finished, running toward the windows.",
++    verified: false,
+   },
+   stairs: {
+     kind: "stairs",
+     label: "Hardwood stairs",
+-    lookFor: "The nosing line, the returned tread ends, and whether the stair matches the floor it lands on.",
+-    mode: "still",
+-    image: "/images/service-stairs.jpg",
+-    alt: "White oak box stairs with iron balusters and a matched hardwood floor.",
+-    pending:
+-      "The carpeted flight before, and the finished flight from the same step after. This is the shop's signature job and it has no before frame.",
++    lookFor:
++      "The nosing line, the returned tread ends, and whether the stair matches the floor it lands on.",
++    mode: "pair",
++    before: "/images/ba-stairs-before.jpg",
++    after: "/images/ba-stairs-after.jpg",
++    beforeAlt:
++      "A straight interior flight covered in worn builder-grade carpet with a dated oak-veneer handrail.",
++    afterAlt:
++      "The same flight in solid white oak treads with painted risers and slim iron balusters.",
++    verified: false,
+   },
+   railings: {
+     kind: "railings",
+     label: "Hardwood railings",
+-    lookFor: "Whether the rail is graspable, how the newel meets the floor, and the joint at the turn.",
+-    mode: "still",
+-    image: "/images/service-railings.jpg",
+-    alt: "Hardwood handrail with through-bolted newel post and iron balusters.",
+-    pending: "The original rail before, and the code-compliant replacement from the same landing.",
++    lookFor:
++      "Whether the rail is graspable, how the newel meets the floor, and the joint at the turn.",
++    mode: "pair",
++    before: "/images/ba-railings-before.jpg",
++    after: "/images/ba-railings-after.jpg",
++    beforeAlt:
++      "An open-to-below landing with a low flat-top wooden railing and wide-spaced spindles.",
++    afterAlt:
++      "The same landing with a graspable oak handrail at code height, through-bolted newel and iron balusters.",
++    verified: false,
+   },
+   repair: {
+     kind: "repair",
+     label: "Repair & restoration",
+-    lookFor: "Where the replaced boards are. On a job that went right, you should not be able to tell.",
+-    mode: "still",
+-    image: "/images/service-repair.jpg",
+-    alt: "Grain-matched replacement boards being fitted into a damaged oak floor.",
+-    pending:
+-      "The damage before, and the same square metre after. This is the service where a comparison does the most work, because the whole claim is that the repair disappears.",
++    lookFor:
++      "Where the replaced boards are. On a job that went right, you should not be able to tell.",
++    mode: "pair",
++    before: "/images/ba-repair-before.jpg",
++    after: "/images/ba-repair-after.jpg",
++    beforeAlt:
++      "Red oak flooring by a kitchen toe-kick, cupped and blackened across a patch about a metre wide.",
++    afterAlt:
++      "The same square metre with grain-matched boards let in and blended, the repair no longer findable.",
++    verified: false,
+   },
+   deck: {
+     kind: "deck",
+     label: "Hardwood deck / porch",
+-    lookFor: "The fastener pattern, the ledger detail at the wall, and how the boards meet the rail posts.",
+-    mode: "still",
+-    image: "/images/service-deck.jpg",
+-    alt: "Hardwood deck with hidden fasteners and a cable rail behind a brick house.",
+-    pending: "The weathered deck before, and the rebuilt one from the same corner of the yard.",
++    lookFor:
++      "The fastener pattern, the ledger detail at the wall, and how the boards meet the rail posts.",
++    mode: "pair",
++    before: "/images/ba-deck-before.jpg",
++    after: "/images/ba-deck-after.jpg",
++    beforeAlt:
++      "A weathered grey back deck on a brick house, boards splitting and a section sagging near the wall.",
++    afterAlt:
++      "The same deck rebuilt in dense dark hardwood with hidden fasteners and a stainless cable rail.",
++    verified: false,
+   },
+ };
+ 
+-export function comparisonFor(kind: ServiceKind) {
+-  return comparisons[kind];
++/**
++ * The comparison for one service, optionally in its second rendition.
++ *
++ * Two sets were commissioned, so the estimator and the service page can show
++ * different rooms for the same job — which reads as a shop that has done this
++ * many times rather than one that owns a single photograph.
++ */
++export function comparisonFor(kind: ServiceKind, seed?: string): Comparison {
++  const c = comparisons[kind];
++  if (!seed || c.mode !== "pair") return c;
++  return {
++    ...c,
++    before: pickVariant(c.before, seed),
++    after: pickVariant(c.after, seed),
++  };
+ }
+ 
+ /** True when a real, photographed comparison exists for this service. */
+diff --git a/data/images.ts b/data/images.ts
+new file mode 100644
+index 0000000..839ca2c
+--- /dev/null
++++ b/data/images.ts
+@@ -0,0 +1,115 @@
++/**
++ * Two renditions of every photograph, and how the site chooses between them.
++ *
++ * ── Why there are two ─────────────────────────────────────────────────────
++ *
++ * The site has 393 pages and 224 of them are service × city combinations. If
++ * every one of those shows the identical staircase photograph, the long tail
++ * reads as exactly what it is — one template stamped 224 times — and that is
++ * the impression a doorway page gives whether or not the words are unique.
++ *
++ * Two independent sets were commissioned to the same brief. They are not two
++ * crops of one render: different rooms, different light, different angles,
++ * both holding the discipline that makes a comparison work. So the site can
++ * vary which one a page shows and stop looking stamped.
++ *
++ * ── How the choice is made ────────────────────────────────────────────────
++ *
++ * Deterministically, from a seed the page already has — its city slug, its
++ * service, its own slug. Never randomly. Three reasons that matters:
++ *
++ *   1. These pages are prerendered and served from the edge cache for an
++ *      hour. A random pick would be frozen at build time anyway, so the
++ *      randomness would be a lie that also made builds irreproducible.
++ *   2. A server-rendered random value and a client-rendered one disagree,
++ *      which is a hydration error.
++ *   3. Deterministic means /services/hardwood-stairs/vaughan looks the same
++ *      on every visit, which is what a returning visitor expects, while
++ *      /services/hardwood-stairs/markham looks different — which is the
++ *      whole point.
++ *
++ * Without a seed, the canonical file is returned unchanged. So every existing
++ * call site keeps its current image and nothing moved by accident.
++ */
++
++/**
++ * Canonical paths that have a `-2` sibling on disk.
++ *
++ * Written out rather than read from the filesystem so this module stays pure
++ * and usable from a client component. `tests/images.test.ts` walks
++ * `public/images` and fails the build if this list and the disk disagree.
++ */
++export const IMAGES_WITH_VARIANTS: readonly string[] = [
++  "/images/after-refinished.jpg",
++  "/images/ba-deck-after.jpg",
++  "/images/ba-deck-before.jpg",
++  "/images/ba-install-after.jpg",
++  "/images/ba-install-before.jpg",
++  "/images/ba-railings-after.jpg",
++  "/images/ba-railings-before.jpg",
++  "/images/ba-refinish-after.jpg",
++  "/images/ba-refinish-before.jpg",
++  "/images/ba-repair-after.jpg",
++  "/images/ba-repair-before.jpg",
++  "/images/ba-stairs-after.jpg",
++  "/images/ba-stairs-before.jpg",
++  "/images/before-worn.jpg",
++  "/images/franco-giacinto-oller-grimaldi.jpg",
++  "/images/hero-living.jpg",
++  "/images/hero-stairs.jpg",
++  "/images/methods/method-glue-down-engineered.jpg",
++  "/images/methods/method-moisture-map.jpg",
++  "/images/methods/method-open-riser-stair.jpg",
++  "/images/methods/method-stair-retread.jpg",
++  "/images/project-etobicoke.jpg",
++  "/images/project-forest-hill.jpg",
++  "/images/project-herringbone.jpg",
++  "/images/project-inlay.jpg",
++  "/images/project-oakville-stairs.jpg",
++  "/images/railing-join.jpg",
++  "/images/service-deck.jpg",
++  "/images/service-install.jpg",
++  "/images/service-railings.jpg",
++  "/images/service-refinish.jpg",
++  "/images/service-repair.jpg",
++  "/images/service-stairs.jpg",
++  "/images/species-board.jpg",
++  "/images/stair-studio-poster.jpg",
++  "/images/stair-studio.jpg",
++  "/images/workshop.jpg",
++];
++
++const VARIANT_SET = new Set(IMAGES_WITH_VARIANTS);
++
++/** Both renditions of a photograph, canonical first. One entry if there is no pair. */
++export function variantsOf(src: string): string[] {
++  if (!VARIANT_SET.has(src)) return [src];
++  const dot = src.lastIndexOf(".");
++  return [src, `${src.slice(0, dot)}-2${src.slice(dot)}`];
++}
++
++/**
++ * FNV-1a, 32-bit.
++ *
++ * Any stable string-to-integer would do; this one is four lines, has no
++ * dependencies, and spreads short similar strings ("vaughan", "markham")
++ * across the range — which a naive character sum does not.
++ */
++function hash(seed: string) {
++  let h = 0x811c9dc5;
++  for (let i = 0; i < seed.length; i++) {
++    h ^= seed.charCodeAt(i);
++    h = Math.imul(h, 0x01000193) >>> 0;
++  }
++  return h;
++}
++
++/**
++ * Which rendition this page should show. Same seed always gives the same
++ * answer; no seed always gives the canonical file.
++ */
++export function pickVariant(src: string, seed?: string): string {
++  const all = variantsOf(src);
++  if (all.length === 1 || !seed) return all[0]!;
++  return all[hash(seed) % all.length]!;
++}
+diff --git a/docs/DOMINATION_CHANGELOG.md b/docs/DOMINATION_CHANGELOG.md
+index 5f93572..b8bb825 100644
+--- a/docs/DOMINATION_CHANGELOG.md
++++ b/docs/DOMINATION_CHANGELOG.md
+@@ -966,3 +966,85 @@ that counts. Verified through all four transitions.
+   hovered, hands over on drag, completely still under
+   `prefers-reduced-motion`, and the comparison swaps with the Service control.
+ - 5 routes × 4 viewports: no horizontal overflow.
++
++---
++
++## Stage 10 — Two photo sets, and the long tail stops looking stamped (2026-09-02)
++
++Two independent image sets were commissioned to one brief and both delivered
++complete: 37 files each, exact filenames, exact dimensions, nothing over the
++size cap. They are not two crops of one render — different rooms, different
++light, different angles.
++
++### Both sets hold the rule that makes a slider work
++
++Checked frame by frame before anything was wired. In all twelve pairs across
++both sets, flipping between before and after moves **only the floor, the stair,
++the rail or the deck**. Same camera, same room, same light. Set B's install
++"before" even carries chalk snap-lines on the subfloor.
++
++That was the one thing that could not be fixed in code, and it is the reason
++all six services now render as real comparisons instead of five stills.
++
++### What two sets are actually for
++
++224 of this site's 393 pages are service × city combinations. Every one of them
++was showing the *identical* staircase photograph. That is the strongest
++possible cue that the long tail is one template stamped 224 times, however
++unique the words around it are — and it is the cue a reviewer looks for.
++
++`data/images.ts` now picks between renditions **deterministically**, from a
++seed the page already owns:
++
++| Surface | Seed | Effect |
++| --- | --- | --- |
++| `/services/[slug]/[city]` hero | city slug | 13 of 32 cities draw the second set |
++| `/services/[slug]` hero | service slug | the 8 service pages vary |
++| project cards on city / service pages | `city-project` | no two cards repeat |
++| the estimator's comparison | `"estimator"` | set B |
++| the service page's comparison | service slug | set A — **a visitor who sees both sees two different jobs** |
++
++Deterministic, never random, for three reasons written out in the file: these
++pages are prerendered and edge-cached so a random pick would be frozen at build
++time anyway; a server random and a client random disagree, which is a hydration
++error; and a returning visitor should see the same page twice while a
++*different* city looks different.
++
++Without a seed the canonical file is returned unchanged, so every call site
++that was not deliberately seeded is byte-identical to before.
++
++### Rotation where someone actually dwells
++
++`PhotoRotator` crossfades between the two renditions on exactly two surfaces —
++the showroom sample board and the workshop — under the same discipline as the
++comparison slider: both frames in the DOM from the first render so there is no
++layout shift and no mid-fade network request; holds on hover; stops off-screen
++and in a hidden tab; never starts under `prefers-reduced-motion`. Verified: at
++t=0 the first board is opaque, at t=8s the second is.
++
++Everywhere else the variant is chosen once. A page whose images quietly swap
++themselves is a page nobody can read.
++
++### Still renderings
++
++Both sets are commissioned generations. Holding a room fixed across a pair is
++what makes the *slider* work; it does not make the images documentary.
++`verified` stays `false` on all six, every frame renders under "Illustrative
++rendering, not documentary job photography", and blocker #12 — twelve real
++photographs — is unchanged and still the highest-value hour available.
++
++`SYNTHETIC_IMAGES` is now **derived** rather than typed: 74 literals is a list
++that goes stale on the next file added. It expands from the variant manifest,
++so the day a real photograph lands it will not be in the set and
++`tests/images.test.ts` fails with "the honesty guard has a hole" — forcing a
++deliberate decision instead of letting the guard quietly shrink.
++
++### Evidence
++
++- `npm run test` — **338 pass, 0 fail** (327 before; +11 in
++  `tests/images.test.ts`), including an assertion that the 32 city slugs
++  actually spread across both renditions rather than all hashing the same way.
++- 393 prerendered pages, audit clean.
++- 8 routes × 4 viewports: no horizontal overflow.
++- `scripts/install-image-sets.sh` reproduces the 74-file tree from the two
++  zips, idempotently, and was run from a clean checkout to prove it.
+diff --git a/scripts/install-image-sets.sh b/scripts/install-image-sets.sh
+new file mode 100755
+index 0000000..ea9867e
+--- /dev/null
++++ b/scripts/install-image-sets.sh
+@@ -0,0 +1,59 @@
++#!/usr/bin/env bash
++#
++# Install the two commissioned photo sets into public/images.
++#
++# Two sets were produced to one brief by two different generators. Set A takes
++# the canonical filenames the codebase already references; set B is installed
++# beside it with a `-2` suffix. `data/images.ts` picks between them
++# deterministically from a seed, so 224 service x city pages stop showing the
++# identical staircase.
++#
++# Idempotent: run it as many times as you like.
++#
++# Usage:
++#   bash scripts/install-image-sets.sh [set-a.zip] [set-b.zip]
++#
++# Defaults to the two zips at the repository root.
++
++set -euo pipefail
++
++A="${1:-greenhardwood-images.zip}"
++B="${2:-greenhardwood-images-second-set.zip}"
++
++for f in "$A" "$B"; do
++  [ -f "$f" ] || { echo "missing: $f" >&2; exit 1; }
++done
++
++command -v unzip >/dev/null || { echo "unzip is required" >&2; exit 1; }
++
++tmp="$(mktemp -d)"
++trap 'rm -rf "$tmp"' EXIT
++
++unzip -q -o "$A" -d "$tmp/a"
++unzip -q -o "$B" -d "$tmp/b"
++
++# Both zips wrap their files in a single folder; find it rather than assume it.
++srcA="$(dirname "$(find "$tmp/a" -name 'service-stairs.jpg' -print -quit)")"
++srcB="$(dirname "$(find "$tmp/b" -name 'service-stairs.jpg' -print -quit)")"
++[ -n "$srcA" ] && [ -n "$srcB" ] || { echo "could not locate images inside the zips" >&2; exit 1; }
++
++mkdir -p public/images/methods
++
++# Set A keeps the canonical names every data file already points at.
++cp "$srcA"/*.jpg public/images/
++cp "$srcA"/methods/*.jpg public/images/methods/
++
++# Set B is installed as `-2` siblings.
++for f in "$srcB"/*.jpg; do
++  cp "$f" "public/images/$(basename "${f%.jpg}")-2.jpg"
++done
++for f in "$srcB"/methods/*.jpg; do
++  cp "$f" "public/images/methods/$(basename "${f%.jpg}")-2.jpg"
++done
++
++# An orphan from the original set; nothing references it.
++rm -f public/images/species-samples.jpg
++
++n=$(find public/images -name '*.jpg' | wc -l | tr -d ' ')
++echo "public/images now holds $n files ($(du -sh public/images | cut -f1))"
++echo "expected: 74"
+diff --git a/tests/images.test.ts b/tests/images.test.ts
+new file mode 100644
+index 0000000..c6d1dae
+--- /dev/null
++++ b/tests/images.test.ts
+@@ -0,0 +1,137 @@
++import { test, describe } from "node:test";
++import assert from "node:assert/strict";
++import { readdirSync, statSync, readFileSync } from "node:fs";
++import { join } from "node:path";
++import { IMAGES_WITH_VARIANTS, pickVariant, variantsOf } from "../data/images";
++import { comparisons, SYNTHETIC_IMAGES } from "../data/comparisons";
++
++const walk = (dir: string, out: string[] = []) => {
++  for (const e of readdirSync(dir, { withFileTypes: true })) {
++    const full = join(dir, e.name);
++    if (statSync(full).isDirectory()) walk(full, out);
++    else if (e.name.endsWith(".jpg")) out.push(full.replace(/^public/, ""));
++  }
++  return out;
++};
++const onDisk = walk("public/images").sort();
++
++/**
++ * Two independent photo sets were commissioned to one brief, so 224 service ×
++ * city pages can stop showing the identical staircase. These tests keep the
++ * manifest honest — it is written out rather than read from the filesystem so
++ * the module stays pure, which means nothing but a test can catch it drifting.
++ */
++
++describe("the variant manifest matches what is actually on disk", () => {
++  test("every listed image exists, and so does its -2 sibling", () => {
++    const set = new Set(onDisk);
++    for (const src of IMAGES_WITH_VARIANTS) {
++      assert.ok(set.has(src), `manifest lists ${src}, which is not in public/images`);
++      const [, second] = variantsOf(src);
++      assert.ok(set.has(second!), `${src} has no -2 sibling on disk`);
++    }
++  });
++
++  test("no image on disk has a sibling the manifest forgot", () => {
++    const missing = onDisk
++      .filter((f) => !f.includes("-2."))
++      .filter((f) => onDisk.includes(f.replace(/\.jpg$/, "-2.jpg")))
++      .filter((f) => !IMAGES_WITH_VARIANTS.includes(f));
++    assert.deepEqual(missing, [], "a second rendition exists but the site will never show it");
++  });
++
++  test("a -2 file is never referenced directly in source", () => {
++    // Call sites name the canonical file and let pickVariant choose. A direct
++    // reference would pin one rendition and silently opt out of rotation.
++    const offenders: string[] = [];
++    const scan = (dir: string) => {
++      for (const e of readdirSync(dir, { withFileTypes: true })) {
++        const full = join(dir, e.name);
++        if (statSync(full).isDirectory()) scan(full);
++        else if (/\.tsx?$/.test(e.name) && full !== "data/images.ts") {
++          if (/["']\/images\/[a-z0-9/-]+-2\.jpg["']/.test(readFileSync(full, "utf8"))) {
++            offenders.push(full);
++          }
++        }
++      }
++    };
++    for (const d of ["app", "components", "data", "lib"]) scan(d);
++    assert.deepEqual(offenders, [], "a second-rendition path is hard-coded");
++  });
++});
++
++describe("the choice is deterministic, never random", () => {
++  test("the same seed always gives the same rendition", () => {
++    const src = IMAGES_WITH_VARIANTS[0]!;
++    for (const seed of ["vaughan", "markham", "hardwood-stairs-toronto"]) {
++      const first = pickVariant(src, seed);
++      for (let i = 0; i < 50; i++) assert.equal(pickVariant(src, seed), first);
++    }
++  });
++
++  test("no seed means the canonical file, so unseeded call sites did not move", () => {
++    for (const src of IMAGES_WITH_VARIANTS) assert.equal(pickVariant(src, undefined), src);
++  });
++
++  test("an image with no second rendition is returned untouched", () => {
++    assert.deepEqual(variantsOf("/images/does-not-exist.jpg"), ["/images/does-not-exist.jpg"]);
++    assert.equal(pickVariant("/images/does-not-exist.jpg", "anything"), "/images/does-not-exist.jpg");
++  });
++
++  test("the 32 city slugs actually spread across both renditions", () => {
++    // A hash that sent every city to the same rendition would compile, pass
++    // every other test, and leave the long tail looking exactly as templated
++    // as before. This is the assertion that the exercise worked.
++    const cities = [
++      "toronto", "etobicoke", "north-york", "scarborough", "east-york", "mississauga",
++      "brampton", "caledon", "vaughan", "markham", "richmond-hill", "aurora", "newmarket",
++      "king", "whitchurch-stouffville", "oakville", "burlington", "milton", "halton-hills",
++      "pickering", "ajax", "whitby", "oshawa", "clarington", "hamilton", "ancaster",
++      "dundas", "bradford-west-gwillimbury", "barrie", "innisfil", "orangeville", "guelph",
++    ];
++    const src = "/images/service-stairs.jpg";
++    const picks = cities.map((c) => pickVariant(src, c));
++    const second = picks.filter((p) => p.includes("-2")).length;
++    assert.ok(
++      second > 6 && second < cities.length - 6,
++      `${second}/${cities.length} cities got the second rendition — the split is lopsided`,
++    );
++  });
++});
++
++describe("both photo sets are complete and correctly shaped", () => {
++  test("74 images: two full sets", () => {
++    assert.equal(onDisk.length, 74, `expected 74 images, found ${onDisk.length}`);
++    assert.equal(IMAGES_WITH_VARIANTS.length, 37);
++  });
++
++  test("every comparison frame has both renditions", () => {
++    for (const c of Object.values(comparisons)) {
++      if (c.mode !== "pair") continue;
++      for (const f of [c.before, c.after]) {
++        assert.equal(variantsOf(f).length, 2, `${f} has only one rendition`);
++      }
++    }
++  });
++
++  test("every service now has a real pair, not a single still", () => {
++    for (const c of Object.values(comparisons)) {
++      assert.equal(c.mode, "pair", `${c.kind} is still a single image`);
++    }
++  });
++
++  test("both renditions of every frame are still declared synthetic", () => {
++    // The photographs are commissioned renderings. Both sets hold the room
++    // fixed across a pair, which is what makes the slider work — it does not
++    // make them documentary, and `verified` stays false until real ones exist.
++    const syn = new Set<string>(SYNTHETIC_IMAGES);
++    for (const f of onDisk) {
++      assert.ok(
++        syn.has(f),
++        `${f} is not declared synthetic; the honesty guard has a hole. If this is a REAL ` +
++          "photograph, that is the good case — decide deliberately how it is labelled rather " +
++          "than letting the guard shrink by accident.",
++      );
++    }
++  });
++});
+-- 
+2.43.0
+
