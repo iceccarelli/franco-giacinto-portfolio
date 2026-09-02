@@ -1,0 +1,2509 @@
+From 26d643fd3ab2607715410fc65b9507c898612383 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Tue, 1 Sep 2026 21:28:13 +0000
+Subject: [PATCH] feat(work+map): give every job a page, and the map a legend
+ that names it
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Two halves of the same problem.
+
+1. The portfolio cards went nowhere. /portfolio rendered nine <article>
+   elements with a photo, a headline and a card shadow, and no
+   /portfolio/{slug} route existed to click through to. The catalogue
+   deep-linked to #slug fragments, site search returned nine results that all
+   resolved to the same grid, and every "related work" card on the homepage,
+   the service pages, the service x city pages and the area pages had the
+   same dead end. Nothing was broken, so nothing caught it.
+
+   Ships nine statically generated job pages (ISR 1h, own canonical,
+   breadcrumbs, CreativeWork JSON-LD whose ImageObject creditText says the
+   photograph is an illustrative rendering — no rating, no review, no
+   customer), and makes every card that renders a project a real link.
+
+   The grid uses a stretched link rather than an anchor wrapped around the
+   card, because three cards contain a before/after slider and a slider
+   inside an anchor cannot be dragged. The slider is lifted above the
+   overlay instead. Verified in a browser: photo click navigates, body copy
+   navigates, slider drags 52 -> 79 without navigating.
+
+   Also fixes components/before-after.tsx, which used a literal id and so
+   put three elements with the same DOM id on /portfolio.
+
+2. The map showed where the shop works but not what it does there. Rebuilt
+   with a stats header card, a control column (zoom / reset / full screen)
+   and a collapsible legend that NAMES its four statuses — studio, core
+   service area, extended range, worked example — each with a clause saying
+   what it means. Status is encoded by shape as well as colour; adds
+   --color-map-extended (#a8742a) because --color-primary and --color-accent
+   are both greens and core-versus-travel is the map's most commercial
+   distinction. Worked examples pulse, carry a count badge where a
+   municipality has more than one, and every popup ends in a real CTA button.
+
+   CoverageMap now takes a serviceSlug, so the stairs page shows stair
+   municipalities and stair examples, installation shows install, and so on.
+   The filter reads CatalogEntry.serviceSlug off the job types each
+   municipality is offered, so it cannot drift from tierNote()'s prose.
+   Maps placed on the homepage (380px, compact), /areas, all 32 area pages,
+   all 8 service pages, all 224 service x city pages and /stairs.
+
+Honesty: data/coverage.ts still may not import data/projects.ts — the
+photography is AI-generated and pinning it at real locations would put
+invented work at checkable addresses. The join lives in data/showcase.ts
+under three rules tests/showcase.test.ts pins: municipality precision only
+(strict-equal to the centroid, drawn as a hollow ring), illustrative: true
+with a disclosure rendered in the legend, the popup and server HTML, and no
+customer/date/quote/rating field on the type. confirmedJobs stays empty.
+
+MapWorkedExamples renders the same list as real <a> elements under every
+map, because the client legend does not exist for a crawler.
+
+Evidence: 290 tests pass (263 before). 393 prerendered pages (384 before).
+Site audit clean — no broken links, no duplicate titles, zero warnings.
+Playwright across six viewports and ten routes: no horizontal overflow.
+Leaflet stays out of the shared bundle (own async chunk, IntersectionObserver
+gated); shared bundle unchanged at 103 kB. Dropped the unused `note` field
+from the serialised map payload.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DNw2m5xoC4nVhuAs5WuzDG
+---
+ app/areas/[city]/page.tsx              |  11 +-
+ app/areas/page.tsx                     |  14 +-
+ app/catalog/[slug]/page.tsx            |   2 +-
+ app/globals.css                        | 183 +++++++++++
+ app/page.tsx                           |  63 +++-
+ app/portfolio/[slug]/page.tsx          | 288 ++++++++++++++++++
+ app/services/[slug]/[city]/page.tsx    |  36 ++-
+ app/services/[slug]/page.tsx           |  38 ++-
+ app/sitemap.ts                         |  11 +
+ app/stairs/page.tsx                    |  33 +-
+ components/before-after.tsx            |  16 +-
+ components/map/coverage-map-client.tsx | 404 ++++++++++++++++++++++---
+ components/map/coverage-map.tsx        | 195 +++++++++++-
+ components/portfolio/project-grid.tsx  |  64 +++-
+ data/showcase.ts                       | 137 +++++++++
+ docs/DOMINATION_CHANGELOG.md           | 149 +++++++++
+ lib/search-index.ts                    |   4 +-
+ tests/portfolio-navigation.test.ts     | 144 +++++++++
+ tests/showcase.test.ts                 | 160 ++++++++++
+ 19 files changed, 1835 insertions(+), 117 deletions(-)
+ create mode 100644 app/portfolio/[slug]/page.tsx
+ create mode 100644 data/showcase.ts
+ create mode 100644 tests/portfolio-navigation.test.ts
+ create mode 100644 tests/showcase.test.ts
+
+diff --git a/app/areas/[city]/page.tsx b/app/areas/[city]/page.tsx
+index d4529f2..65ed254 100644
+--- a/app/areas/[city]/page.tsx
++++ b/app/areas/[city]/page.tsx
+@@ -163,16 +163,17 @@ export default async function CityPage({ params }: { params: Promise<Params> })
+               <h2 className="font-display text-3xl">Work nearby</h2>
+               <div className="mt-4 grid gap-4">
+                 {localProjects.map((p) => (
+-                  <div
++                  <Link
+                     key={p.slug}
+-                    className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
++                    href={`/portfolio/${p.slug}`}
++                    className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-lg"
+                   >
+                     <Photo src={p.image} alt={p.imageAlt} ratio="16/8" slot="half" />
+                     <div className="p-4">
+-                      <h3 className="font-display text-xl">{p.title}</h3>
++                      <h3 className="font-display text-xl group-hover:text-primary">{p.title}</h3>
+                       <p className="mt-1 text-sm text-muted">{p.summary}</p>
+                     </div>
+-                  </div>
++                  </Link>
+                 ))}
+               </div>
+             </div>
+@@ -206,7 +207,7 @@ export default async function CityPage({ params }: { params: Promise<Params> })
+                   : "Outside the core radius — we travel here for stair packages, whole-home installs and refinishing."}
+               </p>
+               <div className="mt-4">
+-                <CoverageMap focus={city.slug} height={260} />
++                <CoverageMap focus={city.slug} height={280} compact />
+               </div>
+               <p className="mt-3 text-xs text-muted">
+                 Service coverage and published bands. Not a record of past jobs.
+diff --git a/app/areas/page.tsx b/app/areas/page.tsx
+index 4dc1738..f8cc927 100644
+--- a/app/areas/page.tsx
++++ b/app/areas/page.tsx
+@@ -1,6 +1,11 @@
+ import type { Metadata } from "next";
+ import { PageHero } from "@/components/page-hero";
+-import { CoverageDisclosure, CoverageList, CoverageMap } from "@/components/map/coverage-map";
++import {
++  CoverageDisclosure,
++  CoverageList,
++  CoverageMap,
++  MapWorkedExamples,
++} from "@/components/map/coverage-map";
+ 
+ export const metadata: Metadata = {
+   title: "Hardwood Flooring Service Areas",
+@@ -58,6 +63,13 @@ export default function AreasIndex() {
+           <div className="mt-6">
+             <CoverageMap />
+           </div>
++          {/*
++            The legend inside the map names the worked examples, but that
++            legend is client-side. This is the same list as real links, so a
++            crawler, an answer engine and a visitor with JavaScript off all
++            get it — and every one of those names is now a page.
++          */}
++          <MapWorkedExamples />
+         </section>
+ 
+         {/*
+diff --git a/app/catalog/[slug]/page.tsx b/app/catalog/[slug]/page.tsx
+index eefdb9c..7402483 100644
+--- a/app/catalog/[slug]/page.tsx
++++ b/app/catalog/[slug]/page.tsx
+@@ -211,7 +211,7 @@ export default async function CatalogEntryPage({ params }: { params: Promise<Par
+             <ul className="mt-4 grid gap-2 sm:grid-cols-2">
+               {jobs.map((p) => (
+                 <li key={p.slug}>
+-                  <Link className="text-primary hover:underline" href={`/portfolio#${p.slug}`}>
++                  <Link className="text-primary hover:underline" href={`/portfolio/${p.slug}`}>
+                     Job: {p.title}
+                   </Link>
+                 </li>
+diff --git a/app/globals.css b/app/globals.css
+index 7940ca0..61bb19b 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -20,6 +20,17 @@
+   --color-primary-fg: #f3eee6;
+   --color-accent: #3f6b52;
+   --color-border: #ddd2c0;
++  /*
++   * The map's third status colour.
++   *
++   * --color-primary (#1b3a2a) and --color-accent (#3f6b52) are both greens;
++   * side by side on a legend at 12px they are one colour with two names, and
++   * "core service area" versus "we travel here" is the single most commercial
++   * distinction on the map. This ochre sits with the warm neutrals the palette
++   * already uses (--color-border is #ddd2c0) and is unambiguous next to either
++   * green, including in the common forms of colour vision deficiency.
++   */
++  --color-map-extended: #a8742a;
+   --color-forest: #1b3a2a;
+   --color-moss: #3f6b52;
+   --color-ink: #1c1612;
+@@ -271,3 +282,175 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
+   outline: 2px solid var(--color-accent, #8a6a3b);
+   outline-offset: 2px;
+ }
++
++/* ──────────────────────────────────────────────────────────────────────────
++   Coverage map markers.
++
++   Leaflet's own `circleMarker` cannot pulse, carry a count, or be styled from
++   a stylesheet — it is an SVG element with presentation attributes. So the
++   markers are `divIcon`s and their entire appearance lives here, which also
++   means the palette follows the design tokens instead of being restated as
++   hex literals inside a component.
++
++   Status is encoded by SHAPE as well as colour: a solid disc is coverage, a
++   hollow ring is a worked example placed at municipality precision, and the
++   studio is a filled bullseye. Colour alone would fail anyone with a colour
++   vision deficiency, and would fail the legend's whole purpose.
++   ────────────────────────────────────────────────────────────────────────── */
++
++.gh-marker {
++  background: none;
++  border: 0;
++}
++
++.gh-marker__dot {
++  position: absolute;
++  top: 50%;
++  left: 50%;
++  border-radius: 9999px;
++  transform: translate(-50%, -50%);
++  box-shadow: 0 1px 4px rgb(0 0 0 / 0.35);
++}
++
++.gh-marker--core .gh-marker__dot {
++  width: 14px;
++  height: 14px;
++  background: var(--color-primary, #1b3a2a);
++  border: 2px solid #fff;
++}
++
++.gh-marker--extended .gh-marker__dot {
++  width: 11px;
++  height: 11px;
++  background: var(--color-map-extended, #a8742a);
++  border: 2px solid #fff;
++}
++
++.gh-marker--studio .gh-marker__dot {
++  width: 18px;
++  height: 18px;
++  background: #fff;
++  border: 4px solid var(--color-primary, #1b3a2a);
++}
++
++/* A worked example: hollow, because the location is municipality-level and a
++   filled pin would imply a precision this data does not have. */
++.gh-marker--showcase .gh-marker__ring {
++  position: absolute;
++  top: 50%;
++  left: 50%;
++  width: 24px;
++  height: 24px;
++  border-radius: 9999px;
++  border: 3px solid var(--color-primary, #1b3a2a);
++  background: rgb(255 255 255 / 0.86);
++  transform: translate(-50%, -50%);
++  box-shadow: 0 1px 5px rgb(0 0 0 / 0.3);
++}
++
++.gh-marker--showcase .gh-marker__pulse {
++  position: absolute;
++  top: 50%;
++  left: 50%;
++  width: 24px;
++  height: 24px;
++  margin: -12px 0 0 -12px;
++  border-radius: 9999px;
++  background: var(--color-primary, #1b3a2a);
++  opacity: 0.55;
++  animation: gh-map-pulse 2400ms cubic-bezier(0, 0, 0.2, 1) infinite;
++}
++
++.gh-marker__count {
++  position: absolute;
++  top: 50%;
++  left: 50%;
++  width: 24px;
++  height: 24px;
++  transform: translate(-50%, -50%);
++  font: 600 11px/24px ui-sans-serif, system-ui, sans-serif;
++  color: var(--color-primary, #1b3a2a);
++  text-align: center;
++}
++
++@keyframes gh-map-pulse {
++  0% {
++    transform: scale(0.7);
++    opacity: 0.5;
++  }
++  70% {
++    transform: scale(2.3);
++    opacity: 0;
++  }
++  100% {
++    transform: scale(2.3);
++    opacity: 0;
++  }
++}
++
++/* A pulsing ring behind text is a migraine trigger and a vestibular one. */
++@media (prefers-reduced-motion: reduce) {
++  .gh-marker--showcase .gh-marker__pulse {
++    animation: none;
++    opacity: 0.18;
++    transform: scale(1.6);
++  }
++}
++
++/* Leaflet's popup, wearing the site's clothes rather than its own. */
++.gh-pop {
++  min-width: 208px;
++  max-width: 246px;
++}
++.gh-pop__eyebrow {
++  font-size: 11px;
++  letter-spacing: 0.08em;
++  text-transform: uppercase;
++  color: var(--color-accent, #3f6b52);
++}
++.gh-pop__title {
++  margin-top: 2px;
++  font-size: 15px;
++  font-weight: 600;
++  line-height: 1.25;
++}
++.gh-pop__meta {
++  margin-top: 6px;
++  font-size: 12px;
++  line-height: 1.45;
++  opacity: 0.75;
++}
++.gh-pop__band {
++  margin-top: 8px;
++  padding-top: 8px;
++  border-top: 1px solid var(--color-border, #ddd2c0);
++  font-size: 12px;
++  line-height: 1.45;
++}
++.gh-pop__cta {
++  display: block;
++  margin-top: 10px;
++  padding: 8px 12px;
++  border-radius: 8px;
++  background: var(--color-primary, #1b3a2a);
++  color: #fff !important;
++  font-size: 13px;
++  font-weight: 600;
++  text-align: center;
++  text-decoration: none !important;
++}
++.gh-pop__cta:hover {
++  filter: brightness(1.12);
++}
++.gh-pop__secondary {
++  display: block;
++  margin-top: 6px;
++  font-size: 12px;
++  text-align: center;
++}
++.leaflet-popup-content-wrapper {
++  border-radius: 12px;
++}
++.leaflet-popup-content {
++  margin: 12px 14px;
++}
+diff --git a/app/page.tsx b/app/page.tsx
+index 2331861..b01f4ac 100644
+--- a/app/page.tsx
++++ b/app/page.tsx
+@@ -4,6 +4,7 @@ import Link from "next/link";
+ import { ArrowRight, MapPin } from "lucide-react";
+ import { BeforeAfter } from "@/components/before-after";
+ import { QuoteEstimator } from "@/components/estimate/quote-estimator";
++import { CoverageMap, MapWorkedExamples } from "@/components/map/coverage-map";
+ import { HomeHero } from "@/components/home/hero";
+ import { ToolsRow } from "@/components/home/tools-row";
+ import { WhyUs } from "@/components/home/why-us";
+@@ -209,21 +210,71 @@ export default function Home() {
+         </div>
+         <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+           {projects.slice(0, 6).map((p) => (
+-            <article
++            <Link
+               key={p.slug}
+-              className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
++              href={`/portfolio/${p.slug}`}
++              className="group flex flex-col overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-lg"
+             >
+               <Photo src={p.image} alt={p.imageAlt} ratio="4/3" slot="card" />
+-              <div className="p-5">
++              <div className="flex flex-1 flex-col p-5">
+                 <Badge>{p.location}</Badge>
+-                <h3 className="mt-3 font-display text-xl">{p.title}</h3>
+-                <p className="mt-1 text-sm text-muted">{p.summary}</p>
++                <h3 className="mt-3 font-display text-xl group-hover:text-primary">{p.title}</h3>
++                <p className="mt-1 flex-1 text-sm text-muted">{p.summary}</p>
++                <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-medium text-primary">
++                  Open the job
++                  <ArrowRight
++                    className="size-3.5 transition-transform group-hover:translate-x-0.5"
++                    aria-hidden
++                  />
++                </span>
+               </div>
+-            </article>
++            </Link>
+           ))}
+         </div>
+       </section>
+ 
++      {/*
++        The service network, on the landing page.
++
++        Small deliberately — 380px, legend collapsed — because the homepage's
++        job is to get someone to the estimator, not to hold them in a map. It
++        is here at all because "do you come to my town" is the second question
++        every enquiry starts with, and answering it above the fold of the
++        second screen removes a reason to bounce.
++
++        Everything the pins carry is also linked underneath as HTML, and the
++        Leaflet chunk is only fetched once the section scrolls into view, so
++        this costs the homepage nothing on the critical path.
++      */}
++      <section className="border-y border-border bg-bg-warm">
++        <div className="mx-auto max-w-6xl px-4 py-16 sm:py-24 sm:px-6">
++          <div className="flex flex-wrap items-end justify-between gap-4">
++            <div className="max-w-2xl">
++              <p className="text-xs font-medium tracking-[0.18em] text-accent uppercase">
++                Service network
++              </p>
++              <h2 className="mt-2 font-display text-3xl sm:text-4xl">
++                Thirty-two municipalities, one workshop door.
++              </h2>
++              <p className="mt-3 text-muted">
++                Twenty inside the core radius with a free on-site measure; twelve we travel to for
++                stair packages, whole-home installs and refinishing. Pins are coverage and published
++                bands — not a record of past jobs.
++              </p>
++            </div>
++            <Button asChild variant="outline">
++              <Link href="/areas">
++                All service areas <ArrowRight className="size-4" />
++              </Link>
++            </Button>
++          </div>
++          <div className="mt-8">
++            <CoverageMap height={380} compact />
++          </div>
++          <MapWorkedExamples />
++        </div>
++      </section>
++
+       <section className="bg-surface">
+         <div className="mx-auto max-w-6xl px-4 py-16 sm:py-24 sm:px-6">
+           <h2 className="font-display text-3xl sm:text-4xl">Price the job before you call</h2>
+diff --git a/app/portfolio/[slug]/page.tsx b/app/portfolio/[slug]/page.tsx
+new file mode 100644
+index 0000000..1b0ec5b
+--- /dev/null
++++ b/app/portfolio/[slug]/page.tsx
+@@ -0,0 +1,288 @@
++import type { Metadata } from "next";
++import Link from "next/link";
++import { notFound } from "next/navigation";
++import { ArrowRight, ArrowLeft } from "lucide-react";
++import { Breadcrumbs } from "@/components/breadcrumbs";
++import { BeforeAfter } from "@/components/before-after";
++import { JsonLd } from "@/components/json-ld";
++import { Photo } from "@/components/photo";
++import { Badge } from "@/components/ui/badge";
++import { Button } from "@/components/ui/button";
++import { catalog } from "@/data/catalog";
++import { getCity } from "@/data/areas";
++import { projects, projectFilters } from "@/data/projects";
++import { getService } from "@/data/services";
++import { showcaseCategoryLabel } from "@/data/showcase";
++import { breadcrumbLd, webPageLd } from "@/lib/seo";
++import { SITE_URL } from "@/lib/site-url";
++
++/**
++ * A page per job.
++ *
++ * Until now `/portfolio` was one client-filtered grid and there was no detail
++ * route at all: the cards were `<article>` elements, the catalogue deep-linked
++ * to `#slug` anchors, and a visitor who clicked a photograph got nothing. Nine
++ * of the most persuasive assets on the site were dead ends, and every internal
++ * link that wanted to point at a specific job had to point at a fragment on a
++ * page that renders all nine.
++ *
++ * This is the destination those links deserved. It is also where the honesty
++ * label belongs: the photography here is AI-generated (docs/HONEST-LIMITS.md),
++ * so the page says which parts are a specification and which are a photograph,
++ * rather than letting a rendering pass for a job record.
++ *
++ * The URL shape stays inside the frozen matrix — nine job pages, no new
++ * city × service combinations.
++ */
++
++type Params = { slug: string };
++
++export const revalidate = 3600;
++
++export function generateStaticParams() {
++  return projects.map((p) => ({ slug: p.slug }));
++}
++
++export async function generateMetadata({
++  params,
++}: {
++  params: Promise<Params>;
++}): Promise<Metadata> {
++  const { slug } = await params;
++  const project = projects.find((p) => p.slug === slug);
++  if (!project) return {};
++
++  /*
++   * " | Green Hardwood" is appended by the root template and costs 17
++   * characters, so the tag has ~43 left before Google truncates it. The
++   * location suffix is worth having when it fits — "Oakville estate staircase"
++   * already carries its city, "Rosedale compass rose" does not — and is
++   * dropped rather than truncated when it does not. The audit flags the
++   * overflow either way; this is what stops it recurring on the next entry.
++   */
++  const withLocation = `${project.title} — ${project.location}`;
++  const title = withLocation.length <= 43 ? withLocation : project.title;
++
++  return {
++    title,
++    description: project.summary,
++    alternates: { canonical: `/portfolio/${project.slug}` },
++    openGraph: {
++      title: `${withLocation} | Green Hardwood`,
++      description: project.summary,
++      url: `/portfolio/${project.slug}`,
++      images: [{ url: project.image }],
++    },
++  };
++}
++
++export default async function ProjectPage({ params }: { params: Promise<Params> }) {
++  const { slug } = await params;
++  const project = projects.find((p) => p.slug === slug);
++  if (!project) notFound();
++
++  const city = getCity(project.citySlug);
++  const filter = projectFilters.find((f) => f.id === project.category);
++  const categoryLabel = showcaseCategoryLabel[project.category];
++
++  /**
++   * The catalogue entries that describe this shape of work. `relatedProjects`
++   * is authored on the catalogue side, so this is a reverse lookup rather than
++   * a second list that can drift out of sync with it.
++   */
++  const archetypes = catalog.filter((c) => c.relatedProjects.includes(project.slug));
++  const service = getService(archetypes[0]?.serviceSlug ?? "");
++
++  const siblings = projects.filter(
++    (p) => p.slug !== project.slug && (p.category === project.category || p.citySlug === project.citySlug),
++  );
++
++  return (
++    <>
++      <JsonLd
++        data={webPageLd({
++          name: project.title,
++          description: project.summary,
++          path: `/portfolio/${project.slug}`,
++        })}
++      />
++      <JsonLd
++        data={breadcrumbLd([
++          { name: "Home", path: "/" },
++          { name: "Work", path: "/portfolio" },
++          { name: project.title, path: `/portfolio/${project.slug}` },
++        ])}
++      />
++      {/*
++        CreativeWork, not Product and not Review. There is no rating here, no
++        author, and no customer — the same rule the job catalogue lives under.
++        `creditText` names the AI-generated photography rather than letting an
++        indexer treat the image as documentary evidence of the job.
++      */}
++      <JsonLd
++        data={{
++          "@context": "https://schema.org",
++          "@type": "CreativeWork",
++          "@id": `${SITE_URL}/portfolio/${project.slug}#work`,
++          name: project.title,
++          description: project.summary,
++          about: service?.name ?? categoryLabel,
++          creator: { "@id": `${SITE_URL}/#business` },
++          contentLocation: { "@type": "Place", name: project.location },
++          url: `${SITE_URL}/portfolio/${project.slug}`,
++          image: {
++            "@type": "ImageObject",
++            contentUrl: `${SITE_URL}${project.image}`,
++            caption: project.imageAlt,
++            creditText: "Illustrative rendering — not documentary job photography.",
++          },
++        }}
++      />
++
++      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6 sm:py-14">
++        <Breadcrumbs
++          items={[
++            { name: "Work", path: "/portfolio" },
++            { name: project.title, path: `/portfolio/${project.slug}` },
++          ]}
++        />
++
++        <header className="mt-6">
++          <p className="text-xs font-medium tracking-[0.18em] text-accent uppercase">
++            {categoryLabel} · {project.type}
++          </p>
++          <h1 className="mt-3 font-display text-[2.1rem] leading-[1.1] sm:text-[2.75rem]">
++            {project.title}
++          </h1>
++          <p className="mt-4 text-lg text-muted">{project.summary}</p>
++          <div className="mt-5 flex flex-wrap gap-2">
++            <Badge>{project.location}</Badge>
++            {city && <Badge>{city.region}</Badge>}
++            {project.specs.slice(0, 2).map((s) => (
++              <Badge key={s}>{s}</Badge>
++            ))}
++          </div>
++        </header>
++
++        <figure className="mt-8">
++          {project.before && project.after ? (
++            <BeforeAfter
++              before={project.before}
++              after={project.after}
++              beforeAlt={`Before: ${project.title}`}
++              afterAlt={project.imageAlt}
++            />
++          ) : (
++            <Photo src={project.image} alt={project.imageAlt} ratio="3/2" slot="half" priority />
++          )}
++          <figcaption className="mt-3 text-sm text-muted">
++            {project.imageAlt}{" "}
++            <span className="text-fg">
++              Illustrative rendering, not documentary job photography — see{" "}
++              <Link href="/about" className="text-primary hover:underline">
++                how we work
++              </Link>
++              .
++            </span>
++          </figcaption>
++        </figure>
++
++        <section className="mt-10">
++          <h2 className="font-display text-2xl">What the job actually involved</h2>
++          <p className="mt-3 text-muted">{project.details}</p>
++        </section>
++
++        <section className="mt-10">
++          <h2 className="font-display text-2xl">Specification</h2>
++          <ul className="mt-4 grid gap-2 sm:grid-cols-2">
++            {project.specs.map((spec) => (
++              <li key={spec} className="rounded-lg border border-border bg-surface px-4 py-3 text-sm">
++                {spec}
++              </li>
++            ))}
++          </ul>
++        </section>
++
++        {archetypes.length > 0 && (
++          <section className="mt-10">
++            <h2 className="font-display text-2xl">The job type behind this</h2>
++            <p className="mt-3 max-w-2xl text-muted">
++              Each entry carries the published 2026 band, the sequence, and the failure modes that
++              produce a second invoice.
++            </p>
++            <ul className="mt-4 grid gap-3 sm:grid-cols-2">
++              {archetypes.map((c) => (
++                <li key={c.slug}>
++                  <Link
++                    href={`/catalog/${c.slug}`}
++                    className="group flex h-full flex-col rounded-xl border border-border bg-surface p-5 transition-shadow hover:shadow-[var(--shadow-card)]"
++                  >
++                    <p className="font-display text-lg leading-snug">{c.name}</p>
++                    <p className="mt-2 flex-1 text-sm text-muted">{c.summary}</p>
++                    <span className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-primary">
++                      {c.failureModes.length} ways it goes wrong
++                      <ArrowRight className="size-3.5 transition-transform group-hover:translate-x-0.5" />
++                    </span>
++                  </Link>
++                </li>
++              ))}
++            </ul>
++          </section>
++        )}
++
++        <section className="mt-12 rounded-xl bg-primary p-8 text-primary-fg">
++          <h2 className="font-display text-2xl">Want this specification in your house?</h2>
++          <p className="mt-3 max-w-xl text-primary-fg/75">
++            City, service and size gives you a 2026 GTA band in about twenty seconds. We lock a
++            number only after a moisture reading on site.
++          </p>
++          <div className="mt-6 flex flex-wrap gap-3">
++            <Button asChild variant="invert">
++              <Link
++                href={`/estimate?city=${project.citySlug}${service ? `&service=${service.slug}` : ""}`}
++              >
++                Price this job
++              </Link>
++            </Button>
++            {city && (
++              <Button
++                asChild
++                variant="outline"
++                className="border-primary-fg/25 text-primary-fg hover:bg-primary-fg/10"
++              >
++                <Link href={`/areas/${city.slug}`}>Hardwood in {city.name}</Link>
++              </Button>
++            )}
++          </div>
++        </section>
++
++        {siblings.length > 0 && (
++          <section className="mt-12">
++            <h2 className="font-display text-2xl">Related work</h2>
++            <ul className="mt-4 grid gap-3 sm:grid-cols-2">
++              {siblings.map((p) => (
++                <li key={p.slug}>
++                  <Link
++                    href={`/portfolio/${p.slug}`}
++                    className="flex h-full flex-col rounded-xl border border-border bg-surface p-5 transition-shadow hover:shadow-[var(--shadow-card)]"
++                  >
++                    <p className="text-xs text-accent">{p.location}</p>
++                    <p className="mt-1 font-display text-lg leading-snug">{p.title}</p>
++                    <p className="mt-2 text-sm text-muted">{p.summary}</p>
++                  </Link>
++                </li>
++              ))}
++            </ul>
++          </section>
++        )}
++
++        <p className="mt-10 text-sm">
++          <Link href="/portfolio" className="inline-flex items-center gap-1.5 text-primary hover:underline">
++            <ArrowLeft className="size-3.5" aria-hidden />
++            All work{filter && filter.id !== "all" ? ` · ${filter.label}` : ""}
++          </Link>
++        </p>
++      </div>
++    </>
++  );
++}
+diff --git a/app/services/[slug]/[city]/page.tsx b/app/services/[slug]/[city]/page.tsx
+index de97a66..1e59bf3 100644
+--- a/app/services/[slug]/[city]/page.tsx
++++ b/app/services/[slug]/[city]/page.tsx
+@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
+ import { ArrowUpRight, Check, Clock, MapPin, Wallet } from "lucide-react";
+ import { Breadcrumbs } from "@/components/breadcrumbs";
+ import { JsonLd } from "@/components/json-ld";
++import { CoverageMap, MapWorkedExamples } from "@/components/map/coverage-map";
+ import { QuoteForm } from "@/components/estimate/quote-form";
+ import { Button } from "@/components/ui/button";
+ import {
+@@ -230,21 +231,17 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
+               <h2 className="mt-10 font-display text-3xl">Work near {city.name}</h2>
+               <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                 {localProjects.map((p) => (
+-                  <article
++                  <Link
+                     key={p.slug}
+-                    className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
++                    href={`/portfolio/${p.slug}`}
++                    className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-lg"
+                   >
+-                    <Photo
+-            src={p.image}
+-            alt={p.imageAlt}
+-            ratio="16/10"
+-            slot="card"
+-          />
++                    <Photo src={p.image} alt={p.imageAlt} ratio="16/10" slot="card" />
+                     <div className="p-4">
+-                      <h3 className="font-display text-lg">{p.title}</h3>
++                      <h3 className="font-display text-lg group-hover:text-primary">{p.title}</h3>
+                       <p className="mt-1 text-sm text-muted">{p.summary}</p>
+                     </div>
+-                  </article>
++                  </Link>
+                 ))}
+               </div>
+             </>
+@@ -262,6 +259,25 @@ export default async function ServiceCityPage({ params }: { params: Promise<Para
+             ))}
+           </Accordion>
+ 
++          {/*
++            The department map, centred on this city. Same filter as the
++            parent service page — only the municipalities where this service is
++            actually taken — so a visitor can see at a glance whether their
++            neighbours are inside the core radius or on the travel tier.
++          */}
++          <div className="mt-10">
++            <h2 className="font-display text-2xl">
++              {service.shortName} around {city.name}
++            </h2>
++            <p className="mt-2 text-sm text-muted">
++              Service coverage and 2026 published bands. Not a record of past jobs.
++            </p>
++            <div className="mt-4">
++              <CoverageMap serviceSlug={service.slug} focus={city.slug} height={320} compact />
++            </div>
++            <MapWorkedExamples serviceSlug={service.slug} />
++          </div>
++
+           <p className="mt-8 text-sm text-muted">
+             Looking for the full service detail rather than the {city.name} view?{" "}
+             <Link href={`/services/${service.slug}`} className="text-primary hover:underline">
+diff --git a/app/services/[slug]/page.tsx b/app/services/[slug]/page.tsx
+index 9f8ffea..2a1617a 100644
+--- a/app/services/[slug]/page.tsx
++++ b/app/services/[slug]/page.tsx
+@@ -1,4 +1,5 @@
+ import type { Metadata } from "next";
++import { CoverageMap, MapWorkedExamples } from "@/components/map/coverage-map";
+ import { Photo } from "@/components/photo";
+ import { notFound } from "next/navigation";
+ import Link from "next/link";
+@@ -148,25 +149,42 @@ export default async function ServicePage({ params }: { params: Promise<Params>
+               <h2 className="font-display text-2xl">Related GTA work</h2>
+               <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                 {related.map((p) => (
+-                  <article
++                  <Link
+                     key={p.slug}
+-                    className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
++                    href={`/portfolio/${p.slug}`}
++                    className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-lg"
+                   >
+-                    <Photo
+-            src={p.image}
+-            alt={p.imageAlt}
+-            ratio="16/10"
+-            slot="card"
+-          />
++                    <Photo src={p.image} alt={p.imageAlt} ratio="16/10" slot="card" />
+                     <div className="p-4">
+-                      <h3 className="font-display text-lg">{p.title}</h3>
++                      <h3 className="font-display text-lg group-hover:text-primary">{p.title}</h3>
+                       <p className="mt-1 text-sm text-muted">{p.summary}</p>
+                     </div>
+-                  </article>
++                  </Link>
+                 ))}
+               </div>
+             </div>
+           )}
++          {/*
++            The same network map, narrowed to this department.
++
++            A municipality appears here when one of the job types it is
++            actually offered belongs to this service — read off
++            CatalogEntry.serviceSlug, not from a second list that could drift.
++            So an extended town that only justifies the drive for a package
++            drops off the repairs map by itself, which is exactly what
++            tierNote() says in prose on the same page.
++          */}
++          <div className="mt-10">
++            <h2 className="font-display text-2xl">Where we take {service.shortName.toLowerCase()}</h2>
++            <p className="mt-2 max-w-2xl text-sm text-muted">
++              Pins are service coverage and published bands, not a record of past jobs. Open one for
++              the local band and what we take on there.
++            </p>
++            <div className="mt-5">
++              <CoverageMap serviceSlug={service.slug} height={420} />
++            </div>
++            <MapWorkedExamples serviceSlug={service.slug} />
++          </div>
+           {serviceMethods.length > 0 && (
+             <div className="mt-10">
+               <h2 className="font-display text-2xl">How we do it</h2>
+diff --git a/app/sitemap.ts b/app/sitemap.ts
+index e7f71b6..c7e8b46 100644
+--- a/app/sitemap.ts
++++ b/app/sitemap.ts
+@@ -1,6 +1,7 @@
+ import type { MetadataRoute } from "next";
+ import { answers } from "@/data/answers";
+ import { catalog } from "@/data/catalog";
++import { projects } from "@/data/projects";
+ import { cities } from "@/data/areas";
+ import { SITE_URL } from "@/lib/site-url";
+ import { guides, updatedDate } from "@/data/guides";
+@@ -109,6 +110,16 @@ export default function sitemap(): MetadataRoute.Sitemap {
+       changeFrequency: "monthly" as const,
+       priority: c.category === "stairs" ? 0.85 : 0.75,
+     })),
++    // One page per job. These used to be fragments on /portfolio, which meant
++    // nine pieces of the most persuasive content on the site had no URL of
++    // their own for a search engine or an answer engine to cite.
++    ...projects.map((p) => ({
++      url: `${BASE}/portfolio/${p.slug}`,
++      lastModified,
++      changeFrequency: "monthly" as const,
++      priority: p.category === "stairs" ? 0.75 : 0.65,
++      images: [`${BASE}${p.image}`],
++    })),
+     ...answers.map((a) => ({
+       url: `${BASE}/answers/${a.slug}`,
+       lastModified,
+diff --git a/app/stairs/page.tsx b/app/stairs/page.tsx
+index b1217e1..097a933 100644
+--- a/app/stairs/page.tsx
++++ b/app/stairs/page.tsx
+@@ -2,6 +2,7 @@ import type { Metadata } from "next";
+ import { Photo } from "@/components/photo";
+ import Link from "next/link";
+ import { JsonLd } from "@/components/json-ld";
++import { CoverageMap, MapWorkedExamples } from "@/components/map/coverage-map";
+ import { StairStudio } from "@/components/tools/stair-studio";
+ import { Button } from "@/components/ui/button";
+ import { projects } from "@/data/projects";
+@@ -165,25 +166,37 @@ export default function StairsHub() {
+           <h2 className="font-display text-3xl">Stairs you can inspect</h2>
+           <div className="mt-8 grid gap-5 md:grid-cols-2">
+             {stairJobs.map((p) => (
+-              <article
++              <Link
+                 key={p.slug}
+-                className="overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
++                href={`/portfolio/${p.slug}`}
++                className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-shadow hover:shadow-lg"
+               >
+-                <Photo
+-            src={p.image}
+-            alt={p.imageAlt}
+-            ratio="16/10"
+-            slot="card"
+-          />
++                <Photo src={p.image} alt={p.imageAlt} ratio="16/10" slot="card" />
+                 <div className="p-5">
+-                  <h3 className="font-display text-xl">{p.title}</h3>
++                  <h3 className="font-display text-xl group-hover:text-primary">{p.title}</h3>
+                   <p className="mt-1 text-sm text-muted">{p.summary}</p>
+                 </div>
+-              </article>
++              </Link>
+             ))}
+           </div>
+         </section>
+       )}
++
++      {/* The stair department's own map: only the municipalities where stair
++          work is taken, and only the stair worked examples. */}
++      <section className="border-t border-border bg-bg-warm">
++        <div className="mx-auto max-w-6xl px-4 py-12 sm:py-16 sm:px-6">
++          <h2 className="font-display text-3xl">Where we build stairs</h2>
++          <p className="mt-3 max-w-2xl text-muted">
++            Service coverage and the 2026 stair band for each municipality — not a record of past
++            jobs. Open a pin for the local number.
++          </p>
++          <div className="mt-8">
++            <CoverageMap serviceSlug="hardwood-stairs" height={440} />
++          </div>
++          <MapWorkedExamples serviceSlug="hardwood-stairs" />
++        </div>
++      </section>
+     </>
+   );
+ }
+diff --git a/components/before-after.tsx b/components/before-after.tsx
+index 70f4ae7..81eed70 100644
+--- a/components/before-after.tsx
++++ b/components/before-after.tsx
+@@ -1,7 +1,7 @@
+ "use client";
+ import NextImage from "next/image";
+ 
+-import { useState } from "react";
++import { useId, useState } from "react";
+ 
+ export function BeforeAfter({
+   before,
+@@ -15,6 +15,14 @@ export function BeforeAfter({
+   afterAlt: string;
+ }) {
+   const [pos, setPos] = useState(52);
++  /*
++   * The slider input needs a label, and the label needs an id to point at.
++   * A literal "ba-range" was fine while one comparison existed per page;
++   * /portfolio renders three, which put three elements with the same id in
++   * one document and pointed every label at the first of them. useId gives
++   * each instance its own, stable across server and client render.
++   */
++  const rangeId = useId();
+ 
+   return (
+     <div className="relative overflow-hidden rounded-xl bg-bg-warm shadow-[var(--shadow-card)]">
+@@ -54,17 +62,17 @@ export function BeforeAfter({
+           After
+         </span>
+       </div>
+-      <label className="sr-only" htmlFor="ba-range">
++      <label className="sr-only" htmlFor={rangeId}>
+         Drag to compare before and after
+       </label>
+       <input
+-        id="ba-range"
++        id={rangeId}
+         type="range"
+         min={4}
+         max={96}
+         value={pos}
+         onChange={(e) => setPos(Number(e.target.value))}
+-        className="absolute inset-0 z-10 cursor-ew-resize opacity-0"
++        className="absolute inset-0 z-20 cursor-ew-resize opacity-0"
+       />
+     </div>
+   );
+diff --git a/components/map/coverage-map-client.tsx b/components/map/coverage-map-client.tsx
+index 9b1f0c7..2594a8e 100644
+--- a/components/map/coverage-map-client.tsx
++++ b/components/map/coverage-map-client.tsx
+@@ -3,9 +3,11 @@
+ // Leaflet's stylesheet. Next code-splits it with this component, so it is
+ // still not on the critical path — it ships when the map does.
+ import "leaflet/dist/leaflet.css";
+-import { useEffect, useRef, useState } from "react";
+-import type { Map as LeafletMap } from "leaflet";
++import { useCallback, useEffect, useRef, useState } from "react";
++import type { Map as LeafletMap, CircleMarker, Marker } from "leaflet";
++import { ChevronDown, Expand, Minus, Plus, RotateCcw, Shrink } from "lucide-react";
+ import { track } from "@/lib/analytics";
++import { cn } from "@/lib/utils";
+ 
+ /**
+  * The interactive layer, loaded only when the browser asks for it.
+@@ -16,9 +18,23 @@ import { track } from "@/lib/analytics";
+  * — or who is on a crawler, or has JavaScript off — pays nothing for it.
+  *
+  * The list underneath is the real content. This is decoration on top of it.
++ *
++ * ── The chrome, and why it is React rather than Leaflet controls ──────────
++ *
++ * Everything overlaid on the tiles — the stats card, the control column, the
++ * legend — is ordinary DOM in a sibling layer, not a Leaflet control. Three
++ * reasons. It can be styled with the site's own tokens instead of overriding
++ * Leaflet's; it renders before Leaflet loads, so the frame does not pop in
++ * empty; and it stays in the accessibility tree while the tile canvas below is
++ * `aria-hidden`, which is the right split — a legend that names the statuses
++ * is readable content, and a field of SVG circles is not.
++ *
++ * The overlay sits at z-index 650: above Leaflet's marker panes (400–600) and
++ * below its popup pane (700), so an open popup is never buried under the
++ * legend.
+  */
+ 
+-type Serialisable = {
++export type MapCityPin = {
+   slug: string;
+   name: string;
+   tier: "core" | "extended";
+@@ -30,25 +46,99 @@ type Serialisable = {
+   stairHigh: number;
+   href: string;
+   estimateHref: string;
++};
++
++export type MapShowcasePin = {
++  slug: string;
++  title: string;
++  summary: string;
++  location: string;
++  citySlug: string;
++  cityName: string;
++  categoryLabel: string;
++  lat: number;
++  lng: number;
++  href: string;
++};
++
++export type MapStat = { label: string; value: string };
++
++export type MapLegendItem = {
++  key: string;
++  /** The status name. This is the thing the user asked to see named. */
++  label: string;
++  /** One clause saying what the status actually means. */
+   note: string;
++  swatch: "studio" | "core" | "extended" | "showcase";
+ };
+ 
++function escapeHtml(value: string) {
++  return value
++    .replace(/&/g, "&amp;")
++    .replace(/</g, "&lt;")
++    .replace(/>/g, "&gt;")
++    .replace(/"/g, "&quot;");
++}
++
++function Swatch({ kind }: { kind: MapLegendItem["swatch"] }) {
++  const base = "mt-0.5 inline-block size-3 shrink-0 rounded-full";
++  if (kind === "studio")
++    return <span className={cn(base, "border-[3px] border-primary bg-surface")} aria-hidden />;
++  if (kind === "core")
++    return <span className={cn(base, "border border-surface bg-primary")} aria-hidden />;
++  if (kind === "extended")
++    return (
++      <span
++        className={cn(base, "border border-surface")}
++        style={{ background: "var(--color-map-extended)" }}
++        aria-hidden
++      />
++    );
++  return <span className={cn(base, "border-2 border-primary bg-surface")} aria-hidden />;
++}
++
+ export function CoverageMapClient({
+   pins,
+   studio,
++  showcase = [],
++  legend,
++  stats,
++  title,
++  subtitle,
+   focus,
+   height = 520,
++  compact = false,
+ }: {
+-  pins: Serialisable[];
++  pins: MapCityPin[];
+   studio: { lat: number; lng: number; label: string };
++  showcase?: MapShowcasePin[];
++  legend: MapLegendItem[];
++  stats: MapStat[];
++  title: string;
++  subtitle: string;
+   /** Slug to centre on. Used by the small locator on a city page. */
+   focus?: string;
+   height?: number;
++  /** Homepage and city-page size: legend starts closed, chrome is trimmed. */
++  compact?: boolean;
+ }) {
++  const wrap = useRef<HTMLDivElement>(null);
+   const el = useRef<HTMLDivElement>(null);
+   const map = useRef<LeafletMap | null>(null);
++  const showcaseMarkers = useRef(new Map<string, Marker | CircleMarker>());
++  const resetView = useRef<(() => void) | null>(null);
++
+   const [visible, setVisible] = useState(false);
++  const [ready, setReady] = useState(false);
+   const [failed, setFailed] = useState(false);
++  /*
++   * The legend is the most useful thing on the map and the most expensive in
++   * space. Open it by default only when there is room: a 380px homepage map or
++   * a 280px city locator would be mostly legend, which defeats the point of
++   * putting a map there at all.
++   */
++  const [legendOpen, setLegendOpen] = useState(!compact && height >= 400);
++  const [fullscreen, setFullscreen] = useState(false);
+ 
+   // Only start loading Leaflet when the map is actually about to be seen.
+   useEffect(() => {
+@@ -85,6 +175,7 @@ export function CoverageMapClient({
+           center: focused ? [focused.lat, focused.lng] : [43.72, -79.55],
+           zoom: focused ? 10 : 8,
+           scrollWheelZoom: false, // never hijack a page scroll
++          zoomControl: false, // replaced by the styled control column
+           attributionControl: true,
+         });
+         map.current = instance;
+@@ -96,40 +187,30 @@ export function CoverageMapClient({
+             '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+         }).addTo(instance);
+ 
+-        // The shop itself.
+-        L.circleMarker([studio.lat, studio.lng], {
+-          radius: 9,
+-          weight: 3,
+-          color: "#1B3A2A",
+-          fillColor: "#ffffff",
+-          fillOpacity: 1,
+-        })
+-          .addTo(instance)
+-          .bindPopup(
+-            `<strong>The studio</strong><br>${studio.label}<br><span style="opacity:.7">Every drive starts here.</span>`,
+-          );
++        const icon = (className: string, html: string) =>
++          L.divIcon({ className, html, iconSize: [28, 28], iconAnchor: [14, 14] });
+ 
++        // ── Coverage discs ────────────────────────────────────────────────
+         for (const p of pins) {
+           const core = p.tier === "core";
+-          const marker = L.circleMarker([p.lat, p.lng], {
+-            radius: core ? 8 : 6,
+-            weight: 2,
+-            color: core ? "#1B3A2A" : "#8A6A3B",
+-            fillColor: core ? "#1B3A2A" : "#8A6A3B",
+-            fillOpacity: core ? 0.75 : 0.4,
++          const marker = L.marker([p.lat, p.lng], {
++            icon: icon(
++              `gh-marker gh-marker--${core ? "core" : "extended"}`,
++              '<span class="gh-marker__dot"></span>',
++            ),
++            keyboard: false,
++            title: p.name,
++            zIndexOffset: core ? 100 : 0,
+           }).addTo(instance);
+ 
+           marker.bindPopup(
+-            `<div style="min-width:210px">
+-               <strong style="font-size:15px">${p.name}</strong>
+-               <div style="margin-top:2px;opacity:.7">${core ? "Core service area" : "Extended — we travel"} · ${p.distanceKm} km from the studio</div>
+-               <div style="margin-top:8px"><strong>13-step stair conversion</strong><br>$${p.stairLow.toLocaleString()} – $${p.stairHigh.toLocaleString()}<br>
+-                 <span style="opacity:.7">2026 band · HST extra · not a quote</span></div>
+-               <div style="margin-top:8px">${p.jobTypeCount} job types taken here</div>
+-               <div style="margin-top:8px;opacity:.7;font-size:11px">Service coverage — not a record of past jobs.</div>
+-               <div style="margin-top:10px">
+-                 <a href="${p.href}">${p.name} page</a> · <a href="${p.estimateHref}">Price it</a>
+-               </div>
++            `<div class="gh-pop">
++               <p class="gh-pop__eyebrow">${core ? "Core service area" : "Extended range"}</p>
++               <p class="gh-pop__title">${escapeHtml(p.name)}</p>
++               <p class="gh-pop__meta">${p.distanceKm} km from the Sterling Road studio · ${p.jobTypeCount} job types taken here</p>
++               <div class="gh-pop__band"><strong>13-step stair conversion</strong><br>$${p.stairLow.toLocaleString()} – $${p.stairHigh.toLocaleString()}<br><span style="opacity:.7">2026 band · HST extra · not a quote</span></div>
++               <a class="gh-pop__cta" href="${p.estimateHref}">Price a job in ${escapeHtml(p.name)}</a>
++               <a class="gh-pop__secondary" href="${p.href}">Everything we do in ${escapeHtml(p.name)}</a>
+              </div>`,
+           );
+           marker.on("popupopen", () =>
+@@ -137,13 +218,81 @@ export function CoverageMapClient({
+           );
+         }
+ 
+-        // Frame every pin, so nobody has to hunt for the service area.
+-        if (!focused) {
+-          instance.fitBounds(
+-            pins.map((p) => [p.lat, p.lng] as [number, number]),
+-            { padding: [28, 28] },
++        // ── Worked examples: hollow, pulsing, municipality-level ───────────
++        const byCity = new Map<string, MapShowcasePin[]>();
++        for (const s of showcase) {
++          byCity.set(s.citySlug, [...(byCity.get(s.citySlug) ?? []), s]);
++        }
++
++        for (const [citySlug, group] of byCity) {
++          const first = group[0];
++          if (!first) continue;
++          const count = group.length;
++          const marker = L.marker([first.lat, first.lng], {
++            icon: icon(
++              "gh-marker gh-marker--showcase",
++              `<span class="gh-marker__pulse"></span><span class="gh-marker__ring"></span>${
++                count > 1 ? `<span class="gh-marker__count">${count}</span>` : ""
++              }`,
++            ),
++            keyboard: false,
++            title: `${count} worked example${count > 1 ? "s" : ""} — ${first.cityName}`,
++            zIndexOffset: 500,
++          }).addTo(instance);
++
++          const body = group
++            .map(
++              (s) =>
++                `<div style="margin-top:8px">
++                   <p class="gh-pop__eyebrow">${escapeHtml(s.categoryLabel)}</p>
++                   <p class="gh-pop__title">${escapeHtml(s.title)}</p>
++                   <p class="gh-pop__meta">${escapeHtml(s.summary)}</p>
++                   <a class="gh-pop__cta" href="${s.href}">Open this job</a>
++                 </div>`,
++            )
++            .join("");
++
++          marker.bindPopup(
++            `<div class="gh-pop">
++               <p class="gh-pop__eyebrow">Worked example${count > 1 ? `s · ${count}` : ""}</p>
++               <p class="gh-pop__title">${escapeHtml(first.cityName)}</p>
++               ${body}
++               <p class="gh-pop__meta" style="margin-top:10px;font-size:11px">Pinned at the municipality centre. A specification we build to — not a client record.</p>
++             </div>`,
++            { maxWidth: 280 },
+           );
++          marker.on("popupopen", () =>
++            track({ event: "portfolio_job_open", slug: `map:${citySlug}` }),
++          );
++          showcaseMarkers.current.set(citySlug, marker);
+         }
++
++        // ── The shop itself ───────────────────────────────────────────────
++        L.marker([studio.lat, studio.lng], {
++          icon: icon("gh-marker gh-marker--studio", '<span class="gh-marker__dot"></span>'),
++          keyboard: false,
++          title: "The studio",
++          zIndexOffset: 900,
++        })
++          .addTo(instance)
++          .bindPopup(
++            `<div class="gh-pop">
++               <p class="gh-pop__eyebrow">Studio &amp; workshop</p>
++               <p class="gh-pop__title">${escapeHtml(studio.label)}</p>
++               <p class="gh-pop__meta">Stair components are built here, then fitted on site. Every drive starts from this door.</p>
++               <a class="gh-pop__cta" href="/contact">Book a site visit</a>
++             </div>`,
++          );
++
++        // Frame every pin, so nobody has to hunt for the service area.
++        const bounds = pins.map((p) => [p.lat, p.lng] as [number, number]);
++        const fit = () => {
++          if (focused) instance.setView([focused.lat, focused.lng], 10);
++          else if (bounds.length) instance.fitBounds(bounds, { padding: [34, 34] });
++        };
++        resetView.current = fit;
++        if (!focused) fit();
++        setReady(true);
+       } catch {
+         // Tiles blocked, offline, a browser Leaflet does not support. The
+         // list below is the content; the map was never load-bearing.
+@@ -153,21 +302,188 @@ export function CoverageMapClient({
+ 
+     return () => {
+       cancelled = true;
++      showcaseMarkers.current.clear();
++      resetView.current = null;
+       map.current?.remove();
+       map.current = null;
+     };
+-  }, [visible, pins, studio, focus]);
++  }, [visible, pins, studio, focus, showcase]);
++
++  // Fullscreen: the browser's own, so Escape works and nothing is trapped.
++  useEffect(() => {
++    const onChange = () => {
++      const active = document.fullscreenElement === wrap.current;
++      setFullscreen(active);
++      // Leaflet caches the container size; without this the tiles stay the
++      // old shape and half the viewport is grey.
++      window.setTimeout(() => map.current?.invalidateSize(), 120);
++    };
++    document.addEventListener("fullscreenchange", onChange);
++    return () => document.removeEventListener("fullscreenchange", onChange);
++  }, []);
++
++  const toggleFullscreen = useCallback(() => {
++    if (document.fullscreenElement) void document.exitFullscreen();
++    else void wrap.current?.requestFullscreen?.();
++  }, []);
++
++  const flyToShowcase = useCallback((citySlug: string) => {
++    const marker = showcaseMarkers.current.get(citySlug);
++    const instance = map.current;
++    if (!marker || !instance) return;
++    instance.flyTo(marker.getLatLng(), 11, { duration: 0.8 });
++    window.setTimeout(() => marker.openPopup(), 850);
++  }, []);
+ 
+   if (failed) return null;
+ 
++  const controlClass =
++    "flex size-9 items-center justify-center rounded-lg border border-border bg-surface/95 text-fg shadow-sm backdrop-blur transition-colors hover:bg-bg-warm disabled:opacity-40";
++
+   return (
+     <div
+-      ref={el}
+-      // 520px is a lot of a 667px phone screen. The CSS variable lets the
+-      // stylesheet drop it at narrow widths without the component knowing.
++      ref={wrap}
+       style={{ ["--map-h" as string]: `${height}px` }}
+-      className="h-[min(var(--map-h),60vh)] w-full overflow-hidden rounded-xl border border-border bg-bg-warm"
+-      aria-hidden="true"
+-    />
++      className={cn(
++        "relative w-full overflow-hidden rounded-xl border border-border bg-bg-warm",
++        "h-[min(var(--map-h),60vh)]",
++        fullscreen && "h-screen max-h-none rounded-none",
++      )}
++    >
++      {/*
++        The tile canvas. Hidden from assistive technology on purpose: every
++        fact it draws is also server-rendered as text, and a screen reader
++        reading 32 unlabelled SVG nodes is worse than silence.
++      */}
++      <div ref={el} className="absolute inset-0" aria-hidden="true" />
++
++      <div className="pointer-events-none absolute inset-0 z-[650] flex min-h-0 flex-col justify-between gap-3 p-3 sm:p-4">
++        <div className="flex shrink-0 items-start justify-between gap-3">
++          <div className="pointer-events-auto max-w-[min(20rem,72%)] rounded-xl border border-border bg-surface/95 px-3.5 py-3 shadow-[var(--shadow-card)] backdrop-blur">
++            <p className="text-xs font-medium tracking-[0.14em] text-accent uppercase">{subtitle}</p>
++            <p className="mt-1 font-display text-base leading-snug sm:text-lg">{title}</p>
++            <dl className="mt-2.5 flex flex-wrap gap-x-4 gap-y-1.5">
++              {stats.map((s) => (
++                <div key={s.label}>
++                  <dt className="text-[11px] text-muted">{s.label}</dt>
++                  <dd className="font-display text-lg leading-none tabular-nums">{s.value}</dd>
++                </div>
++              ))}
++            </dl>
++          </div>
++
++          <div className="pointer-events-auto flex flex-col gap-1.5">
++            <button
++              type="button"
++              className={controlClass}
++              onClick={() => map.current?.zoomIn()}
++              disabled={!ready}
++              aria-label="Zoom in"
++            >
++              <Plus className="size-4" aria-hidden />
++            </button>
++            <button
++              type="button"
++              className={controlClass}
++              onClick={() => map.current?.zoomOut()}
++              disabled={!ready}
++              aria-label="Zoom out"
++            >
++              <Minus className="size-4" aria-hidden />
++            </button>
++            <button
++              type="button"
++              className={controlClass}
++              onClick={() => resetView.current?.()}
++              disabled={!ready}
++              aria-label="Reset the view to the whole service area"
++            >
++              <RotateCcw className="size-4" aria-hidden />
++            </button>
++            <button
++              type="button"
++              className={controlClass}
++              onClick={toggleFullscreen}
++              disabled={!ready}
++              aria-label={fullscreen ? "Exit full screen" : "View the map full screen"}
++            >
++              {fullscreen ? (
++                <Shrink className="size-4" aria-hidden />
++              ) : (
++                <Expand className="size-4" aria-hidden />
++              )}
++            </button>
++          </div>
++        </div>
++
++        <div className="pointer-events-auto flex min-h-0 w-full max-w-sm flex-col rounded-xl border border-border bg-surface/95 shadow-[var(--shadow-card)] backdrop-blur">
++          <button
++            type="button"
++            onClick={() => setLegendOpen((o) => !o)}
++            aria-expanded={legendOpen}
++            className="flex w-full shrink-0 items-center justify-between gap-3 px-3.5 py-2.5 text-left"
++          >
++            <span className="text-sm font-medium">
++              Legend
++              {showcase.length > 0 && (
++                <span className="ml-1.5 text-muted">
++                  · {showcase.length} worked example{showcase.length > 1 ? "s" : ""}
++                </span>
++              )}
++            </span>
++            <ChevronDown
++              className={cn("size-4 shrink-0 transition-transform", legendOpen && "rotate-180")}
++              aria-hidden
++            />
++          </button>
++
++          {legendOpen && (
++            <div className="min-h-0 flex-1 overflow-y-auto border-t border-border px-3.5 py-3">
++              <ul className="space-y-2">
++                {legend.map((item) => (
++                  <li key={item.key} className="flex gap-2.5">
++                    <Swatch kind={item.swatch} />
++                    <span className="text-xs leading-snug">
++                      <span className="font-medium">{item.label}</span>
++                      <span className="text-muted"> — {item.note}</span>
++                    </span>
++                  </li>
++                ))}
++              </ul>
++
++              {showcase.length > 0 && (
++                <>
++                  {/*
++                    What was built, named. Clicking one flies the map to its
++                    municipality and opens the popup, so the legend is the
++                    index into the map rather than a static key beside it.
++                  */}
++                  <p className="mt-3.5 border-t border-border pt-3 text-[11px] font-medium tracking-[0.12em] text-accent uppercase">
++                    Worked examples on this map
++                  </p>
++                  <ul className="mt-2 space-y-1">
++                    {showcase.map((s) => (
++                      <li key={s.slug}>
++                        <button
++                          type="button"
++                          onClick={() => flyToShowcase(s.citySlug)}
++                          disabled={!ready}
++                          className="w-full rounded-md px-1.5 py-1 text-left text-xs transition-colors hover:bg-bg-warm disabled:opacity-50"
++                        >
++                          <span className="font-medium">{s.title}</span>
++                          <span className="block text-muted">
++                            {s.categoryLabel} · {s.location}
++                          </span>
++                        </button>
++                      </li>
++                    ))}
++                  </ul>
++                </>
++              )}
++            </div>
++          )}
++        </div>
++      </div>
++    </div>
+   );
+ }
+diff --git a/components/map/coverage-map.tsx b/components/map/coverage-map.tsx
+index 1d2e526..89e30c4 100644
+--- a/components/map/coverage-map.tsx
++++ b/components/map/coverage-map.tsx
+@@ -1,6 +1,12 @@
+ import Link from "next/link";
+-import { CoverageMapClient } from "@/components/map/coverage-map-client";
+ import { MapPin } from "lucide-react";
++import {
++  CoverageMapClient,
++  type MapCityPin,
++  type MapLegendItem,
++  type MapShowcasePin,
++  type MapStat,
++} from "@/components/map/coverage-map-client";
+ import {
+   STUDIO,
+   coreCoverage,
+@@ -9,6 +15,14 @@ import {
+   extendedCoverage,
+   type CoveragePin,
+ } from "@/data/coverage";
++import { getService } from "@/data/services";
++import {
++  SHOWCASE_DISCLOSURE,
++  serviceShowcaseCategory,
++  showcase,
++  showcaseCategoryLabel,
++  type ShowcasePin,
++} from "@/data/showcase";
+ 
+ /**
+  * Coverage: a crawlable list, with a map on top of it.
+@@ -16,12 +30,24 @@ import {
+  * The order matters and is deliberate. Everything a search engine or an answer
+  * engine can use — the municipality, the tier, the distance, the band, the
+  * link — is server-rendered HTML. The Leaflet layer is loaded client-side,
+- * only when it scrolls into view, and is marked aria-hidden because it repeats
+- * information the list already carries in a form a screen reader can read.
++ * only when it scrolls into view, and the tile canvas is marked aria-hidden
++ * because it repeats information the list already carries in a form a screen
++ * reader can read.
+  *
+  * Build it the other way round and you get a page that looks impressive and is
+  * invisible to every crawler and every assistant — 32 municipalities' worth of
+  * local signal locked inside a canvas.
++ *
++ * ── Filtering ─────────────────────────────────────────────────────────────
++ *
++ * Pass `serviceSlug` and the map narrows to that department: the stairs page
++ * shows the municipalities where stair work is taken and the stair worked
++ * examples, the installation page shows install, and so on. The filter reads
++ * `CatalogEntry.serviceSlug` off the job types each municipality is actually
++ * offered, so an extended town that only justifies the drive for a package
++ * drops off the repairs map by itself. That is the same commercial position
++ * `tierNote()` states in prose — the map cannot contradict the copy because
++ * both are computed from the same field.
+  */
+ 
+ /**
+@@ -29,14 +55,9 @@ import {
+  * Server Component, and it was never needed. CoverageMapClient renders an
+  * empty container on the server and only reaches for Leaflet inside an effect,
+  * after an IntersectionObserver says the map is about to be seen.
+- *
+- * The "use client" boundary already puts it in its own chunk, and the
+- * `await import("leaflet")` inside the effect puts the 144 KB library in a
+- * second chunk that is fetched on demand. So nothing about the map is on the
+- * critical path, and the shared bundle is untouched.
+  */
+ 
+-function serialise(p: CoveragePin) {
++function serialise(p: CoveragePin): MapCityPin {
+   return {
+     slug: p.city.slug,
+     name: p.city.name,
+@@ -49,21 +70,171 @@ function serialise(p: CoveragePin) {
+     stairHigh: p.stairBand.high,
+     href: `/areas/${p.city.slug}`,
+     estimateHref: `/estimate?city=${p.city.slug}&service=hardwood-stairs`,
+-    note: p.city.typical,
+   };
+ }
+ 
+-export function CoverageMap({ focus, height }: { focus?: string; height?: number }) {
++function serialiseShowcase(s: ShowcasePin): MapShowcasePin {
++  return {
++    slug: s.slug,
++    title: s.title,
++    summary: s.summary,
++    location: s.location,
++    citySlug: s.citySlug,
++    cityName: s.cityName,
++    categoryLabel: showcaseCategoryLabel[s.category],
++    lat: s.lat,
++    lng: s.lng,
++    href: s.href,
++  };
++}
++
++/**
++ * The legend, written out.
++ *
++ * Every status has a name and a clause saying what it means, because a colour
++ * key that reads "green / bronze / ring" tells a homeowner nothing. The fourth
++ * status is the one that has to be worded carefully: a hollow ring is a
++ * specification we build to, pinned at the centre of a municipality, and the
++ * wording says so rather than letting a pin imply a job on someone's street.
++ */
++function legendFor(hasShowcase: boolean): MapLegendItem[] {
++  const items: MapLegendItem[] = [
++    {
++      key: "studio",
++      label: "Studio & workshop",
++      note: "Sterling Road. Stair components are built here, then fitted on site.",
++      swatch: "studio",
++    },
++    {
++      key: "core",
++      label: "Core service area",
++      note: "Free on-site measure for any qualified hardwood, stair or railing job.",
++      swatch: "core",
++    },
++    {
++      key: "extended",
++      label: "Extended range",
++      note: "We travel here for stair packages, whole-home installs and refinishing — not a single-room repair.",
++      swatch: "extended",
++    },
++  ];
++
++  if (hasShowcase) {
++    items.push({
++      key: "showcase",
++      label: "Worked example",
++      note: "A specification we build to, pinned at the municipality centre. Not a client record and not an address.",
++      swatch: "showcase",
++    });
++  }
++
++  return items;
++}
++
++export function CoverageMap({
++  focus,
++  height,
++  serviceSlug,
++  compact,
++}: {
++  focus?: string;
++  height?: number;
++  /** Narrow the map to one published service. Omit for the whole network. */
++  serviceSlug?: string;
++  compact?: boolean;
++}) {
++  const service = serviceSlug ? getService(serviceSlug) : undefined;
++
++  const matched = service
++    ? coverage.filter((p) => p.jobTypes.some((j) => j.serviceSlug === service.slug))
++    : coverage;
++  /**
++   * `custom-inlays` has no catalogue archetype yet, so a strict filter would
++   * empty the map rather than narrow it. An empty map is a worse answer than
++   * the whole network, so fall back — and the caption below still names only
++   * the worked examples that belong to this service.
++   */
++  const pins = matched.length > 0 ? matched : coverage;
++
++  const category = service ? serviceShowcaseCategory[service.slug] : undefined;
++  const shown = service
++    ? category
++      ? showcase.filter((s) => s.category === category)
++      : []
++    : showcase;
++
++  const core = pins.filter((p) => p.city.tier === "core").length;
++  const stats: MapStat[] = [
++    { label: "Municipalities", value: String(pins.length) },
++    { label: "Core", value: String(core) },
++    { label: "We travel", value: String(pins.length - core) },
++  ];
++  if (shown.length > 0) {
++    stats.push({ label: "Worked examples", value: String(shown.length) });
++  }
++
+   return (
+     <CoverageMapClient
+-      pins={coverage.map(serialise)}
++      pins={pins.map(serialise)}
+       studio={{ lat: STUDIO.lat, lng: STUDIO.lng, label: STUDIO.label }}
++      showcase={shown.map(serialiseShowcase)}
++      legend={legendFor(shown.length > 0)}
++      stats={stats}
++      subtitle={service ? service.shortName : "Service network"}
++      title={
++        service
++          ? `${service.name} across the GTA`
++          : "Where we work, and what we take on there"
++      }
+       focus={focus}
+       height={height}
++      compact={compact}
+     />
+   );
+ }
+ 
++/**
++ * The worked examples, named, in server-rendered HTML.
++ *
++ * The legend inside the map names them too, but that legend is client-side —
++ * it does not exist for a crawler, and it does not exist with JavaScript off.
++ * This strip is the same information as real links, which is also what turns
++ * every service page into an internal link into the nine job pages.
++ */
++export function MapWorkedExamples({ serviceSlug }: { serviceSlug?: string }) {
++  const service = serviceSlug ? getService(serviceSlug) : undefined;
++  const category = service ? serviceShowcaseCategory[service.slug] : undefined;
++  const shown = service
++    ? category
++      ? showcase.filter((s) => s.category === category)
++      : []
++    : showcase;
++
++  if (shown.length === 0) return null;
++
++  return (
++    <div className="mt-4">
++      <h3 className="text-xs font-medium tracking-[0.14em] text-accent uppercase">
++        Worked examples on this map
++      </h3>
++      <ul className="mt-2 flex flex-wrap gap-x-2 gap-y-1.5 text-sm">
++        {shown.map((s, i) => (
++          <li key={s.slug} className="flex items-center gap-2">
++            {i > 0 && <span aria-hidden className="text-border">·</span>}
++            <Link href={s.href} className="text-primary hover:underline">
++              {s.title}
++            </Link>
++            <span className="text-muted">
++              {showcaseCategoryLabel[s.category]}, {s.location}
++            </span>
++          </li>
++        ))}
++      </ul>
++      <p className="mt-2 max-w-3xl text-xs text-muted">{SHOWCASE_DISCLOSURE}</p>
++    </div>
++  );
++}
++
+ /** The list. This is the content; the map above is the decoration. */
+ export function CoverageList() {
+   const groups = [
+diff --git a/components/portfolio/project-grid.tsx b/components/portfolio/project-grid.tsx
+index bc0ee7a..91db065 100644
+--- a/components/portfolio/project-grid.tsx
++++ b/components/portfolio/project-grid.tsx
+@@ -1,6 +1,8 @@
+ "use client";
+ 
+ import { useState } from "react";
++import Link from "next/link";
++import { ArrowRight } from "lucide-react";
+ import { Photo } from "@/components/photo";
+ import { BeforeAfter } from "@/components/before-after";
+ import { Badge } from "@/components/ui/badge";
+@@ -10,6 +12,25 @@ import { cn } from "@/lib/utils";
+ /**
+  * Client island for the portfolio filter. The page itself stays a server
+  * component so its metadata and JSON-LD are rendered statically.
++ *
++ * ── Why every card is a link now ──────────────────────────────────────────
++ *
++ * These were `<article>` elements. The photograph, the headline and the copy
++ * all looked like a card and none of them went anywhere, because there was no
++ * `/portfolio/{slug}` route to go to — the catalogue deep-linked to `#slug`
++ * anchors on this same page instead. Nine of the most persuasive assets on the
++ * site were decoration.
++ *
++ * The pattern here is a stretched link rather than a `<Link>` wrapped around
++ * the whole card, for one specific reason: three of the nine cards contain a
++ * before/after slider, and a slider inside an anchor is a slider you cannot
++ * drag on a touchscreen — every drag ends in a navigation. So the anchor
++ * covers the card through an `::after` overlay, and the slider is lifted above
++ * that overlay with `z-10`. Result: the image, the heading and the body all
++ * navigate; the slider still slides.
++ *
++ * The `id={p.slug}` anchor stays. Older links — and anything already indexed
++ * pointing at `/portfolio#slug` — keep landing in the right place.
+  */
+ export function ProjectGrid() {
+   const [filter, setFilter] = useState<(typeof projectFilters)[number]["id"]>("all");
+@@ -40,21 +61,19 @@ export function ProjectGrid() {
+         {visible.map((p) => (
+           <article
+             key={p.slug}
+-            /*
+-             * A stable anchor per job. There is no /portfolio/{slug} route —
+-             * the grid is one client-filtered page — so the job catalogue deep
+-             * links here instead. scroll-mt clears the sticky header.
+-             */
+             id={p.slug}
+-            className="scroll-mt-28 overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]"
++            className="group relative scroll-mt-28 overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-shadow focus-within:shadow-lg hover:shadow-lg"
+           >
+             {p.before && p.after ? (
+-              <BeforeAfter
+-                before={p.before}
+-                after={p.after}
+-                beforeAlt={`Before: ${p.title}`}
+-                afterAlt={p.imageAlt}
+-              />
++              // Lifted above the stretched link so the slider stays draggable.
++              <div className="relative z-10">
++                <BeforeAfter
++                  before={p.before}
++                  after={p.after}
++                  beforeAlt={`Before: ${p.title}`}
++                  afterAlt={p.imageAlt}
++                />
++              </div>
+             ) : (
+               <Photo src={p.image} alt={p.imageAlt} ratio="4/3" slot="card" />
+             )}
+@@ -63,7 +82,19 @@ export function ProjectGrid() {
+                 <Badge>{p.location}</Badge>
+                 <Badge>{p.type}</Badge>
+               </div>
+-              <h2 className="mt-3 font-display text-2xl">{p.title}</h2>
++              <h2 className="mt-3 font-display text-2xl">
++                {/*
++                  The one anchor on the card. `after:absolute after:inset-0`
++                  stretches its hit area over the whole article, so the photo
++                  and the copy are clickable without nesting them in a link.
++                */}
++                <Link
++                  href={`/portfolio/${p.slug}`}
++                  className="after:absolute after:inset-0 after:content-[''] hover:text-primary focus-visible:outline-none"
++                >
++                  {p.title}
++                </Link>
++              </h2>
+               <p className="mt-2 text-muted">{p.details}</p>
+               <ul className="mt-4 flex flex-wrap gap-2">
+                 {p.specs.map((spec) => (
+@@ -72,6 +103,13 @@ export function ProjectGrid() {
+                   </li>
+                 ))}
+               </ul>
++              <p className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-primary">
++                Open the job
++                <ArrowRight
++                  className="size-3.5 transition-transform group-hover:translate-x-0.5"
++                  aria-hidden
++                />
++              </p>
+             </div>
+           </article>
+         ))}
+diff --git a/data/showcase.ts b/data/showcase.ts
+new file mode 100644
+index 0000000..1a2439b
+--- /dev/null
++++ b/data/showcase.ts
+@@ -0,0 +1,137 @@
++import { coverage } from "@/data/coverage";
++import { projects, type Project } from "@/data/projects";
++
++/**
++ * The worked examples that appear on the maps.
++ *
++ * ── Why this file is separate from data/coverage.ts ───────────────────────
++ *
++ * `data/coverage.ts` may never import `data/projects.ts`, and
++ * `tests/coverage.test.ts` fails the build if it ever does. The reason is
++ * written out at length there: the portfolio photography is AI-generated
++ * (docs/HONEST-LIMITS.md), so dropping those nine entries onto a map at real
++ * locations would place invented jobs at checkable addresses. A pin reads as a
++ * record even when the caption says otherwise.
++ *
++ * That rule stands. This file does something different and narrower, under
++ * three constraints that make it honest:
++ *
++ *   1. **Municipality precision only.** A showcase pin is placed at the
++ *      municipality centroid — the same public coordinate `coverage` already
++ *      uses — and never at the neighbourhood, the street, or the house. It is
++ *      drawn as a hollow ring for exactly that reason: the ring says "somewhere
++ *      in this municipality", which is all we are entitled to say.
++ *   2. **Labelled as a specification, not a record.** Every pin carries
++ *      `illustrative: true` and renders under SHOWCASE_DISCLOSURE. The map
++ *      legend names the status "Worked example", not "completed job".
++ *   3. **No claim about a customer.** No name, no date, no quote, no rating.
++ *      Same rule the job catalogue lives under.
++ *
++ * What this buys: a homeowner in Vaughan can see that the shop has a worked
++ * specification for a 4,200 sq ft white-oak install *of the kind they are
++ * buying*, click it, and read the spec. That is a true statement and a useful
++ * one. "We did a job on your street" is neither.
++ *
++ * When Franco confirms a real, permissioned, delivered job, it goes in
++ * `CoveragePin.confirmedJobs` — a different field, a different gate, and a
++ * different marker. This file is not that field and must not become it.
++ */
++
++/** The sentence that renders wherever a showcase pin does. Stated once. */
++export const SHOWCASE_DISCLOSURE =
++  "Worked examples are specifications this shop builds to, pinned at the municipality centre — not a client record, not an address, and not a claim that a job happened on your street.";
++
++export type ShowcasePin = {
++  slug: string;
++  title: string;
++  summary: string;
++  /** Neighbourhood-level prose, as written in data/projects.ts. Display only. */
++  location: string;
++  citySlug: string;
++  cityName: string;
++  category: Project["category"];
++  /** Municipality centroid, copied from the coverage pin. Never finer. */
++  lat: number;
++  lng: number;
++  /** The only precision this data is allowed to assert. */
++  precision: "municipality";
++  /** No delivered-job claim stands behind this pin. Always true. */
++  illustrative: true;
++  href: string;
++};
++
++/**
++ * Human labels for the categories, used in the legend and the caption strip.
++ * `data/projects.ts` uses one more category than `data/catalog.ts` does
++ * ("custom"), so this map is keyed on the project vocabulary.
++ */
++export const showcaseCategoryLabel: Record<Project["category"], string> = {
++  install: "Installation",
++  refinish: "Sanding & refinishing",
++  stairs: "Stairs",
++  repair: "Repairs",
++  custom: "Custom inlay",
++  commercial: "Commercial",
++  deck: "Decks",
++};
++
++export const showcase: ShowcasePin[] = projects.map((p) => {
++  const pin = coverage.find((c) => c.city.slug === p.citySlug);
++  if (!pin) {
++    // A project pointing at a municipality we do not serve would either vanish
++    // from the map or, worse, be silently dropped at 0,0. Fail at build time.
++    throw new Error(`data/showcase.ts: "${p.slug}" names city "${p.citySlug}", which is not served`);
++  }
++  return {
++    slug: p.slug,
++    title: p.title,
++    summary: p.summary,
++    location: p.location,
++    citySlug: p.citySlug,
++    cityName: pin.city.name,
++    category: p.category,
++    lat: pin.lat,
++    lng: pin.lng,
++    precision: "municipality",
++    illustrative: true,
++    href: `/portfolio/${p.slug}`,
++  };
++});
++
++/** The worked examples for one service, or all of them. */
++export function showcaseFor(category?: Project["category"]) {
++  return category ? showcase.filter((s) => s.category === category) : showcase;
++}
++
++/** How many worked examples sit on one municipality, for the marker badge. */
++export function showcaseCountByCity(pins: ShowcasePin[] = showcase) {
++  const counts = new Map<string, number>();
++  for (const s of pins) counts.set(s.citySlug, (counts.get(s.citySlug) ?? 0) + 1);
++  return counts;
++}
++
++/**
++ * Which worked examples belong to which published service.
++ *
++ * `data/catalog.ts` already carries `serviceSlug` on every archetype, so the
++ * *coverage* side of a filtered map needs no table — a municipality appears on
++ * the stairs map when one of the job types it is offered is a stair job. The
++ * portfolio has one category the catalogue does not ("custom"), so this table
++ * exists only for the showcase side.
++ *
++ * `custom-inlays` has no catalogue archetype of its own yet; the medallion
++ * project is its only worked example, which is exactly why it is listed here.
++ */
++export const serviceShowcaseCategory: Record<string, Project["category"]> = {
++  "hardwood-installation": "install",
++  "hardwood-stairs": "stairs",
++  "sanding-refinishing": "refinish",
++  "hardwood-repairs": "repair",
++  "hardwood-decks": "deck",
++  "commercial-hardwood": "commercial",
++  "custom-inlays": "custom",
++  // hardwood-railings is deliberately absent. The Oakville stair carries an
++  // OBC-compliant rail, but it is a stair job; filing it under railings to
++  // avoid an empty list would be padding, and the map is allowed to show a
++  // service with no worked example yet.
++};
+diff --git a/docs/DOMINATION_CHANGELOG.md b/docs/DOMINATION_CHANGELOG.md
+index ebe5266..8c79c4e 100644
+--- a/docs/DOMINATION_CHANGELOG.md
++++ b/docs/DOMINATION_CHANGELOG.md
+@@ -506,3 +506,152 @@ no cookies, no user data, and `*` without `Allow-Credentials` means credentials
+ are never sent. This is a scanner finding, not an exposure. Every
+ discoverability and entity result on the production suite was already green
+ before this change.
++
++---
++
++## Stage 6 — Navigable work, and a map that names what is on it (2026-09-01)
++
++Two things shipped together because they are the same problem seen twice: the
++site had persuasive content that nothing could reach, and a map that showed
++where the shop works without showing what it does there.
++
++### The dead end (the critical one)
++
++`/portfolio` rendered nine `<article>` elements. Photograph, headline, spec
++list, card shadow — everything that makes a thing look clickable — and not one
++of them went anywhere, because **no `/portfolio/{slug}` route existed**. The
++catalogue deep-linked to `#slug` fragments on the same grid; site search
++returned nine results that all resolved to `/portfolio`; "related work" cards on
++every service page, every service × city page, every area page and the homepage
++had the same problem. The most persuasive assets on the site were decoration.
++
++Nothing was *broken*, which is why no type check and no build ever caught it.
++
++Shipped:
++
++- **`app/portfolio/[slug]/page.tsx`** — nine statically generated job pages,
++  ISR one hour, own canonical, breadcrumbs, `CreativeWork` JSON-LD with an
++  `ImageObject` whose `creditText` says the photograph is an illustrative
++  rendering. No rating, no review, no customer — same rule the job catalogue
++  lives under. Each page reverse-looks-up the catalogue archetypes that name it
++  in `relatedProjects`, so the spec, the failure modes and the published band
++  are one click away, and it links onward to the city page and a prefilled
++  estimate.
++- **Cards navigate.** The grid card uses a stretched link (`::after` over the
++  card) rather than an anchor wrapped around everything, because three of the
++  nine cards contain a before/after slider and a slider inside an anchor is a
++  slider you cannot drag — every drag ends in a navigation. The slider is
++  lifted above the overlay instead. Verified in a real browser: clicking the
++  photograph navigates, clicking the body copy navigates, dragging the slider
++  moves it from 52 to 79 and stays on the page.
++- `id={p.slug}` anchors kept, so anything already pointing at `/portfolio#slug`
++  still lands correctly.
++- The catalogue, site search and the sitemap now point at the nine pages.
++- **`components/before-after.tsx`**: `id="ba-range"` was a literal, so
++  `/portfolio` shipped three elements with the same DOM id and three labels
++  pointing at the first one. Now `useId()`.
++
++### The map
++
++Rebuilt in the visual language of a network explorer, and — more importantly —
++made to say what it is showing.
++
++- **Stats header card, control column (zoom, reset view, full screen), and a
++  collapsible legend.** All of it is ordinary DOM in a sibling layer at
++  z-index 650: above Leaflet's marker panes, below its popup pane. It styles
++  from the site's own tokens, renders before Leaflet loads, and stays in the
++  accessibility tree while the tile canvas below stays `aria-hidden`.
++- **Named statuses.** "Studio & workshop", "Core service area", "Extended
++  range", "Worked example" — each with a clause saying what it means. A key
++  that reads "green / ochre / ring" tells a homeowner nothing.
++- **Status is encoded by shape as well as colour**: filled bullseye for the
++  studio, solid disc for coverage, hollow pulsing ring for a worked example.
++  Colour alone fails roughly one man in twelve.
++- **`--color-map-extended: #a8742a`.** `--color-primary` (#1b3a2a) and
++  `--color-accent` (#3f6b52) are both greens; at 12px on a legend they are one
++  colour with two names, and core-versus-travel is the most commercial
++  distinction the map makes. Measured before the fix: `rgb(27,58,42)` against
++  `rgb(63,107,82)`.
++- **Numbered badge** where a municipality carries more than one worked example
++  (Toronto shows 4).
++- **Popups end in a real CTA button**, not a text link: price a job in this
++  city, or open this job.
++- The pulse stops under `prefers-reduced-motion`.
++
++### Filtered maps, per department
++
++`CoverageMap` takes a `serviceSlug`. The filter reads `CatalogEntry.serviceSlug`
++off the job types each municipality is actually offered, so it cannot drift from
++the copy: an extended town that only justifies the drive for a package drops off
++the repairs map by itself, which is exactly what `tierNote()` says in prose on
++the same page. Placed on:
++
++| Surface | Map |
++| --- | --- |
++| `/` | whole network, 380px, legend collapsed |
++| `/areas` | whole network, full size |
++| `/areas/[city]` (32) | whole network, focused on that city, 280px |
++| `/services/[slug]` (8) | that service only |
++| `/services/[slug]/[city]` (224) | that service, focused on that city |
++| `/stairs` | stairs only |
++
++`custom-inlays` has no catalogue archetype yet, so a strict filter would empty
++the map rather than narrow it; it falls back to the whole network and still
++names only its own worked example.
++
++### The honesty rule this had to clear
++
++`data/coverage.ts` may never import `data/projects.ts` — the photography is
++AI-generated (`docs/HONEST-LIMITS.md`), and pinning those entries at real
++locations would put invented work at checkable addresses. That rule stands and
++`tests/coverage.test.ts` still enforces it.
++
++The join lives in a new file, `data/showcase.ts`, under three constraints that
++`tests/showcase.test.ts` pins:
++
++1. **Municipality precision only.** A worked-example pin sits *exactly* on the
++   municipality centroid the coverage pin already uses — asserted with strict
++   equality, because a jittered "approximate" coordinate is a fabricated
++   location dressed up as an honest one. It is drawn as a hollow ring for that
++   reason.
++2. **`illustrative: true` on every pin**, rendered under a disclosure that says
++   "not a client record and not an address" in the legend, in the popup, and as
++   server-rendered HTML beneath every map.
++3. **No customer, date, quote or rating field may exist on the type.**
++
++`CoveragePin.confirmedJobs` is still empty and still gated on a real,
++permissioned, delivered job. This file is not that field.
++
++### Crawlability
++
++The client legend does not exist for a crawler. `MapWorkedExamples` renders the
++same list as real `<a>` elements under every map, which is also what turns each
++service page into an internal link into the nine job pages.
++
++### Evidence
++
++- `npm run test` — **290 pass, 0 fail** (263 before; +27 across
++  `tests/showcase.test.ts` and `tests/portfolio-navigation.test.ts`).
++- `npm run build` — 498 routes generated, **393 prerendered pages** (384
++  before; the nine job pages).
++- `npm run audit:site` — no broken links, no duplicate titles, no missing
++  canonicals, no missing alt text, **zero warnings**. (The first pass flagged
++  `/portfolio/forest-hill-heritage` at 72 characters; the title now drops its
++  location suffix rather than being truncated when it will not fit.)
++- Playwright, six viewports (320 → 1440) across ten routes including every new
++  one: **no horizontal overflow anywhere**.
++- Leaflet stays out of the shared bundle — it is its own async chunk
++  (`d0deef33`, 148 KB raw), fetched by `IntersectionObserver` when a map is
++  about to be seen. Shared bundle unchanged at 103 kB.
++- Removed the unused `note` field from the serialised map payload: 100–200
++  characters × 32 municipalities of dead weight in the RSC flight payload, on
++  every page that carries a map.
++
++### Not done
++
++- Geolocation stays disabled. A "locate me" control would need
++  `Permissions-Policy: geolocation=(self)`, and the map answers "do you come to
++  my town" better with a framed service area than with a blue dot.
++- `hardwood-railings` has no worked example. The Oakville stair carries an
++  OBC-compliant rail, but it is a stair job; filing it under railings to avoid
++  an empty list would be padding.
+diff --git a/lib/search-index.ts b/lib/search-index.ts
+index 4018135..925f840 100644
+--- a/lib/search-index.ts
++++ b/lib/search-index.ts
+@@ -274,7 +274,9 @@ export const searchDocs: SearchDoc[] = [
+     kind: "Project",
+     title: p.title,
+     description: p.summary,
+-    path: "/portfolio",
++    // Was "/portfolio" for every project, so nine distinct search results all
++    // landed on the same grid and the visitor had to find the card again.
++    path: `/portfolio/${p.slug}`,
+     primary: p.title,
+     keywords: [p.location, p.type, ...p.specs],
+   })),
+diff --git a/tests/portfolio-navigation.test.ts b/tests/portfolio-navigation.test.ts
+new file mode 100644
+index 0000000..73b334f
+--- /dev/null
++++ b/tests/portfolio-navigation.test.ts
+@@ -0,0 +1,144 @@
++import { test, describe } from "node:test";
++import assert from "node:assert/strict";
++import { readFileSync, existsSync } from "node:fs";
++import { projects } from "../data/projects";
++import { catalog } from "../data/catalog";
++import { searchDocs } from "../lib/search-index";
++
++/**
++ * Why this file exists.
++ *
++ * The portfolio grid rendered nine `<article>` elements. They had a photo, a
++ * headline, a spec list and a card shadow — everything that makes a thing look
++ * clickable — and none of them went anywhere, because there was no
++ * `/portfolio/{slug}` route to go to. The catalogue deep-linked to `#slug`
++ * fragments on the same page, site search sent all nine results to the same
++ * grid, and every "related work" card on a service page had the same problem.
++ *
++ * That is a dead end on the most persuasive content the site has, and it is
++ * the kind of regression that no type checker and no build catches, because
++ * nothing is broken — it just does nothing. So it is asserted here.
++ */
++
++describe("every job has a page of its own", () => {
++  test("the detail route exists", () => {
++    assert.ok(
++      existsSync("app/portfolio/[slug]/page.tsx"),
++      "there is no /portfolio/{slug} route; the cards have nowhere to go",
++    );
++  });
++
++  test("the route is statically generated for all nine jobs", () => {
++    const src = readFileSync("app/portfolio/[slug]/page.tsx", "utf8");
++    assert.match(src, /export function generateStaticParams/);
++    assert.match(src, /projects\.map/);
++    // A dynamic page here would drop the whole portfolio out of the ISR cache
++    // and into a function invocation on every crawl.
++    assert.match(src, /export const revalidate/);
++  });
++
++  test("each job page declares its own canonical", () => {
++    const src = readFileSync("app/portfolio/[slug]/page.tsx", "utf8");
++    assert.match(src, /alternates: \{ canonical: `\/portfolio\/\$\{project\.slug\}` \}/);
++  });
++
++  test("the job page carries no rating, review or customer markup", () => {
++    const src = readFileSync("app/portfolio/[slug]/page.tsx", "utf8");
++    for (const forbidden of ["aggregateRating", '"@type": "Review"', "reviewRating", "ratingValue"]) {
++      assert.ok(!src.includes(forbidden), `the job page emits ${forbidden}`);
++    }
++  });
++
++  test("the job page says the photography is a rendering, not evidence", () => {
++    const src = readFileSync("app/portfolio/[slug]/page.tsx", "utf8");
++    assert.match(
++      src,
++      /not documentary job photography/i,
++      "docs/HONEST-LIMITS.md records that this photography is AI-generated; the page must say so",
++    );
++  });
++});
++
++describe("the cards actually navigate", () => {
++  test("the grid card is a link, not a bare article", () => {
++    const src = readFileSync("components/portfolio/project-grid.tsx", "utf8");
++    assert.match(
++      src,
++      /href=\{`\/portfolio\/\$\{p\.slug\}`\}/,
++      "the portfolio card does not link to the job page",
++    );
++    assert.match(
++      src,
++      /after:absolute after:inset-0/,
++      "the card headline does not stretch its hit area over the card",
++    );
++    // The anchor id has to survive: /portfolio#slug is already linked from
++    // outside this repo's control.
++    assert.match(src, /id=\{p\.slug\}/, "the fragment anchors were dropped");
++  });
++
++  test("a before/after slider is not swallowed by the card link", () => {
++    const grid = readFileSync("components/portfolio/project-grid.tsx", "utf8");
++    assert.match(
++      grid,
++      /relative z-10/,
++      "the comparison slider sits under the stretched link and cannot be dragged",
++    );
++    const slider = readFileSync("components/before-after.tsx", "utf8");
++    assert.match(slider, /z-20/, "the slider's drag surface is below the card link overlay");
++  });
++
++  test("three sliders on one page do not share one DOM id", () => {
++    const src = readFileSync("components/before-after.tsx", "utf8");
++    assert.ok(!src.includes('id="ba-range"'), "a literal id repeats on /portfolio");
++    assert.match(src, /useId/);
++  });
++
++  test("every page that renders a project card links it", () => {
++    for (const file of [
++      "app/page.tsx",
++      "app/stairs/page.tsx",
++      "app/services/[slug]/page.tsx",
++      "app/services/[slug]/[city]/page.tsx",
++      "app/areas/[city]/page.tsx",
++    ]) {
++      const src = readFileSync(file, "utf8");
++      assert.match(
++        src,
++        /href=\{`\/portfolio\/\$\{p\.slug\}`\}/,
++        `${file} renders project cards that go nowhere`,
++      );
++    }
++  });
++});
++
++describe("everything that pointed at a fragment now points at a page", () => {
++  test("the catalogue links to the job page", () => {
++    const src = readFileSync("app/catalog/[slug]/page.tsx", "utf8");
++    assert.ok(!src.includes("/portfolio#"), "the catalogue still deep-links to a fragment");
++    assert.match(src, /href=\{`\/portfolio\/\$\{p\.slug\}`\}/);
++  });
++
++  test("site search sends each project to its own page", () => {
++    const docs = searchDocs.filter((d) => d.kind === "Project");
++    assert.equal(docs.length, projects.length);
++    for (const d of docs) {
++      assert.notEqual(d.path, "/portfolio", `"${d.title}" still resolves to the grid`);
++      assert.match(d.path, /^\/portfolio\/[a-z0-9-]+$/);
++    }
++  });
++
++  test("the sitemap lists the nine job pages", () => {
++    const src = readFileSync("app/sitemap.ts", "utf8");
++    assert.match(src, /\$\{BASE\}\/portfolio\/\$\{p\.slug\}/, "the job pages are not in the sitemap");
++  });
++
++  test("every catalogue relatedProjects slug resolves to a real job page", () => {
++    const slugs = new Set(projects.map((p) => p.slug));
++    for (const entry of catalog) {
++      for (const slug of entry.relatedProjects) {
++        assert.ok(slugs.has(slug), `catalog/${entry.slug} points at missing job "${slug}"`);
++      }
++    }
++  });
++});
+diff --git a/tests/showcase.test.ts b/tests/showcase.test.ts
+new file mode 100644
+index 0000000..4da84a0
+--- /dev/null
++++ b/tests/showcase.test.ts
+@@ -0,0 +1,160 @@
++import { test, describe } from "node:test";
++import assert from "node:assert/strict";
++import { readFileSync } from "node:fs";
++import {
++  SHOWCASE_DISCLOSURE,
++  serviceShowcaseCategory,
++  showcase,
++  showcaseCategoryLabel,
++  showcaseCountByCity,
++  showcaseFor,
++} from "../data/showcase";
++import { coverage } from "../data/coverage";
++import { projects } from "../data/projects";
++import { services } from "../data/services";
++
++/**
++ * The worked examples are the one place where portfolio entries touch a map,
++ * and the portfolio photography is AI-generated (docs/HONEST-LIMITS.md). So
++ * the rules that make it defensible are pinned here rather than left to a
++ * comment: municipality precision, an explicit illustrative flag, no customer,
++ * and a disclosure that renders wherever the pins do.
++ *
++ * If any of these fail, the map has quietly become a claim about work that
++ * cannot be evidenced — which is the invented-testimonial mistake with a
++ * coordinate attached.
++ */
++
++describe("a worked example is a specification, not a job record", () => {
++  test("every pin is flagged illustrative and municipality-precise", () => {
++    assert.ok(showcase.length > 0, "no worked examples at all");
++    for (const s of showcase) {
++      assert.equal(s.illustrative, true, `${s.slug} is not flagged illustrative`);
++      assert.equal(s.precision, "municipality", `${s.slug} claims a finer precision`);
++    }
++  });
++
++  test("a pin sits exactly on the municipality centroid, never nearer the job", () => {
++    for (const s of showcase) {
++      const pin = coverage.find((c) => c.city.slug === s.citySlug);
++      assert.ok(pin, `${s.slug} names a municipality that is not served`);
++      // Exact equality, deliberately. A jittered or "approximate" coordinate
++      // would be a fabricated location dressed up as an honest one.
++      assert.equal(s.lat, pin.lat, `${s.slug} has been moved off the centroid`);
++      assert.equal(s.lng, pin.lng, `${s.slug} has been moved off the centroid`);
++    }
++  });
++
++  test("no pin carries a street address", () => {
++    for (const s of showcase) {
++      assert.ok(
++        !/\d+\s+\w+\s+(street|st|road|rd|avenue|ave|drive|dr|crescent|cres|lane|ln|court|crt)\b/i.test(
++          s.location,
++        ),
++        `${s.slug}: "${s.location}" reads as a street address`,
++      );
++    }
++  });
++
++  test("no pin carries a customer, a date, a quote or a rating", () => {
++    for (const s of showcase) {
++      const keys = Object.keys(s);
++      for (const forbidden of ["author", "client", "customer", "name", "quote", "rating", "date"]) {
++        assert.ok(!keys.includes(forbidden), `${s.slug} carries a "${forbidden}" field`);
++      }
++    }
++  });
++
++  test("the disclosure says what a pin is, and is not, in plain words", () => {
++    assert.match(SHOWCASE_DISCLOSURE, /not a client record/i);
++    assert.match(SHOWCASE_DISCLOSURE, /municipality/i);
++  });
++
++  test("the disclosure and the status name actually render with the pins", () => {
++    const server = readFileSync("components/map/coverage-map.tsx", "utf8");
++    assert.ok(server.includes("SHOWCASE_DISCLOSURE"), "the map ships without the showcase note");
++    assert.match(server, /label: "Worked example"/, "the legend does not name the status");
++    // The wording that keeps the ring honest.
++    assert.match(server, /Not a client record and not an address/i);
++
++    const client = readFileSync("components/map/coverage-map-client.tsx", "utf8");
++    assert.match(
++      client,
++      /not a client record/i,
++      "the popup implies a delivered job without saying otherwise",
++    );
++  });
++
++  test("a hollow ring, because the location is imprecise", () => {
++    const css = readFileSync("app/globals.css", "utf8");
++    assert.match(
++      css,
++      /\.gh-marker--showcase \.gh-marker__ring/,
++      "the worked-example marker has no ring rule",
++    );
++    // Shape, not just colour: a legend that relies on hue alone is unreadable
++    // to roughly one man in twelve.
++    assert.match(css, /\.gh-marker--core \.gh-marker__dot/);
++  });
++
++  test("the glow stops for anyone who has asked motion to stop", () => {
++    const css = readFileSync("app/globals.css", "utf8");
++    const block = css.slice(css.indexOf("@media (prefers-reduced-motion: reduce)"));
++    assert.match(block, /gh-marker__pulse/);
++    assert.match(block, /animation: none/);
++  });
++});
++
++describe("worked examples are complete and correctly filed", () => {
++  test("every portfolio entry is on the map exactly once", () => {
++    assert.equal(showcase.length, projects.length);
++    assert.deepEqual(
++      showcase.map((s) => s.slug).sort(),
++      projects.map((p) => p.slug).sort(),
++    );
++  });
++
++  test("every project category has a display label", () => {
++    for (const p of projects) {
++      assert.ok(showcaseCategoryLabel[p.category], `no legend label for "${p.category}"`);
++    }
++  });
++
++  test("each pin links to its own job page, not to the grid", () => {
++    for (const s of showcase) {
++      assert.equal(s.href, `/portfolio/${s.slug}`);
++    }
++  });
++
++  test("filtering by service returns only that service's work", () => {
++    for (const [slug, category] of Object.entries(serviceShowcaseCategory)) {
++      assert.ok(
++        services.some((s) => s.slug === slug),
++        `serviceShowcaseCategory names "${slug}", which is not a published service`,
++      );
++      for (const s of showcaseFor(category)) {
++        assert.equal(s.category, category);
++      }
++    }
++    assert.equal(showcaseFor().length, showcase.length);
++  });
++
++  test("the per-city count is what the numbered marker badge will show", () => {
++    const counts = showcaseCountByCity();
++    let total = 0;
++    for (const [city, n] of counts) {
++      assert.equal(n, showcase.filter((s) => s.citySlug === city).length);
++      total += n;
++    }
++    assert.equal(total, showcase.length);
++  });
++
++  test("coverage still does not import the portfolio; the join lives here", () => {
++    const src = readFileSync("data/coverage.ts", "utf8");
++    const imports = src
++      .split("\n")
++      .filter((l) => /^\s*import\b/.test(l))
++      .join("\n");
++    assert.ok(!/projects|showcase/.test(imports), "coverage now depends on the portfolio");
++  });
++});
+-- 
+2.43.0
+
