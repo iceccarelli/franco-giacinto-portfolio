@@ -757,3 +757,108 @@ third service drifting out fails the build.
   specification sits under the service name instead of clipping the timeline.
 - Map focus verified in a browser: Barrie 0 worked-example rings, Toronto 1
   grouped marker badged 4.
+
+---
+
+## Stage 8 — The FAQ answers were never in the HTML (2026-09-02)
+
+Found by auditing rendered word counts across all 393 pages rather than by
+reading source. `/faq` measured **142 words of main content** while the page
+displays eighteen questions — a number that made no sense until I looked at
+what was actually in the `<body>`.
+
+### What was wrong
+
+`@radix-ui/react-accordion` unmounts the content of a closed item. Measured on
+the built output:
+
+```
+/faq             18 <details>-equivalent items, 53 data-state="closed" nodes,
+                 0 answers in <body>
+/                0 answers in <body>
+/areas/barrie    0 answers in <body>
+```
+
+The answer text existed in exactly two places: the RSC flight payload — inside
+a `<script>`, which is not page content — and the FAQPage JSON-LD. Google
+executes JavaScript but does not click accordions, so on **275 pages** the
+rendered body carried every question and not one answer:
+
+| Surface | Pages |
+| --- | --- |
+| `/` and `/faq` | 2 |
+| `/services/[slug]` | 8 |
+| `/services/[slug]/[city]` | 224 |
+| `/areas/[city]` | 32 |
+| `/methods/[slug]` | 9 |
+
+That is every FAQ this shop has written — the long-tail phrasing that these
+pages exist to rank for — thrown away by a component choice. The JSON-LD kept
+Google's FAQ *understanding* partly intact, which is why nothing looked broken;
+but any answer engine reading HTML rather than parsing JSON-LD saw questions
+with nothing under them, and the body text never counted toward the page.
+
+### The fix
+
+Rebuilt `components/ui/accordion.tsx` on native `<details>`/`<summary>`,
+keeping the same exported API so no call site changed.
+
+- Content is in the DOM whether the item is open or shut — crawlable, quotable.
+- Correct disclosure semantics from the browser instead of an ARIA
+  reimplementation.
+- It is a **server** component now, so 275 pages stop shipping an accordion
+  library.
+- It works with JavaScript off — verified in a browser with JS disabled: 18
+  `<details>`, first answer 368 characters present in the DOM, and clicking a
+  `<summary>` still opens it.
+
+Two things were given up, both cheap and both stated in the component:
+
+1. **Exclusive open.** Items now open independently. Native `name` would
+   restore it but needs a shared identifier a server component cannot mint,
+   and reading two answers at once is not worse behaviour for an FAQ.
+2. **The open/close animation** — which was already dead. The classes named
+   `animate-accordion-up` / `animate-accordion-down`, and no such keyframes
+   exist anywhere in this repo. It has been animating nothing the whole time.
+
+### Result
+
+| Page | Body words before | After |
+| --- | --- | --- |
+| `/faq` | 142 | **721** |
+| `/` | 1,614 | **2,193** |
+| `/services/hardwood-stairs` | ~626 | **989** |
+| `/services/hardwood-stairs/vaughan` | ~626 | **804** |
+| `/areas/barrie` | 981 | **1,085** |
+
+And the JavaScript went *down* at the same time, because the dependency left
+with it:
+
+| Route | First load before | After |
+| --- | --- | --- |
+| `/` | 148 kB | **140 kB** |
+| `/areas/[city]` (32) | 148 kB | **140 kB** |
+| `/services/[slug]` (8) | 148 kB | **140 kB** |
+| `/services/[slug]/[city]` (224) | 148 kB | **140 kB** |
+| `/faq` | 126 kB | **117 kB** |
+
+Shared bundle unchanged at 103 kB. `@radix-ui/react-accordion` removed from
+`package.json` and the lockfile.
+
+### Why no test caught it
+
+Every existing assertion about FAQs was about the **data** — that questions are
+unique, that answers say something, that the bands agree with
+`data/services.ts`. None asked whether the answer survived *rendering*.
+`tests/disclosure.test.ts` now asserts the mechanism: native `<details>`, no
+accordion library in the imports, the dependency absent from `package.json`,
+and `AccordionContent` never gating its children on open state — which is the
+original bug stated as a rule.
+
+### Evidence
+
+- `npm run test` — **313 pass, 0 fail** (308 before).
+- `npm run build` — 393 prerendered pages, unchanged.
+- `npm run audit:site` — clean, zero warnings.
+- Playwright, 8 routes × 4 viewports: no horizontal overflow. Disclosure
+  verified working with JavaScript disabled.
