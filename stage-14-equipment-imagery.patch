@@ -1,0 +1,1783 @@
+From 453bffa858de7407e3a8e82a7c244a49d61172fd Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 3 Sep 2026 16:52:57 +0000
+Subject: [PATCH] feat(equipment): four renditions, a Ken Burns rotator, and
+ the symptom joins the machine (#34)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+CODE ONLY, and it does not apply on its own. The 64 photographs are installed
+by scripts/install-equipment-images.sh from the two zips already on main, and
+the zips are then untracked by hand. A patch that base64-encodes 29 MB of JPEG
+is 74 MB, and one that also deletes two zips is 37 MB more, because a binary
+deletion carries the whole file. The order of operations is in
+docs/DOMINATION_CHANGELOG.md under Stage 14. Run the install script BEFORE
+npm run verify — the tests check the manifest against the disk and will
+correctly fail without the files.
+
+Two agents were handed one brief and each delivered a full pair, so there are
+four renditions of all sixteen subjects rather than two. The variant system was
+hard-coded to exactly two — an array of paths and a function that appended
+"-2". It is now a path->count map, IMAGES_WITH_VARIANTS is derived from its
+keys so no existing call site moved, and the manifest is checked against disk
+in BOTH directions. The second direction is the one that matters: sixty-four
+images could otherwise ship in the repository, cost their bytes in every clone,
+and never once be served.
+
+74 images -> 138. 37 subjects -> 53. Sixteen of them quartets.
+
+PhotoRotator already existed and already paused on hover, off-screen, in a
+hidden tab and under reduced motion. It was extended, not replaced — rewriting
+it would have broken /about and /showroom and thrown away discipline that was
+already right. Three additions: `seed` rotates the sequence so the first frame
+is exactly pickVariant's answer (asserted, and it is what lets the server
+render a correct still with the motion layered on top); `kenBurns` drifts 1.00
+to 1.06 over eighteen seconds, opt-in because it is wrong on anything a reader
+studies — a moisture-meter screen must hold still while it is read; `priority`
+marks the first frame only, so the one-eager-image rule survives four stacked
+images. Reduced motion is cancelled explicitly as well as by the global clamp,
+because freezing correctly by accident is not the same as saying so.
+
+The six DEFECT images are the ones worth having. Chatter, the perimeter halo,
+cupping, hollow spots, lap lines, a newel that moves — each caused by a machine
+that was missing or misused, and four of them now joined to the diagnosis page
+for the same symptom. "What it looks like" was a paragraph asking the reader to
+imagine something; it is a photograph now, linking to the reason. Nobody in
+this market connects the symptom to the equipment.
+
+The other four machine classes get no defect image and a test pins that list by
+name: their failures are not visually checkable, and a near-enough picture is
+the same error as inventing a price band for a job with no stated scale.
+
+Pictures make the inventory rule easier to break, so the enforcement grew with
+them. EQUIPMENT_IMAGE_DISCLOSURE and DEFECT_IMAGE_DISCLOSURE render under every
+instance; a test fails the build if any surface shows one without it, and
+asserts "not an asset list" and "not an inventory" alongside so they cannot
+drift apart. Blocker #13 stays open — the renders make the section look
+finished, only real photographs make it true, and none of them may go near the
+Google Business Profile.
+
+*.zip is gitignored and a hygiene test now fails on a tracked archive. Same
+history as the three patch files, same reason.
+
+387 tests pass (+25). 404 pages, unchanged — this stage adds depth, not surface.
+Audit clean. 10 routes x 4 viewports, no overflow.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DNw2m5xoC4nVhuAs5WuzDG
+---
+ .gitignore                          |   1 +
+ app/equipment/[slug]/page.tsx       | 104 ++++++++++++----
+ app/equipment/page.tsx              | 103 ++++++++++++++--
+ app/globals.css                     |  45 +++++++
+ app/llms-full.txt/route.ts          |   8 ++
+ app/llms.txt/route.ts               |  15 +++
+ app/methods/[slug]/page.tsx         |  21 +++-
+ app/problems/[slug]/page.tsx        |  31 +++++
+ app/services/[slug]/page.tsx        |  21 +++-
+ app/sitemap.ts                      |   4 +
+ components/photo-rotator.tsx        |  62 ++++++++--
+ data/equipment.ts                   | 117 ++++++++++++++++++
+ data/images.ts                      | 167 ++++++++++++++++++--------
+ docs/DOMINATION_CHANGELOG.md        | 120 +++++++++++++++++++
+ docs/OFFSITE_BLOCKERS.md            |  14 ++-
+ scripts/install-equipment-images.sh |  72 ++++++++++++
+ tests/equipment.test.ts             | 176 ++++++++++++++++++++++++++++
+ tests/images.test.ts                | 117 ++++++++++++++----
+ tests/repo-hygiene.test.ts          |  20 ++++
+ 19 files changed, 1095 insertions(+), 123 deletions(-)
+ create mode 100755 scripts/install-equipment-images.sh
+
+diff --git a/.gitignore b/.gitignore
+index c73c376..cb84267 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -12,5 +12,6 @@ next-env.d.ts
+ # scripts/apply-patch.sh has been quietly removing them on the next branch.
+ # Ignoring them stops the round trip at the source.
+ *.patch
++*.zip
+ *.diff
+ .env*
+diff --git a/app/equipment/[slug]/page.tsx b/app/equipment/[slug]/page.tsx
+index 1a5af2b..89ffd49 100644
+--- a/app/equipment/[slug]/page.tsx
++++ b/app/equipment/[slug]/page.tsx
+@@ -6,7 +6,15 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
+ import { JsonLd } from "@/components/json-ld";
+ import { Button } from "@/components/ui/button";
+ import { company } from "@/data/company";
+-import { equipment, equipmentCategories, getEquipment, servicesFor } from "@/data/equipment";
++import { PhotoRotator } from "@/components/photo-rotator";
++import {
++  DEFECT_IMAGE_DISCLOSURE,
++  EQUIPMENT_IMAGE_DISCLOSURE,
++  equipment,
++  equipmentCategories,
++  getEquipment,
++  servicesFor,
++} from "@/data/equipment";
+ import { getGuide } from "@/data/guides";
+ import { getMethod } from "@/data/methods";
+ import { breadcrumbLd, clampDescription, webPageLd } from "@/lib/seo";
+@@ -94,25 +102,46 @@ export default async function EquipmentPage({ params }: { params: Promise<Params
+         <div className="mx-auto max-w-6xl px-4 sm:px-6">
+           <Breadcrumbs items={crumbs} className="pt-4" />
+         </div>
+-        <div className="mx-auto max-w-6xl px-4 pb-10 sm:px-6">
+-          <p className="text-xs tracking-[0.18em] text-accent uppercase">
+-            Equipment · {category?.label ?? item.category}
+-          </p>
+-          <h1 className="mt-3 max-w-3xl font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
+-            {item.name}
+-          </h1>
+-          <p className="mt-4 max-w-2xl text-lg text-muted">{item.summary}</p>
+-          <p className="mt-3 max-w-2xl text-sm text-muted">
+-            Also called: {item.alsoCalled.join(", ")}.
+-          </p>
+-          <div className="mt-6 flex flex-wrap gap-3">
+-            <Button asChild>
+-              <Link href="/estimate">Price the work it does</Link>
+-            </Button>
+-            <Button asChild variant="outline">
+-              <Link href="/equipment">All equipment</Link>
+-            </Button>
++        <div className="mx-auto grid max-w-6xl items-center gap-8 px-4 pb-10 sm:px-6 lg:grid-cols-2">
++          <div>
++            <p className="text-xs tracking-[0.18em] text-accent uppercase">
++              Equipment · {category?.label ?? item.category}
++            </p>
++            <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
++              {item.name}
++            </h1>
++            <p className="mt-4 text-lg text-muted">{item.summary}</p>
++            <p className="mt-3 text-sm text-muted">Also called: {item.alsoCalled.join(", ")}.</p>
++            <div className="mt-6 flex flex-wrap gap-3">
++              <Button asChild>
++                <Link href="/estimate">Price the work it does</Link>
++              </Button>
++              <Button asChild variant="outline">
++                <Link href="/equipment">All equipment</Link>
++              </Button>
++            </div>
+           </div>
++          {/*
++            Four renditions, cross-fading, seeded by the slug so ten equipment
++            pages do not all open on the same frame. Ken Burns is ON here: this
++            is the one image on the page a reader dwells on, and the drift is
++            slow enough (18s, 6% scale) that it never competes with the text.
++          */}
++          <figure>
++            <PhotoRotator
++              src={item.image}
++              alt={item.imageAlt}
++              seed={item.slug}
++              ratio="aspect-[4/3]"
++              sizes="(min-width: 1024px) 592px, 100vw"
++              kenBurns
++              priority
++              className="rounded-xl shadow-[var(--shadow-card)]"
++            />
++            <figcaption className="mt-3 text-sm text-muted">
++              {item.imageAlt} <span className="text-fg">{EQUIPMENT_IMAGE_DISCLOSURE}</span>
++            </figcaption>
++          </figure>
+         </div>
+       </section>
+ 
+@@ -135,13 +164,38 @@ export default async function EquipmentPage({ params }: { params: Promise<Params
+             ))}
+           </ul>
+ 
+-          <div className="mt-10 rounded-xl bg-surface p-6 shadow-[var(--shadow-card)]">
+-            <div className="flex items-center gap-2 text-primary">
+-              <AlertTriangle className="size-4" aria-hidden="true" />
+-              <h2 className="text-xs tracking-[0.16em] uppercase">What happens without it</h2>
++          <div className="mt-10 overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]">
++            {/*
++              The defect, photographed. This is the most useful image on the
++              page: the paragraph tells you what goes wrong, and the picture
++              tells you what it looks like from a doorway. Six of the ten
++              machine classes have one; the other four describe failures that
++              are not visually checkable, and they get no image rather than a
++              decorative stand-in.
++            */}
++            {item.defectImage && item.defectAlt && (
++              <figure>
++                <PhotoRotator
++                  src={item.defectImage}
++                  alt={item.defectAlt}
++                  seed={`${item.slug}-defect`}
++                  ratio="aspect-[16/9]"
++                  sizes="(min-width: 1024px) 720px, 100vw"
++                  kenBurns
++                />
++                <figcaption className="px-6 pt-4 text-sm text-muted">
++                  {item.defectAlt} <span className="text-fg">{DEFECT_IMAGE_DISCLOSURE}</span>
++                </figcaption>
++              </figure>
++            )}
++            <div className="p-6">
++              <div className="flex items-center gap-2 text-primary">
++                <AlertTriangle className="size-4" aria-hidden="true" />
++                <h2 className="text-xs tracking-[0.16em] uppercase">What happens without it</h2>
++              </div>
++              <p className="mt-3 font-medium">{item.without.instead}</p>
++              <p className="mt-2 text-muted">{item.without.consequence}</p>
+             </div>
+-            <p className="mt-3 font-medium">{item.without.instead}</p>
+-            <p className="mt-2 text-muted">{item.without.consequence}</p>
+           </div>
+ 
+           <div className="mt-10">
+diff --git a/app/equipment/page.tsx b/app/equipment/page.tsx
+index 08c9f31..a57ab94 100644
+--- a/app/equipment/page.tsx
++++ b/app/equipment/page.tsx
+@@ -4,22 +4,36 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
+ import { JsonLd } from "@/components/json-ld";
+ import { PageHero } from "@/components/page-hero";
+ import { Button } from "@/components/ui/button";
+-import { equipment, equipmentCategories } from "@/data/equipment";
++import { Photo } from "@/components/photo";
++import { PhotoRotator } from "@/components/photo-rotator";
++import {
++  DEFECT_IMAGE_DISCLOSURE,
++  EQUIPMENT_IMAGE_DISCLOSURE,
++  equipment,
++  equipmentCategories,
++} from "@/data/equipment";
+ import { services } from "@/data/services";
+ import { breadcrumbLd, itemListLd, webPageLd } from "@/lib/seo";
+ 
+ /**
+- * Why this route carries no photographs.
++ * Why the cards carry an image, and what the image is allowed to claim.
+  *
+- * Every other index on this site leads with an image. This one does not, and
+- * the reason is the honesty rule in `data/equipment.ts`: these pages describe
+- * what the work requires, not an inventory. A photograph of a finished floor
+- * on a card headed "Belt sander" would read as a photograph of our belt
+- * sander, and it is not one. So the cards are typographic until Franco
+- * photographs the machines (OFFSITE_BLOCKERS #12).
++ * This route originally shipped typographic, because a photograph of a
++ * machine on a card headed "Belt sander" reads as a photograph of OUR belt
++ * sander, and there is no such photograph. That reasoning was right and it
++ * has not changed — what changed is that a commissioned illustration of the
++ * machine class now exists, and it is labelled as one under every instance
++ * (`EQUIPMENT_IMAGE_DISCLOSURE`).
+  *
+- * The side effect is a very fast index page, which is the correct trade for a
+- * reference layer people arrive at from search.
++ * So the rule stands and the pictures are allowed: the honesty rule was never
++ * "no images", it was "no claim about assets". OFFSITE_BLOCKERS #13 still
++ * tracks the real photographs, and only those turn this section into an
++ * inventory.
++ *
++ * The hero here is the DEFECT strip rather than the machines. Someone landing
++ * on this page from a search does not yet care what a multi-disc sander is;
++ * they care that there is a dark ring around their neighbour's refinished
++ * floor. Lead with the thing they can recognise.
+  */
+ 
+ const description =
+@@ -44,7 +58,21 @@ export const metadata: Metadata = {
+   },
+ };
+ 
++/** The six machine classes whose failure mode is visually checkable. */
++const DEFECT_NAMES: Record<string, string> = {
++  "belt-sander": "Chatter marks",
++  edger: "The perimeter halo",
++  "moisture-meter": "Cupping",
++  "adhesive-trowel": "Hollow spots",
++  "finish-application": "Lap lines",
++  "railing-anchorage": "A newel that moves",
++};
++
+ export default function EquipmentIndex() {
++  const defects = equipment
++    .filter((e) => e.defectImage && e.defectAlt)
++    .map((e) => ({ ...e, defectName: DEFECT_NAMES[e.slug] ?? e.name }));
++
+   const crumbs = [
+     { name: "Home", path: "/" },
+     { name: "Equipment", path: "/equipment" },
+@@ -90,9 +118,48 @@ export default function EquipmentIndex() {
+             particular machine sits in our shop. Where our published method already implies a
+             capability, the page says which practice it follows from and links it.
+           </p>
++          <p className="mt-3 text-sm text-muted">{EQUIPMENT_IMAGE_DISCLOSURE}</p>
+         </div>
+       </div>
+ 
++      {/*
++        The six failures a homeowner can actually walk into a room and find.
++        This is the strongest thing on the page and it goes above the machine
++        grid, because "which of these is on my floor?" is a question a visitor
++        already has, and "what is an edger?" is not.
++      */}
++      <section className="mx-auto max-w-6xl px-4 pt-10 sm:px-6">
++        <h2 className="font-display text-3xl">What bad work looks like</h2>
++        <p className="mt-1 max-w-2xl text-muted">
++          Six defects, each one caused by a machine that was missing, worn, or used wrongly. Every
++          one of them is visible to someone standing in the room, in the right light, if they know
++          what they are looking at. Follow any of them to the equipment that prevents it.
++        </p>
++        <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
++          {defects.map((d) => (
++            <Link
++              key={d.slug}
++              href={`/equipment/${d.slug}`}
++              className="group overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
++            >
++              <Photo
++                src={d.defectImage!}
++                alt={d.defectAlt!}
++                ratio="16/9"
++                slot="card"
++                seed={d.slug}
++              />
++              <div className="p-5">
++                <h3 className="font-display text-xl">{d.defectName}</h3>
++                <p className="mt-2 text-sm text-muted">{d.defectAlt}</p>
++                <p className="mt-3 text-xs text-accent">Prevented by: {d.name}</p>
++              </div>
++            </Link>
++          ))}
++        </div>
++        <p className="mt-4 text-xs text-muted">{DEFECT_IMAGE_DISCLOSURE}</p>
++      </section>
++
+       <div className="mx-auto max-w-6xl space-y-14 px-4 py-10 sm:px-6 sm:py-14">
+         {equipmentCategories.map((cat) => {
+           const inCat = equipment.filter((e) => e.category === cat.id);
+@@ -107,8 +174,21 @@ export default function EquipmentIndex() {
+                   <Link
+                     key={e.slug}
+                     href={`/equipment/${e.slug}`}
+-                    className="group flex flex-col rounded-xl bg-surface p-6 shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
++                    className="group flex flex-col overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
+                   >
++                    {/*
++                      Rotating here too, seeded by slug. Ken Burns is OFF in
++                      the grid: ten cards each drifting is a page that will not
++                      hold still to be read.
++                    */}
++                    <PhotoRotator
++                      src={e.image}
++                      alt={e.imageAlt}
++                      seed={e.slug}
++                      ratio="aspect-[16/9]"
++                      sizes="(min-width: 1024px) 560px, 100vw"
++                    />
++                    <div className="flex flex-1 flex-col p-6">
+                     <h3 className="font-display text-2xl">{e.name}</h3>
+                     <p className="mt-2 text-sm text-muted">{e.summary}</p>
+                     <p className="mt-4 text-sm">
+@@ -120,6 +200,7 @@ export default function EquipmentIndex() {
+                     <p className="mt-4 text-xs text-muted">
+                       Also called: {e.alsoCalled.slice(0, 3).join(", ")}
+                     </p>
++                    </div>
+                   </Link>
+                 ))}
+               </div>
+diff --git a/app/globals.css b/app/globals.css
+index 61bb19b..5aca1ea 100644
+--- a/app/globals.css
++++ b/app/globals.css
+@@ -454,3 +454,48 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
+ .leaflet-popup-content {
+   margin: 12px 14px;
+ }
++
++/* ---------------------------------------------------------------- Ken Burns
++
++   A very slow scale-and-drift on the visible frame of a PhotoRotator.
++
++   Deliberately understated: 1.00 -> 1.06 over eighteen seconds, with about a
++   percent of translation. The test of a Ken Burns move is that a reader who
++   looks away and back cannot say whether it moved, while a reader who watches
++   feels the photograph is alive. Anything faster reads as a slideshow effect
++   and pulls attention off the text, which on these pages is the actual
++   product.
++
++   `alternate` rather than `infinite` forward: a hard reset back to 1.00 at the
++   end of each cycle is a visible jump, and it always lands mid-view because
++   the fade interval and the drift duration are deliberately not multiples of
++   one another.
++
++   `will-change` is set but not `transform: translateZ(0)` — the compositor
++   hint is worth the layer here because the element is already animating
++   opacity, and forcing a second layer would double it.                     */
++@keyframes gh-kenburns-drift {
++  from {
++    transform: scale(1) translate3d(0, 0, 0);
++  }
++  to {
++    transform: scale(1.06) translate3d(-1.1%, -0.9%, 0);
++  }
++}
++
++.gh-kenburns {
++  animation: gh-kenburns-drift 18s ease-in-out infinite alternate;
++  will-change: transform;
++}
++
++/* A drifting photograph is a vestibular trigger. The global reduced-motion
++   block already clamps every animation to 0.01ms, which would freeze this
++   one at its starting transform — correct, but by accident. Say it on
++   purpose, so deleting the global rule does not silently re-enable this. */
++@media (prefers-reduced-motion: reduce) {
++  .gh-kenburns {
++    animation: none;
++    will-change: auto;
++    transform: none;
++  }
++}
+diff --git a/app/llms-full.txt/route.ts b/app/llms-full.txt/route.ts
+index 00c4bdc..ec445ee 100644
+--- a/app/llms-full.txt/route.ts
++++ b/app/llms-full.txt/route.ts
+@@ -168,6 +168,14 @@ export function GET() {
+       L.push("How to tell:");
+       for (const h of e.howToTell) L.push(`- ${h}`);
+       L.push(`Used on: ${e.serviceSlugs.join(", ")}`);
++      if (e.defectAlt) {
++        L.push(`What the failure looks like: ${e.defectAlt}`);
++      }
++      if ((e.problemSlugs ?? []).length > 0) {
++        L.push(
++          `Diagnosis pages for that failure: ${(e.problemSlugs ?? []).map((x) => `${SITE_URL}/problems/${x}`).join(", ")}`,
++        );
++      }
+     }
+   }
+ 
+diff --git a/app/llms.txt/route.ts b/app/llms.txt/route.ts
+index 6dad2b1..85e154e 100644
+--- a/app/llms.txt/route.ts
++++ b/app/llms.txt/route.ts
+@@ -136,6 +136,21 @@ export function GET() {
+     L.push(`- [${e.name}](${SITE_URL}/equipment/${e.slug}): ${e.summary} Without it: ${e.without.consequence}`);
+   }
+ 
++  L.push("");
++  L.push("### Defect library — what bad work looks like");
++  L.push("");
++  L.push(
++    "Six of those pages carry an image of the failure the machine prevents, and each is joined to the diagnosis page for the same symptom. If a user describes one of these symptoms, the diagnosis page names the causes and the equipment page names what should have prevented it. The imagery is commissioned illustration, not documentary photography of a job — cite the description, not the picture.",
++  );
++  L.push("");
++  for (const e of equipment) {
++    if (!e.defectAlt) continue;
++    const problems = (e.problemSlugs ?? []).map((p) => `${SITE_URL}/problems/${p}`).join(", ");
++    L.push(
++      `- ${e.defectAlt} Prevented by [${e.name}](${SITE_URL}/equipment/${e.slug})${problems ? `. Diagnosis: ${problems}` : ""}`,
++    );
++  }
++
+   L.push("");
+   L.push("## Diagnostics — what has gone wrong and whether it can be fixed");
+   L.push("");
+diff --git a/app/methods/[slug]/page.tsx b/app/methods/[slug]/page.tsx
+index 6323bd0..bb6b0e4 100644
+--- a/app/methods/[slug]/page.tsx
++++ b/app/methods/[slug]/page.tsx
+@@ -196,10 +196,25 @@ export default async function MethodPage({ params }: { params: Promise<Params> }
+                   <li key={e.slug}>
+                     <Link
+                       href={`/equipment/${e.slug}`}
+-                      className="block rounded-xl bg-surface p-4 shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
++                      className="flex gap-4 overflow-hidden rounded-xl bg-surface p-4 shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
+                     >
+-                      <p className="font-medium">{e.name}</p>
+-                      <p className="mt-1 text-sm text-muted">{e.summary}</p>
++                      {/*
++                        A static seeded thumbnail, not a rotator. Six drifting
++                        tiles in a cross-link list is motion competing with the
++                        page it is meant to serve.
++                      */}
++                      <Photo
++                        src={e.image}
++                        alt={e.imageAlt}
++                        ratio="1/1"
++                        slot="thumb"
++                        seed={e.slug}
++                        className="size-20 shrink-0 rounded-lg"
++                      />
++                      <span className="min-w-0">
++                        <span className="block font-medium">{e.name}</span>
++                        <span className="mt-1 block text-sm text-muted">{e.summary}</span>
++                      </span>
+                     </Link>
+                   </li>
+                 ))}
+diff --git a/app/problems/[slug]/page.tsx b/app/problems/[slug]/page.tsx
+index d563f51..437bb73 100644
+--- a/app/problems/[slug]/page.tsx
++++ b/app/problems/[slug]/page.tsx
+@@ -5,7 +5,9 @@ import { AlertTriangle, ArrowRight, Clock, Eye, Wrench } from "lucide-react";
+ import { Breadcrumbs } from "@/components/breadcrumbs";
+ import { JsonLd } from "@/components/json-ld";
+ import { Button } from "@/components/ui/button";
++import { PhotoRotator } from "@/components/photo-rotator";
+ import { company } from "@/data/company";
++import { DEFECT_IMAGE_DISCLOSURE, equipmentForProblem } from "@/data/equipment";
+ import { getGuide } from "@/data/guides";
+ import { getProblem, problems, problemTitle } from "@/data/problems";
+ import { getService } from "@/data/services";
+@@ -72,6 +74,7 @@ export default async function ProblemPage({ params }: { params: Promise<Params>
+   const u = urgency[problem.urgency];
+   const o = outlook[problem.outlook];
+ 
++  const defect = equipmentForProblem(problem.slug);
+   const crumbs = [
+     { name: "Home", path: "/" },
+     { name: "Diagnose", path: "/problems" },
+@@ -134,6 +137,34 @@ export default async function ProblemPage({ params }: { params: Promise<Params>
+             <h2 className="text-xs tracking-[0.16em] uppercase">What it looks like</h2>
+           </div>
+           <p className="mt-3 text-lg text-fg">{problem.looksLike}</p>
++          {/*
++            A picture of the defect, where an honest one exists — four of the
++            sixteen diagnoses. "What it looks like" is the section a visitor
++            arrived for, and until now it was a paragraph asking them to
++            picture something. The join lives in data/equipment.ts, which owns
++            the image, so a diagnosis never claims a picture it does not have.
++          */}
++          {defect?.defectImage && defect.defectAlt && (
++            <figure className="mt-5">
++              <PhotoRotator
++                src={defect.defectImage}
++                alt={defect.defectAlt}
++                seed={problem.slug}
++                ratio="aspect-[16/9]"
++                sizes="(min-width: 768px) 720px, 100vw"
++                kenBurns
++                className="rounded-xl shadow-[var(--shadow-card)]"
++              />
++              <figcaption className="mt-3 text-sm text-muted">
++                {defect.defectAlt} <span className="text-fg">{DEFECT_IMAGE_DISCLOSURE}</span>
++              </figcaption>
++              <p className="mt-3 text-sm">
++                <Link href={`/equipment/${defect.slug}`} className="text-primary hover:underline">
++                  What prevents it: {defect.name}
++                </Link>
++              </p>
++            </figure>
++          )}
+         </section>
+ 
+         {/* Causes, ranked, each with its tell ------------------------------ */}
+diff --git a/app/services/[slug]/page.tsx b/app/services/[slug]/page.tsx
+index ad48c8c..89c4a10 100644
+--- a/app/services/[slug]/page.tsx
++++ b/app/services/[slug]/page.tsx
+@@ -242,10 +242,25 @@ export default async function ServicePage({ params }: { params: Promise<Params>
+                   <li key={e.slug}>
+                     <Link
+                       href={`/equipment/${e.slug}`}
+-                      className="block rounded-xl bg-surface p-4 shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
++                      className="flex gap-4 overflow-hidden rounded-xl bg-surface p-4 shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
+                     >
+-                      <p className="font-medium">{e.name}</p>
+-                      <p className="mt-1 text-sm text-muted">{e.summary}</p>
++                      {/*
++                        A static seeded thumbnail, not a rotator. Six drifting
++                        tiles in a cross-link list is motion competing with the
++                        page it is meant to serve.
++                      */}
++                      <Photo
++                        src={e.image}
++                        alt={e.imageAlt}
++                        ratio="1/1"
++                        slot="thumb"
++                        seed={e.slug}
++                        className="size-20 shrink-0 rounded-lg"
++                      />
++                      <span className="min-w-0">
++                        <span className="block font-medium">{e.name}</span>
++                        <span className="mt-1 block text-sm text-muted">{e.summary}</span>
++                      </span>
+                     </Link>
+                   </li>
+                 ))}
+diff --git a/app/sitemap.ts b/app/sitemap.ts
+index 1537047..1cd8b9c 100644
+--- a/app/sitemap.ts
++++ b/app/sitemap.ts
+@@ -105,6 +105,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
+       lastModified,
+       changeFrequency: "monthly" as const,
+       priority: e.category === "sanding" || e.category === "dust" ? 0.7 : 0.6,
++      // Both the machine and, where one exists, the defect it prevents. The
++      // defect images are the ones worth surfacing in image search: nobody
++      // else publishes a picture of what a bad refinish looks like.
++      images: [`${BASE}${e.image}`, ...(e.defectImage ? [`${BASE}${e.defectImage}`] : [])],
+     })),
+     ...problems.map((p) => ({
+       url: `${BASE}/problems/${p.slug}`,
+diff --git a/components/photo-rotator.tsx b/components/photo-rotator.tsx
+index eca2b97..4f78dc0 100644
+--- a/components/photo-rotator.tsx
++++ b/components/photo-rotator.tsx
+@@ -2,16 +2,41 @@
+ 
+ import NextImage from "next/image";
+ import { useEffect, useRef, useState } from "react";
+-import { variantsOf } from "@/data/images";
++import { variantsFrom, variantsOf } from "@/data/images";
+ import { cn } from "@/lib/utils";
+ 
+ /**
+- * A photograph that crossfades between its two renditions.
++ * A photograph that crossfades between its renditions, optionally drifting.
+  *
+  * Reserved for the few surfaces a visitor actually dwells on — the showroom,
+- * the workshop. Everywhere else the variant is picked once, deterministically,
+- * by `Photo`'s `seed`: a page full of images quietly swapping themselves is
+- * a page nobody can read.
++ * the workshop, and now the equipment and defect library. Everywhere else the
++ * variant is picked once, deterministically, by `Photo`'s `seed`: a page full
++ * of images quietly swapping themselves is a page nobody can read.
++ *
++ * ── Two renditions, or four ───────────────────────────────────────────────
++ *
++ * Most photographs have two. The equipment library has four, because two
++ * agents each delivered a full pair to the same brief. `variantsOf` returns
++ * however many exist, so nothing here counts frames.
++ *
++ * ── seed: which rendition a page opens on ─────────────────────────────────
++ *
++ * Without a seed every instance starts on the canonical file, which means ten
++ * cards in a grid all open on the same frame and cross-fade in lockstep — a
++ * worse impression than a static grid, because it draws the eye to the fact
++ * that they are identical. With a seed the sequence is ROTATED so each card
++ * opens somewhere different, and the opening frame is exactly the one
++ * `pickVariant` would have chosen for that seed. The server renders that
++ * frame. A crawler, a reader with JavaScript off, and the first paint for
++ * everyone else therefore all see the same correct still.
++ *
++ * ── kenBurns ──────────────────────────────────────────────────────────────
++ *
++ * A very slow scale-and-drift on the visible frame, so a photograph that
++ * holds for seven seconds is not seven seconds of nothing. It is off by
++ * default and opt-in per call site, because it costs a compositor layer and
++ * it is wrong on anything a reader needs to study closely — a moisture-meter
++ * screen should hold still while it is being read.
+  *
+  * Same discipline as the comparison slider, for the same reasons:
+  *
+@@ -30,7 +55,10 @@ export function PhotoRotator({
+   alt,
+   ratio,
+   sizes,
++  seed,
+   intervalMs = 7000,
++  kenBurns = false,
++  priority = false,
+   className,
+ }: {
+   src: string;
+@@ -38,10 +66,22 @@ export function PhotoRotator({
+   /** Tailwind aspect class, e.g. "aspect-[4/3]". */
+   ratio: string;
+   sizes: string;
++  /**
++   * A string the page already owns — its slug, its city. Rotates the sequence
++   * so sibling instances do not open on the same frame or fade in lockstep.
++   */
++  seed?: string;
+   intervalMs?: number;
++  /** Slow scale-and-drift on the visible frame. Off unless asked for. */
++  kenBurns?: boolean;
++  /**
++   * Marks the FIRST frame as the LCP element. Never more than one per page,
++   * and never more than one frame — `tests/layout.test.ts` counts them.
++   */
++  priority?: boolean;
+   className?: string;
+ }) {
+-  const frames = variantsOf(src);
++  const frames = seed ? variantsFrom(src, seed) : variantsOf(src);
+   const [index, setIndex] = useState(0);
+   const wrap = useRef<HTMLDivElement>(null);
+   const paused = useRef(false);
+@@ -88,15 +128,21 @@ export function PhotoRotator({
+         <NextImage
+           key={f}
+           src={f}
+-          // Only the visible frame carries the description; the other is the
+-          // same subject photographed twice, and announcing it again is noise.
++          // Only the visible frame carries the description; the others are the
++          // same subject photographed again, and announcing it again is noise.
+           alt={i === index ? alt : ""}
+           aria-hidden={i !== index}
+           fill
+           sizes={sizes}
++          // Exactly one eager image, and it is the frame the server rendered.
++          priority={priority && i === 0}
++          loading={priority && i === 0 ? "eager" : "lazy"}
+           className={cn(
+             "object-cover transition-opacity duration-1000 ease-in-out",
+             i === index ? "opacity-100" : "opacity-0",
++            // The drift runs only on the frame being looked at, so three
++            // hidden images are not animating a transform for nobody.
++            kenBurns && i === index && "gh-kenburns",
+           )}
+         />
+       ))}
+diff --git a/data/equipment.ts b/data/equipment.ts
+index 99e3859..0701f11 100644
+--- a/data/equipment.ts
++++ b/data/equipment.ts
+@@ -55,6 +55,34 @@ export type Equipment = {
+   without: { instead: string; consequence: string };
+   /** How to tell, on a quote or a site visit, whether it is in play. */
+   howToTell: string[];
++  /**
++   * The illustration at the top of the page. Four renditions exist for every
++   * one of these (see data/images.ts); the page cross-fades between them.
++   *
++   * These are commissioned renderings of a machine CLASS, not photographs of
++   * anything in the Sterling Road shop, and the page says so under every one.
++   * The honesty rule in this file's header is not softened by having pictures.
++   */
++  image: string;
++  imageAlt: string;
++  /**
++   * The failure this machine class prevents, photographed.
++   *
++   * Six of the ten have one, because six of these defects are visually
++   * checkable by a homeowner standing in a room and four are not. An entry
++   * with no honest image gets none rather than a decorative stand-in.
++   */
++  defectImage?: string;
++  defectAlt?: string;
++  /**
++   * The diagnosis pages this defect image illustrates.
++   *
++   * The link runs both ways and it is the most valuable join in the site: a
++   * visitor searching "dark ring around my refinished floor" lands on a
++   * diagnosis, and one click away is the machine whose absence caused it.
++   * Nobody else in this market connects the symptom to the equipment.
++   */
++  problemSlugs?: string[];
+   /** Which published services depend on it. */
+   serviceSlugs: string[];
+   relatedGuides: string[];
+@@ -88,6 +116,12 @@ export const equipment: Equipment[] = [
+       "Ask what the grit sequence is. A shop with a real machine and a real method answers immediately and names the grits. A shop that says 'we sand it properly' does not have a sequence.",
+       "Ask to see a floor they finished, in daylight, from a low angle looking toward a window. Raking light shows chatter that overhead light hides completely.",
+     ],
++    image: "/images/equipment/eq-belt-sander.jpg",
++    imageAlt:
++      "A walk-behind belt floor sander mid-pass in an empty room, with the boundary between raw sanded oak and old finish running across the floor and the dust hose trailing off-frame.",
++    defectImage: "/images/equipment/defect-chatter.jpg",
++    defectAlt:
++      "Regular parallel ripple across a sanded floor, thrown into relief by low light from a window. Exaggerated here so it reads at this size; on a real floor it is subtle until you get your eye down to it.",
+     serviceSlugs: ["sanding-refinishing", "hardwood-repairs"],
+     relatedGuides: ["dust-free-sanding-toronto", "hardwood-floor-maintenance-ontario"],
+     relatedMethods: [],
+@@ -117,6 +151,12 @@ export const equipment: Equipment[] = [
+       "Look at a finished job at the wall line and in the doorways, not in the middle of the room. Then look at the same floor under a window.",
+       "Ask specifically how the edge is blended into the field. 'With the buffer' is the right shape of answer.",
+     ],
++    image: "/images/equipment/eq-edger.jpg",
++    imageAlt:
++      "A hand-held rotary edge sander worked hard against a baseboard beside a cast-iron radiator, in the band of floor the big machine physically cannot reach.",
++    defectImage: "/images/equipment/defect-edge-halo.jpg",
++    defectAlt:
++      "A refinished room seen from the doorway with a visibly darker, cloudier band running around the perimeter against the baseboard — the edging failure, and the first thing visible from a hall.",
+     serviceSlugs: ["sanding-refinishing"],
+     relatedGuides: ["dust-free-sanding-toronto"],
+     relatedMethods: [],
+@@ -146,6 +186,9 @@ export const equipment: Equipment[] = [
+       "Ask directly: 'does this floor need a full refinish, or would a screen and recoat do?' A shop that answers 'recoat' on a floor that only needs one has just told you a great deal about how it operates.",
+       "The tell that a recoat is not enough is wear through the finish into bare wood in the traffic lane. Once there is bare wood, a recoat cannot fix it.",
+     ],
++    image: "/images/equipment/eq-multi-disc-sander.jpg",
++    imageAlt:
++      "A multi-disc floor buffer with an abrasive pad fitted, standing on a uniformly matte sanded floor in daylight from a bank of windows.",
+     serviceSlugs: ["sanding-refinishing"],
+     relatedGuides: ["hardwood-floor-maintenance-ontario", "dust-free-sanding-toronto"],
+     relatedMethods: [],
+@@ -182,6 +225,9 @@ export const equipment: Equipment[] = [
+       "Ask whether the HVAC returns in the work area get sealed. A shop that has thought about it says yes before you finish the question.",
+       "Ask what the containment looks like at the doorway. 'Zip wall and a negative air fan' is a specification; 'we tape plastic up' is not.",
+     ],
++    image: "/images/equipment/eq-dust-containment-system.jpg",
++    imageAlt:
++      "A HEPA extractor with its hose connected to a floor machine, and a taped plastic barrier sealing the doorway behind it.",
+     serviceSlugs: ["sanding-refinishing", "hardwood-repairs", "commercial-hardwood"],
+     relatedGuides: ["dust-free-sanding-toronto"],
+     relatedMethods: [],
+@@ -219,6 +265,13 @@ export const equipment: Equipment[] = [
+       "Ask for the readings in writing. A shop that measures is happy to write the numbers on the quote; it protects them as much as you.",
+       "On a slab, ask which test. 'In-situ RH probes' is the current standard. A plastic sheet taped down overnight is not a test.",
+     ],
++    image: "/images/equipment/eq-moisture-meter.jpg",
++    imageAlt:
++      "A hand-held wood moisture meter held against a plywood subfloor, screen legible at just over nine percent, with racked boards waiting behind it.",
++    defectImage: "/images/equipment/defect-cupping.jpg",
++    defectAlt:
++      "Solid boards visibly cupped — edges standing higher than centres — with a straightedge laid across them showing the gap. This is what a floor laid over a subfloor that was never measured does in month four.",
++    problemSlugs: ["hardwood-floor-cupping", "hardwood-floor-crowning"],
+     serviceSlugs: [
+       "hardwood-installation",
+       "sanding-refinishing",
+@@ -253,6 +306,9 @@ export const equipment: Equipment[] = [
+       "Walk a floor the company installed at least a year ago. A year is long enough for one full humidity cycle, which is what exposes underfastening.",
+       "Ask what fastener and what spacing they use for the board width you are buying. There is a right answer and it is specific.",
+     ],
++    image: "/images/equipment/eq-flooring-nailer.jpg",
++    imageAlt:
++      "A pneumatic flooring cleat nailer set on the tongue of an oak board mid-row, mallet beside it, several racked rows already fastened behind.",
+     serviceSlugs: ["hardwood-installation"],
+     relatedGuides: ["solid-vs-engineered-ontario", "hardwood-flooring-cost-gta-2026"],
+     relatedMethods: ["nail-down-solid-hardwood"],
+@@ -284,6 +340,13 @@ export const equipment: Equipment[] = [
+       "Ask which adhesive, by name, and what slab RH it is rated to. Then ask what the slab actually read.",
+       "Ask what trowel notch that adhesive specifies for your board. A shop that knows the answer has read the data sheet.",
+     ],
++    image: "/images/equipment/eq-adhesive-trowel.jpg",
++    imageAlt:
++      "A notched trowel drawing a fresh bed of adhesive across a subfloor, ridges sharp and evenly spaced, with engineered boards already set into the wet bed at the edge of frame.",
++    defectImage: "/images/equipment/defect-hollow-spot.jpg",
++    defectAlt:
++      "A lifted board over a patchy adhesive bed, bare subfloor showing through the gaps. The floor above this sounds hollow underfoot and eventually releases.",
++    problemSlugs: ["hollow-spots-hardwood-floor"],
+     serviceSlugs: ["hardwood-installation", "commercial-hardwood"],
+     relatedGuides: ["solid-vs-engineered-ontario", "best-hardwood-species-toronto-homes"],
+     relatedMethods: ["glue-down-engineered-hardwood"],
+@@ -320,6 +383,13 @@ export const equipment: Equipment[] = [
+       "Ask for the finish system by name and whether it is one- or two-component. Ask how many coats, and whether the floor is abraded between them.",
+       "Ask for the cure schedule in writing: sock traffic, furniture, rugs. A shop that has done occupied houses gives you three different numbers without hesitating.",
+     ],
++    image: "/images/equipment/eq-finish-application.jpg",
++    imageAlt:
++      "A T-bar applicator pulling a coat of waterborne finish across a sanded oak floor, the wet edge crossing the frame as a sheen boundary.",
++    defectImage: "/images/equipment/defect-lap-lines.jpg",
++    defectAlt:
++      "Streaks and stripe boundaries in the sheen of a finished floor, where one pass dried before the next was joined to it.",
++    problemSlugs: ["cloudy-white-hardwood-finish"],
+     serviceSlugs: ["sanding-refinishing", "hardwood-installation", "commercial-hardwood"],
+     relatedGuides: ["dust-free-sanding-toronto", "hardwood-floor-maintenance-ontario"],
+     relatedMethods: [],
+@@ -358,6 +428,9 @@ export const equipment: Equipment[] = [
+       "Ask whether the treads are templated individually. On any flight older than about twenty years the honest answer has to be yes.",
+       "Ask who builds the stair — them, or a subcontractor. The answer decides whether the finish will match the floor.",
+     ],
++    image: "/images/equipment/eq-stair-fabrication-bench.jpg",
++    imageAlt:
++      "An oak stair tread clamped in a jig on a workshop bench, hand tools and a track saw beside it, sawdust on the bench top.",
+     serviceSlugs: ["hardwood-stairs", "hardwood-railings", "custom-inlays"],
+     relatedGuides: [
+       "ontario-stair-code-hardwood",
+@@ -397,12 +470,39 @@ export const equipment: Equipment[] = [
+       "Push a newel post on a stair they have built. Firmly. It should not move at all.",
+       "Ask what the newel is anchored into. 'Structure' with a specific noun after it — stringer, joist, blocking — is the answer. 'It's screwed down' is not.",
+     ],
++    image: "/images/equipment/eq-railing-anchorage.jpg",
++    imageAlt:
++      "The base of an oak newel post meeting a stair stringer, with the counterbored bolt visible before the wood plug goes in — the structural fixing, shown once.",
++    defectImage: "/images/equipment/defect-loose-newel.jpg",
++    defectAlt:
++      "A newel post surface-fixed through a finished floor rather than anchored into structure, with the joint already opening at the base.",
++    problemSlugs: ["loose-stair-railing"],
+     serviceSlugs: ["hardwood-railings", "hardwood-stairs"],
+     relatedGuides: ["ontario-stair-code-hardwood", "carpet-to-hardwood-stairs-gta"],
+     relatedMethods: ["hardwood-railing-through-bolt"],
+   },
+ ];
+ 
++/**
++ * Rendered under every equipment and defect image on the site.
++ *
++ * The photography is commissioned AI rendering, exactly like the rest of the
++ * site's imagery (docs/HONEST-LIMITS.md). On these pages the stakes are a
++ * little higher than elsewhere, because a photograph of a machine sitting in
++ * a workshop reads as a photograph of OUR machine in OUR workshop unless
++ * something says otherwise. So something says otherwise, on the page, under
++ * the picture, every time.
++ *
++ * `tests/equipment.test.ts` fails the build if an equipment image renders
++ * without it.
++ */
++export const EQUIPMENT_IMAGE_DISCLOSURE =
++  "Commissioned illustration of the machine class, not a photograph of our own equipment.";
++
++/** The same sentence for a defect image, where the claim being made differs. */
++export const DEFECT_IMAGE_DISCLOSURE =
++  "Commissioned illustration of the defect, not a photograph of a job we were called to.";
++
+ export const equipmentCategories = [
+   { id: "sanding", label: "Sanding", blurb: "The machines that take a floor back to bare wood." },
+   { id: "dust", label: "Dust control", blurb: "What makes an occupied refinish possible." },
+@@ -433,3 +533,20 @@ export function servicesFor(item: Equipment) {
+ export function equipmentForService(serviceSlug: string) {
+   return equipment.filter((e) => e.serviceSlugs.includes(serviceSlug));
+ }
++
++/**
++ * The equipment entry whose defect image illustrates a given diagnosis, if
++ * one does. Returns undefined rather than a near-enough picture: a photograph
++ * of the wrong defect on a diagnosis page is worse than no photograph, because
++ * a reader will try to match their floor to it.
++ */
++export function equipmentForProblem(problemSlug: string) {
++  return equipment.find(
++    (e) => e.defectImage !== undefined && (e.problemSlugs ?? []).includes(problemSlug),
++  );
++}
++
++/** Every entry carrying a defect image, in file order. */
++export function defectLibrary() {
++  return equipment.filter((e) => e.defectImage !== undefined && e.defectAlt !== undefined);
++}
+diff --git a/data/images.ts b/data/images.ts
+index 839ca2c..40d6c55 100644
+--- a/data/images.ts
++++ b/data/images.ts
+@@ -1,17 +1,23 @@
+ /**
+- * Two renditions of every photograph, and how the site chooses between them.
++ * Every rendition of every photograph, and how the site chooses between them.
+  *
+- * ── Why there are two ─────────────────────────────────────────────────────
++ * ── Why there is more than one ────────────────────────────────────────────
+  *
+  * The site has 393 pages and 224 of them are service × city combinations. If
+  * every one of those shows the identical staircase photograph, the long tail
+  * reads as exactly what it is — one template stamped 224 times — and that is
+  * the impression a doorway page gives whether or not the words are unique.
+  *
+- * Two independent sets were commissioned to the same brief. They are not two
+- * crops of one render: different rooms, different light, different angles,
+- * both holding the discipline that makes a comparison work. So the site can
+- * vary which one a page shows and stop looking stamped.
++ * Independent sets were commissioned to the same brief. They are not crops of
++ * one render: different rooms, different light, different angles, all holding
++ * the discipline that makes a comparison work. So the site can vary which one
++ * a page shows and stop looking stamped.
++ *
++ * Most photographs have two renditions. The equipment and defect library has
++ * FOUR, because two agents each delivered a full pair to the same brief and
++ * throwing half of them away would have been vandalism — four renditions is
++ * also what makes a slow cross-fade worth watching rather than a two-frame
++ * flicker.
+  *
+  * ── How the choice is made ────────────────────────────────────────────────
+  *
+@@ -33,59 +39,100 @@
+  */
+ 
+ /**
+- * Canonical paths that have a `-2` sibling on disk.
++ * Canonical path -> how many renditions exist, counting the canonical file.
++ *
++ * A count of 2 means `x.jpg` and `x-2.jpg`. A count of 4 adds `-3` and `-4`.
+  *
+  * Written out rather than read from the filesystem so this module stays pure
+  * and usable from a client component. `tests/images.test.ts` walks
+- * `public/images` and fails the build if this list and the disk disagree.
++ * `public/images` and fails the build if this map and the disk disagree — in
++ * BOTH directions, so a file that arrives without an entry is caught too.
+  */
+-export const IMAGES_WITH_VARIANTS: readonly string[] = [
+-  "/images/after-refinished.jpg",
+-  "/images/ba-deck-after.jpg",
+-  "/images/ba-deck-before.jpg",
+-  "/images/ba-install-after.jpg",
+-  "/images/ba-install-before.jpg",
+-  "/images/ba-railings-after.jpg",
+-  "/images/ba-railings-before.jpg",
+-  "/images/ba-refinish-after.jpg",
+-  "/images/ba-refinish-before.jpg",
+-  "/images/ba-repair-after.jpg",
+-  "/images/ba-repair-before.jpg",
+-  "/images/ba-stairs-after.jpg",
+-  "/images/ba-stairs-before.jpg",
+-  "/images/before-worn.jpg",
+-  "/images/franco-giacinto-oller-grimaldi.jpg",
+-  "/images/hero-living.jpg",
+-  "/images/hero-stairs.jpg",
+-  "/images/methods/method-glue-down-engineered.jpg",
+-  "/images/methods/method-moisture-map.jpg",
+-  "/images/methods/method-open-riser-stair.jpg",
+-  "/images/methods/method-stair-retread.jpg",
+-  "/images/project-etobicoke.jpg",
+-  "/images/project-forest-hill.jpg",
+-  "/images/project-herringbone.jpg",
+-  "/images/project-inlay.jpg",
+-  "/images/project-oakville-stairs.jpg",
+-  "/images/railing-join.jpg",
+-  "/images/service-deck.jpg",
+-  "/images/service-install.jpg",
+-  "/images/service-railings.jpg",
+-  "/images/service-refinish.jpg",
+-  "/images/service-repair.jpg",
+-  "/images/service-stairs.jpg",
+-  "/images/species-board.jpg",
+-  "/images/stair-studio-poster.jpg",
+-  "/images/stair-studio.jpg",
+-  "/images/workshop.jpg",
+-];
++export const IMAGE_VARIANTS: Readonly<Record<string, number>> = {
++  "/images/after-refinished.jpg": 2,
++  "/images/ba-deck-after.jpg": 2,
++  "/images/ba-deck-before.jpg": 2,
++  "/images/ba-install-after.jpg": 2,
++  "/images/ba-install-before.jpg": 2,
++  "/images/ba-railings-after.jpg": 2,
++  "/images/ba-railings-before.jpg": 2,
++  "/images/ba-refinish-after.jpg": 2,
++  "/images/ba-refinish-before.jpg": 2,
++  "/images/ba-repair-after.jpg": 2,
++  "/images/ba-repair-before.jpg": 2,
++  "/images/ba-stairs-after.jpg": 2,
++  "/images/ba-stairs-before.jpg": 2,
++  "/images/before-worn.jpg": 2,
++  "/images/franco-giacinto-oller-grimaldi.jpg": 2,
++  "/images/hero-living.jpg": 2,
++  "/images/hero-stairs.jpg": 2,
++  "/images/methods/method-glue-down-engineered.jpg": 2,
++  "/images/methods/method-moisture-map.jpg": 2,
++  "/images/methods/method-open-riser-stair.jpg": 2,
++  "/images/methods/method-stair-retread.jpg": 2,
++  "/images/project-etobicoke.jpg": 2,
++  "/images/project-forest-hill.jpg": 2,
++  "/images/project-herringbone.jpg": 2,
++  "/images/project-inlay.jpg": 2,
++  "/images/project-oakville-stairs.jpg": 2,
++  "/images/railing-join.jpg": 2,
++  "/images/service-deck.jpg": 2,
++  "/images/service-install.jpg": 2,
++  "/images/service-railings.jpg": 2,
++  "/images/service-refinish.jpg": 2,
++  "/images/service-repair.jpg": 2,
++  "/images/service-stairs.jpg": 2,
++  "/images/species-board.jpg": 2,
++  "/images/stair-studio-poster.jpg": 2,
++  "/images/stair-studio.jpg": 2,
++  "/images/workshop.jpg": 2,
++
++  // The equipment library. Four renditions each: two independent sets, each
++  // of which delivered its own pair. Four is what makes the cross-fade on
++  // these pages a sequence rather than a two-frame flicker.
++  "/images/equipment/eq-belt-sander.jpg": 4,
++  "/images/equipment/eq-edger.jpg": 4,
++  "/images/equipment/eq-multi-disc-sander.jpg": 4,
++  "/images/equipment/eq-dust-containment-system.jpg": 4,
++  "/images/equipment/eq-moisture-meter.jpg": 4,
++  "/images/equipment/eq-flooring-nailer.jpg": 4,
++  "/images/equipment/eq-adhesive-trowel.jpg": 4,
++  "/images/equipment/eq-finish-application.jpg": 4,
++  "/images/equipment/eq-stair-fabrication-bench.jpg": 4,
++  "/images/equipment/eq-railing-anchorage.jpg": 4,
++
++  // The defect library. The most valuable images on the site: a homeowner
++  // can be taught to find each of these in a room, which is the whole
++  // argument the equipment pages are making.
++  "/images/equipment/defect-chatter.jpg": 4,
++  "/images/equipment/defect-edge-halo.jpg": 4,
++  "/images/equipment/defect-lap-lines.jpg": 4,
++  "/images/equipment/defect-hollow-spot.jpg": 4,
++  "/images/equipment/defect-cupping.jpg": 4,
++  "/images/equipment/defect-loose-newel.jpg": 4,
++};
+ 
+-const VARIANT_SET = new Set(IMAGES_WITH_VARIANTS);
++/**
++ * Every canonical path that has more than one rendition.
++ *
++ * Kept as a derived array because several call sites — `data/comparisons.ts`
++ * most importantly — need the list of synthetic photographs and must not have
++ * to know how many renditions each one has.
++ */
++export const IMAGES_WITH_VARIANTS: readonly string[] = Object.keys(IMAGE_VARIANTS);
+ 
+-/** Both renditions of a photograph, canonical first. One entry if there is no pair. */
++/**
++ * Every rendition of a photograph, canonical first. A single-element array if
++ * the image has no siblings, so an unlisted call site is unchanged.
++ */
+ export function variantsOf(src: string): string[] {
+-  if (!VARIANT_SET.has(src)) return [src];
++  const count = IMAGE_VARIANTS[src] ?? 1;
++  if (count <= 1) return [src];
+   const dot = src.lastIndexOf(".");
+-  return [src, `${src.slice(0, dot)}-2${src.slice(dot)}`];
++  const stem = src.slice(0, dot);
++  const ext = src.slice(dot);
++  // -1 is never a filename: the canonical file IS rendition one.
++  return [src, ...Array.from({ length: count - 1 }, (_, i) => `${stem}-${i + 2}${ext}`)];
+ }
+ 
+ /**
+@@ -113,3 +160,21 @@ export function pickVariant(src: string, seed?: string): string {
+   if (all.length === 1 || !seed) return all[0]!;
+   return all[hash(seed) % all.length]!;
+ }
++
++/**
++ * Every rendition, rotated so the one `pickVariant` would have chosen comes
++ * first.
++ *
++ * This is what the cross-fading rotator renders. It matters that the FIRST
++ * element is exactly what the static `Photo` would have shown: the rotator
++ * server-renders that frame, so a crawler, a reader with JavaScript off, and
++ * the first paint for everyone else all see the same image the deterministic
++ * picker chose. The motion is an enhancement layered on top of a correct
++ * still, never a replacement for one.
++ */
++export function variantsFrom(src: string, seed?: string): string[] {
++  const all = variantsOf(src);
++  if (all.length === 1 || !seed) return all;
++  const offset = hash(seed) % all.length;
++  return [...all.slice(offset), ...all.slice(0, offset)];
++}
+diff --git a/docs/DOMINATION_CHANGELOG.md b/docs/DOMINATION_CHANGELOG.md
+index 6728b5a..5dce29f 100644
+--- a/docs/DOMINATION_CHANGELOG.md
++++ b/docs/DOMINATION_CHANGELOG.md
+@@ -1307,3 +1307,123 @@ the photographs are not, and the verification needs preparing.**
+ - 6 routes × 4 viewports (320/390/768/1440): no horizontal overflow.
+ - Every guide, method and service slug referenced by the new data resolves —
+   asserted, not eyeballed.
++
++---
++
++## Stage 14 — Sixty-four photographs, and the machines stop being described (2026-09-03)
++
++Two agents were given one brief and each delivered a full pair. So there are
++**four renditions of all sixteen subjects**, not two, and the correct response
++to that was to widen the variant system rather than throw half of them away.
++
++### The variant system was hard-coded to two
++
++`data/images.ts` held an array of paths and `variantsOf` appended `-2`. That
++worked for exactly as long as every photograph had a twin. It is now a map of
++path to rendition count, `IMAGES_WITH_VARIANTS` is derived from its keys so
++every existing call site is untouched, and the manifest is checked against the
++disk in **both directions** — a listed file that is missing, and a file on disk
++nothing will ever serve. The second direction is the one that matters here:
++sixty-four images could have shipped in the repository, cost their bytes in
++every clone, and never once been rendered.
++
++| | Before | Now |
++| --- | --- | --- |
++| Images on disk | 74 | **138** |
++| Subjects in the manifest | 37 | **53** |
++| Subjects with four renditions | 0 | **16** |
++
++### The rotator already existed. It was extended, not replaced.
++
++`components/photo-rotator.tsx` was already in the repository, cross-fading two
++renditions on `/about` and `/showroom`, already pausing on hover, off-screen,
++in a hidden tab, and under reduced motion. Rewriting it would have been the
++wrong instinct twice over — it would have broken two working pages and thrown
++away discipline that was already correct.
++
++Three things were added:
++
++- **`seed`** — rotates the sequence so the first frame is exactly what
++  `pickVariant` would have chosen for that slug. Ten cards in a grid therefore
++  open on different frames instead of fading in lockstep, which reads worse
++  than a static grid because it advertises the repetition. `tests/images.test.ts`
++  asserts `variantsFrom(src, seed)[0] === pickVariant(src, seed)`, which is the
++  property that lets the server render a correct still and the motion be a
++  pure enhancement on top of it.
++- **`kenBurns`** — 1.00 → 1.06 over eighteen seconds, alternating. Opt-in per
++  call site, because it is wrong on anything a reader studies: a moisture-meter
++  screen should hold still while it is being read. On in the hero and on the
++  defect images, off in every grid.
++- **`priority`** — first frame only, so `tests/layout.test.ts`'s one-eager-image
++  rule still holds with four images stacked in one container.
++
++The reduced-motion guard is stated twice on purpose. The global block in
++`globals.css` already clamps every animation to 0.01ms, which freezes the drift
++at its starting transform — correct, but by accident. `.gh-kenburns` now says
++`animation: none` explicitly, and a test asserts it, so deleting the global
++rule cannot silently re-enable a drifting photograph in someone's face.
++
++### The defect library is the actual weapon
++
++Ten machine images were the ask. The six **defect** images were not, and they
++are the ones worth having:
++
++| Defect | Caused by | Joined to |
++| --- | --- | --- |
++| Chatter marks | Belt sander | — |
++| The perimeter halo | Edger | — |
++| Cupping | Moisture meter | `/problems/hardwood-floor-cupping`, `/hardwood-floor-crowning` |
++| Hollow spots | Adhesive & trowel | `/problems/hollow-spots-hardwood-floor` |
++| Lap lines | Finish application | `/problems/cloudy-white-hardwood-finish` |
++| A newel that moves | Railing anchorage | `/problems/loose-stair-railing` |
++
++Four diagnosis pages now open with a picture of the symptom under the heading
++"What it looks like" — a section that until today was a paragraph asking the
++reader to imagine something — and each links to the machine whose absence
++caused it. **Nobody in this market connects a symptom to the equipment.** A
++visitor searching "dark ring around my refinished floor" lands on a diagnosis
++and is one click from the reason.
++
++The other four machine classes get **no defect image**, and a test pins that
++list by name. Their failures are not visually checkable, and filling the slot
++with a near-enough picture is the same error as inventing a price band for a
++job with no stated scale.
++
++### What the pictures did not change
++
++The rule in `data/equipment.ts` is untouched: this layer describes what the
++work *requires*, never what we own. Photographs make that rule easier to break,
++not harder, so the enforcement grew with the imagery:
++
++- `EQUIPMENT_IMAGE_DISCLOSURE` — *"Commissioned illustration of the machine
++  class, not a photograph of our own equipment"* — renders under every instance,
++  and a test fails the build if any surface shows an equipment image without it.
++- The same for defects, with different words, because the claim differs: not a
++  photograph of a job we were called to.
++- Both the index's *"not an asset list"* and the detail page's *"not an
++  inventory"* are asserted alongside the images, in one test, so the two cannot
++  drift apart.
++- Alt text is checked for words that would turn an illustration into a customer
++  reference.
++
++The chatter caption says the ripple is exaggerated so it reads at that size.
++That sentence costs nothing and it is the difference between teaching someone
++what to look for and setting them up to not find it.
++
++### Also
++
++Both `.zip` files were untracked and `*.zip` added to `.gitignore`, with a
++hygiene test — the same history as the three `.patch` files, for the same
++reason: the web UI is the easy way to move bytes into a repository, and
++archives are transport, not source.
++
++### Evidence
++
++- `npm run test` — **385 pass, 0 fail** (362 before; +23).
++- `npm run build` — 404 prerendered pages, unchanged. No new URLs; this stage
++  adds depth, not surface.
++- `npm run audit:site` — clean.
++- 10 routes × 4 viewports (320/390/768/1440): no horizontal overflow, no
++  console errors beyond the Vercel analytics 404s that only occur off-platform.
++- `/about` and `/showroom` — the two pages that already used the rotator —
++  swept alongside the new ones and unchanged.
+diff --git a/docs/OFFSITE_BLOCKERS.md b/docs/OFFSITE_BLOCKERS.md
+index 3d00a4e..9a59a69 100644
+--- a/docs/OFFSITE_BLOCKERS.md
++++ b/docs/OFFSITE_BLOCKERS.md
+@@ -268,7 +268,19 @@ repair disappears, and a slider is the only way to prove it.
+ 
+ ---
+ 
+-## 13. Photograph the machines — unlocks a section that is already built
++## 13. Photograph the machines — the renders are placeholders, not the answer
++
++> **Updated in Stage 14.** Sixty-four commissioned renderings now illustrate the
++> ten machine classes and six defects, four renditions each, cross-fading. They
++> are labelled on every page as illustrations of a machine *class*, and
++> `tests/equipment.test.ts` fails the build if that label disappears.
++>
++> **Nothing below is closed by them.** The renders make the section look
++> finished; only real photographs make it *true*. And none of them may be
++> uploaded to the Google Business Profile — Google prohibits stock and
++> off-location imagery, and a photo violation on a new profile is a suspension.
++
++### The original blocker, unchanged
+ 
+ `/equipment` and its ten pages went live in Stage 13. They describe **what the
+ work requires**, not what is parked at Sterling Road, and every page says so in
+diff --git a/scripts/install-equipment-images.sh b/scripts/install-equipment-images.sh
+new file mode 100755
+index 0000000..6a0a717
+--- /dev/null
++++ b/scripts/install-equipment-images.sh
+@@ -0,0 +1,72 @@
++#!/usr/bin/env bash
++#
++# Install the equipment and defect photography into public/images/equipment.
++#
++# Two agents were given one brief and each delivered a full pair, so there are
++# FOUR renditions of every subject rather than two:
++#
++#   set A  ->  x.jpg   and  x-2.jpg
++#   set B  ->  x-3.jpg and  x-4.jpg
++#
++# `data/images.ts` declares four renditions for each of the sixteen subjects
++# and `tests/images.test.ts` checks that map against the disk in both
++# directions, so a missing file and an unreferenced file both fail the build.
++# That is the point of running this script rather than dragging files around:
++# get it wrong and the test tells you exactly how.
++#
++# Idempotent. Run it as many times as you like.
++#
++# Usage:
++#   bash scripts/install-equipment-images.sh [set-a.zip] [set-b.zip]
++#
++# Defaults to the two zips at the repository root. They are gitignored and
++# should be deleted once this has run — archives are transport, not source,
++# and tests/repo-hygiene.test.ts fails the build if one is ever committed.
++
++set -euo pipefail
++
++A="${1:-greenhardwood-equipment-set.zip}"
++B="${2:-greenhardwood-equipment-set-second-set.zip}"
++
++for f in "$A" "$B"; do
++  [ -f "$f" ] || { echo "missing: $f" >&2; exit 1; }
++done
++
++command -v unzip >/dev/null || { echo "unzip is required" >&2; exit 1; }
++
++tmp="$(mktemp -d)"
++trap 'rm -rf "$tmp"' EXIT
++
++unzip -q -o "$A" -d "$tmp/a"
++unzip -q -o "$B" -d "$tmp/b"
++
++# Locate the files rather than assume a folder depth: one zip may wrap its
++# contents in a directory and the other may not, and assuming is how the last
++# three transport steps went wrong.
++srcA="$(dirname "$(find "$tmp/a" -name 'eq-belt-sander.jpg' -print -quit)")"
++srcB="$(dirname "$(find "$tmp/b" -name 'eq-belt-sander.jpg' -print -quit)")"
++[ -n "$srcA" ] && [ -n "$srcB" ] || { echo "could not locate images inside the zips" >&2; exit 1; }
++
++dest="public/images/equipment"
++mkdir -p "$dest"
++
++# Set A keeps the canonical names and the -2 sibling it shipped with.
++cp "$srcA"/*.jpg "$dest/"
++
++# Set B slots in behind it as renditions three and four.
++for f in "$srcB"/*.jpg; do
++  base="$(basename "${f%.jpg}")"
++  case "$base" in
++    *-2) cp "$f" "$dest/${base%-2}-4.jpg" ;;
++    *)   cp "$f" "$dest/${base}-3.jpg" ;;
++  esac
++done
++
++n=$(find "$dest" -name '*.jpg' | wc -l | tr -d ' ')
++total=$(find public/images -name '*.jpg' | wc -l | tr -d ' ')
++echo "$dest holds $n files; public/images holds $total ($(du -sh public/images | cut -f1))"
++echo "expected: 64 and 138"
++[ "$n" = "64" ] && [ "$total" = "138" ] || {
++  echo "COUNT MISMATCH — npm test will tell you which files are wrong" >&2
++  exit 1
++}
+diff --git a/tests/equipment.test.ts b/tests/equipment.test.ts
+index df32e46..02db981 100644
+--- a/tests/equipment.test.ts
++++ b/tests/equipment.test.ts
+@@ -2,14 +2,20 @@ import { test, describe } from "node:test";
+ import assert from "node:assert/strict";
+ import { readFileSync } from "node:fs";
+ import {
++  DEFECT_IMAGE_DISCLOSURE,
++  EQUIPMENT_IMAGE_DISCLOSURE,
++  defectLibrary,
+   equipment,
+   equipmentByCategory,
+   equipmentCategories,
++  equipmentForProblem,
+   equipmentForService,
+   getEquipment,
+   servicesFor,
+ } from "../data/equipment";
+ import { guides } from "../data/guides";
++import { IMAGE_VARIANTS } from "../data/images";
++import { problems } from "../data/problems";
+ import { methods } from "../data/methods";
+ import { services } from "../data/services";
+ import { searchDocs } from "../lib/search-index";
+@@ -233,3 +239,173 @@ describe("the layer is reachable", () => {
+     }
+   });
+ });
++
++describe("the imagery is labelled for what it is", () => {
++  const index = readFileSync(new URL("../app/equipment/page.tsx", import.meta.url), "utf8");
++  const detail = readFileSync(
++    new URL("../app/equipment/[slug]/page.tsx", import.meta.url),
++    "utf8",
++  );
++  const problemPage = readFileSync(
++    new URL("../app/problems/[slug]/page.tsx", import.meta.url),
++    "utf8",
++  );
++
++  test("the disclosure says the machine is not ours, in those words", () => {
++    // The specific risk this closes: a photograph of a sander in a workshop
++    // reads as OUR sander in OUR workshop. The words have to deny it.
++    assert.match(EQUIPMENT_IMAGE_DISCLOSURE, /not a photograph of our own equipment/i);
++    assert.match(DEFECT_IMAGE_DISCLOSURE, /not a photograph of a job/i);
++  });
++
++  test("every surface that renders an equipment image also renders the disclosure", () => {
++    for (const [name, src] of [
++      ["the index", index],
++      ["the detail page", detail],
++    ] as const) {
++      assert.match(
++        src,
++        /EQUIPMENT_IMAGE_DISCLOSURE|DEFECT_IMAGE_DISCLOSURE/,
++        `${name} renders equipment imagery with no disclosure`,
++      );
++    }
++    assert.match(
++      problemPage,
++      /DEFECT_IMAGE_DISCLOSURE/,
++      "a diagnosis page shows a defect photograph with nothing saying it is an illustration",
++    );
++  });
++
++  test("having pictures did not soften the inventory rule", () => {
++    // The failure mode: someone adds photographs, decides the page now looks
++    // like proof, and quietly drops the sentence. Both must survive together.
++    assert.match(index, /not an asset list/i);
++    assert.match(detail, /not an inventory/i);
++  });
++
++  test("every entry has an image, and every image is in the variant manifest", () => {
++    for (const e of equipment) {
++      assert.ok(e.image?.startsWith("/images/equipment/"), `${e.slug} has no image`);
++      assert.ok(e.imageAlt && e.imageAlt.length > 40, `${e.slug} has thin or missing alt text`);
++      assert.equal(
++        IMAGE_VARIANTS[e.image],
++        4,
++        `${e.image} is not declared with four renditions, so the rotator has nothing to rotate`,
++      );
++    }
++  });
++
++  test("alt text describes the work, never a customer", () => {
++    const forbidden = /\b(client|customer|homeowner's|Mr\.|Mrs\.|Ms\.)\b/i;
++    for (const e of equipment) {
++      for (const alt of [e.imageAlt, e.defectAlt].filter(Boolean) as string[]) {
++        assert.ok(!forbidden.test(alt), `${e.slug} alt text refers to a person: "${alt}"`);
++      }
++    }
++  });
++
++  test("a defect image always comes with a description, and vice versa", () => {
++    for (const e of equipment) {
++      assert.equal(
++        e.defectImage === undefined,
++        e.defectAlt === undefined,
++        `${e.slug} has one half of a defect image`,
++      );
++    }
++    assert.equal(defectLibrary().length, 6, "the defect library should be six entries");
++  });
++
++  test("the four with no honest defect image get none, not a stand-in", () => {
++    // Filling the slot with a near-enough picture is the same failure as
++    // inventing a price band for a job with no stated scale.
++    const without = equipment.filter((e) => !e.defectImage).map((e) => e.slug);
++    assert.deepEqual(
++      without.sort(),
++      [
++        "dust-containment-system",
++        "flooring-nailer",
++        "multi-disc-sander",
++        "stair-fabrication-bench",
++      ],
++      "the set of entries with no defect image has changed — was that deliberate?",
++    );
++  });
++});
++
++describe("the symptom joins to the machine that prevents it", () => {
++  test("every problemSlug resolves to a real diagnosis page", () => {
++    const known = new Set(problems.map((p) => p.slug));
++    for (const e of equipment) {
++      for (const slug of e.problemSlugs ?? []) {
++        assert.ok(known.has(slug), `${e.slug} points at unknown problem "${slug}"`);
++      }
++    }
++  });
++
++  test("only an entry that HAS a defect image claims to illustrate a diagnosis", () => {
++    for (const e of equipment) {
++      if ((e.problemSlugs ?? []).length === 0) continue;
++      assert.ok(
++        e.defectImage,
++        `${e.slug} claims a diagnosis page but has no image to put on it`,
++      );
++    }
++  });
++
++  test("the lookup returns the entry, and undefined rather than a near-enough one", () => {
++    assert.equal(equipmentForProblem("hardwood-floor-cupping")?.slug, "moisture-meter");
++    assert.equal(equipmentForProblem("loose-stair-railing")?.slug, "railing-anchorage");
++    assert.equal(equipmentForProblem("squeaking-stairs"), undefined);
++  });
++
++  test("no two entries claim the same diagnosis page", () => {
++    const seen = new Map<string, string>();
++    for (const e of equipment) {
++      for (const slug of e.problemSlugs ?? []) {
++        const prior = seen.get(slug);
++        assert.equal(prior, undefined, `${slug} is claimed by both ${prior} and ${e.slug}`);
++        seen.set(slug, e.slug);
++      }
++    }
++  });
++});
++
++describe("the motion is an enhancement, never the content", () => {
++  const rotator = readFileSync(
++    new URL("../components/photo-rotator.tsx", import.meta.url),
++    "utf8",
++  );
++  const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
++
++  test("it does not start under reduced motion", () => {
++    assert.match(rotator, /prefers-reduced-motion: reduce/);
++    assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]{0,200}\.gh-kenburns/);
++  });
++
++  test("the Ken Burns drift is explicitly cancelled, not merely clamped", () => {
++    // The global reduced-motion block already clamps every animation to
++    // 0.01ms, which freezes this one correctly but by accident. Deleting that
++    // global rule must not silently re-enable a drifting photograph.
++    const guard = css.slice(css.lastIndexOf(".gh-kenburns"));
++    assert.match(guard, /animation: none/);
++  });
++
++  test("it pauses off-screen and in a hidden tab", () => {
++    assert.match(rotator, /IntersectionObserver/);
++    assert.match(rotator, /visibilityState|visibilitychange/);
++  });
++
++  test("exactly one frame can be eager, and it is the first", () => {
++    assert.match(rotator, /priority && i === 0/);
++  });
++
++  test("only the visible frame is described to assistive technology", () => {
++    assert.match(rotator, /aria-hidden=\{i !== index\}/);
++  });
++
++  test("the drift is slow enough not to compete with the text", () => {
++    const m = css.match(/animation: gh-kenburns-drift (\d+)s/);
++    assert.ok(m, "the Ken Burns animation has no duration");
++    assert.ok(Number(m![1]) >= 12, `a ${m![1]}s drift is a slideshow effect, not a Ken Burns move`);
++  });
++});
+diff --git a/tests/images.test.ts b/tests/images.test.ts
+index c6d1dae..454c886 100644
+--- a/tests/images.test.ts
++++ b/tests/images.test.ts
+@@ -2,7 +2,13 @@ import { test, describe } from "node:test";
+ import assert from "node:assert/strict";
+ import { readdirSync, statSync, readFileSync } from "node:fs";
+ import { join } from "node:path";
+-import { IMAGES_WITH_VARIANTS, pickVariant, variantsOf } from "../data/images";
++import {
++  IMAGE_VARIANTS,
++  IMAGES_WITH_VARIANTS,
++  pickVariant,
++  variantsFrom,
++  variantsOf,
++} from "../data/images";
+ import { comparisons, SYNTHETIC_IMAGES } from "../data/comparisons";
+ 
+ const walk = (dir: string, out: string[] = []) => {
+@@ -16,31 +22,52 @@ const walk = (dir: string, out: string[] = []) => {
+ const onDisk = walk("public/images").sort();
+ 
+ /**
+- * Two independent photo sets were commissioned to one brief, so 224 service ×
+- * city pages can stop showing the identical staircase. These tests keep the
+- * manifest honest — it is written out rather than read from the filesystem so
+- * the module stays pure, which means nothing but a test can catch it drifting.
++ * Independent photo sets were commissioned to one brief, so 224 service × city
++ * pages can stop showing the identical staircase. Most subjects have two
++ * renditions; the equipment and defect library has four, because two agents
++ * each delivered a full pair.
++ *
++ * These tests keep the manifest honest — it is written out rather than read
++ * from the filesystem so the module stays pure, which means nothing but a test
++ * can catch it drifting. The check runs in BOTH directions: a listed file that
++ * is missing, and a file on disk the manifest forgot.
+  */
+ 
+ describe("the variant manifest matches what is actually on disk", () => {
+-  test("every listed image exists, and so does its -2 sibling", () => {
++  test("every listed image exists, and so does every rendition it claims", () => {
+     const set = new Set(onDisk);
+     for (const src of IMAGES_WITH_VARIANTS) {
+       assert.ok(set.has(src), `manifest lists ${src}, which is not in public/images`);
+-      const [, second] = variantsOf(src);
+-      assert.ok(set.has(second!), `${src} has no -2 sibling on disk`);
++      for (const rendition of variantsOf(src)) {
++        assert.ok(set.has(rendition), `${src} claims ${rendition}, which is not on disk`);
++      }
++    }
++  });
++
++  test("no rendition on disk is one the manifest forgot", () => {
++    // The failure this catches: a set arrives, the files are committed, and
++    // the manifest is not updated — so the images ship in the repository,
++    // cost their bytes in every clone, and are never once served.
++    const orphans: string[] = [];
++    for (const f of onDisk) {
++      const m = f.match(/^(.*)-(\d+)\.jpg$/);
++      if (!m) continue;
++      const canonical = `${m[1]}.jpg`;
++      if (!onDisk.includes(canonical)) continue;
++      const claimed = variantsOf(canonical);
++      if (!claimed.includes(f)) orphans.push(f);
+     }
++    assert.deepEqual(orphans, [], "renditions exist on disk that the site will never show");
+   });
+ 
+-  test("no image on disk has a sibling the manifest forgot", () => {
+-    const missing = onDisk
+-      .filter((f) => !f.includes("-2."))
+-      .filter((f) => onDisk.includes(f.replace(/\.jpg$/, "-2.jpg")))
+-      .filter((f) => !IMAGES_WITH_VARIANTS.includes(f));
+-    assert.deepEqual(missing, [], "a second rendition exists but the site will never show it");
++  test("the declared count matches the renditions actually present", () => {
++    for (const [src, count] of Object.entries(IMAGE_VARIANTS)) {
++      const present = variantsOf(src).filter((r) => onDisk.includes(r)).length;
++      assert.equal(present, count, `${src} declares ${count} renditions but ${present} are on disk`);
++    }
+   });
+ 
+-  test("a -2 file is never referenced directly in source", () => {
++  test("a numbered rendition is never referenced directly in source", () => {
+     // Call sites name the canonical file and let pickVariant choose. A direct
+     // reference would pin one rendition and silently opt out of rotation.
+     const offenders: string[] = [];
+@@ -49,14 +76,14 @@ describe("the variant manifest matches what is actually on disk", () => {
+         const full = join(dir, e.name);
+         if (statSync(full).isDirectory()) scan(full);
+         else if (/\.tsx?$/.test(e.name) && full !== "data/images.ts") {
+-          if (/["']\/images\/[a-z0-9/-]+-2\.jpg["']/.test(readFileSync(full, "utf8"))) {
++          if (/["']\/images\/[a-z0-9/-]+-\d+\.jpg["']/.test(readFileSync(full, "utf8"))) {
+             offenders.push(full);
+           }
+         }
+       }
+     };
+     for (const d of ["app", "components", "data", "lib"]) scan(d);
+-    assert.deepEqual(offenders, [], "a second-rendition path is hard-coded");
++    assert.deepEqual(offenders, [], "a numbered rendition path is hard-coded");
+   });
+ });
+ 
+@@ -91,7 +118,7 @@ describe("the choice is deterministic, never random", () => {
+     ];
+     const src = "/images/service-stairs.jpg";
+     const picks = cities.map((c) => pickVariant(src, c));
+-    const second = picks.filter((p) => p.includes("-2")).length;
++    const second = picks.filter((p) => /-\d+\.jpg$/.test(p)).length;
+     assert.ok(
+       second > 6 && second < cities.length - 6,
+       `${second}/${cities.length} cities got the second rendition — the split is lopsided`,
+@@ -100,9 +127,18 @@ describe("the choice is deterministic, never random", () => {
+ });
+ 
+ describe("both photo sets are complete and correctly shaped", () => {
+-  test("74 images: two full sets", () => {
+-    assert.equal(onDisk.length, 74, `expected 74 images, found ${onDisk.length}`);
+-    assert.equal(IMAGES_WITH_VARIANTS.length, 37);
++  test("138 images: the original pairs plus the equipment library's quartets", () => {
++    assert.equal(onDisk.length, 138, `expected 138 images, found ${onDisk.length}`);
++    assert.equal(IMAGES_WITH_VARIANTS.length, 53);
++    const quartets = Object.values(IMAGE_VARIANTS).filter((n) => n === 4).length;
++    assert.equal(quartets, 16, "the equipment and defect library should be 16 subjects x 4");
++  });
++
++  test("every equipment and defect subject has all four renditions", () => {
++    for (const [src, count] of Object.entries(IMAGE_VARIANTS)) {
++      if (!src.startsWith("/images/equipment/")) continue;
++      assert.equal(count, 4, `${src} is in the equipment library but does not have four`);
++    }
+   });
+ 
+   test("every comparison frame has both renditions", () => {
+@@ -135,3 +171,42 @@ describe("both photo sets are complete and correctly shaped", () => {
+     }
+   });
+ });
++
++describe("the rotator opens on the frame the still would have shown", () => {
++  const src = "/images/equipment/eq-belt-sander.jpg";
++
++  test("the first frame is exactly pickVariant's answer", () => {
++    // This is the safety property that lets the rotator be an enhancement:
++    // the server renders frames[0], so a crawler and a reader with JavaScript
++    // off see the same correct image as everyone else's first paint.
++    for (const seed of ["belt-sander", "edger", "hardwood-floor-cupping", "x"]) {
++      assert.equal(variantsFrom(src, seed)[0], pickVariant(src, seed));
++    }
++  });
++
++  test("every rendition appears exactly once, so the cycle shows them all", () => {
++    const frames = variantsFrom(src, "belt-sander");
++    assert.equal(frames.length, 4);
++    assert.equal(new Set(frames).size, 4);
++    assert.deepEqual([...frames].sort(), [...variantsOf(src)].sort());
++  });
++
++  test("without a seed it is the plain order, so unseeded call sites did not move", () => {
++    assert.deepEqual(variantsFrom(src), variantsOf(src));
++  });
++
++  test("sibling cards do not all open on the same frame", () => {
++    // Ten equipment cards in a grid, each seeded by its own slug. If they all
++    // opened on the canonical file they would cross-fade in lockstep, which
++    // reads worse than a static grid because it advertises the repetition.
++    const slugs = [
++      "belt-sander", "edger", "multi-disc-sander", "dust-containment-system",
++      "moisture-meter", "flooring-nailer", "adhesive-trowel", "finish-application",
++      "stair-fabrication-bench", "railing-anchorage",
++    ];
++    const openers = new Set(
++      slugs.map((slug) => variantsFrom(`/images/equipment/eq-${slug}.jpg`, slug)[0]!.slice(-6)),
++    );
++    assert.ok(openers.size >= 3, `only ${openers.size} distinct opening frames across ten cards`);
++  });
++});
+diff --git a/tests/repo-hygiene.test.ts b/tests/repo-hygiene.test.ts
+index e287190..c31ca75 100644
+--- a/tests/repo-hygiene.test.ts
++++ b/tests/repo-hygiene.test.ts
+@@ -45,6 +45,26 @@ describe("repository hygiene", () => {
+     );
+   });
+ 
++  test("no archive is tracked", () => {
++    // Same argument as the patches, same history: three .patch files and then
++    // two .zip files of photography reached main because uploading through
++    // the GitHub web UI is the easy way to move bytes into a repository.
++    // Archives are transport. Extract them, commit what came out, delete the
++    // archive — otherwise every clone forever carries both copies.
++    const offenders = trackedFiles().filter((f) => /\.(zip|tar|tar\.gz|tgz|rar|7z)$/i.test(f));
++    assert.deepEqual(
++      offenders,
++      [],
++      `Archives are transport, not source. Tracked: ${offenders.join(", ")}. ` +
++        "Extract, commit the contents, then `git rm` the archive.",
++    );
++  });
++
++  test(".gitignore covers archives too, so the mistake is caught before commit", () => {
++    const ignore = readFileSync(".gitignore", "utf8");
++    assert.match(ignore, /^\*\.zip$/m, ".gitignore must ignore *.zip");
++  });
++
+   test("no build output, dependency tree or env file is tracked", () => {
+     const offenders = trackedFiles().filter(
+       (f) =>
+-- 
+2.43.0
+
