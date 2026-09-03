@@ -1110,3 +1110,98 @@ and a homeowner using the estimator get the same number.
 `/portfolio/[slug]` pages at 237. The answers pages are deliberately direct, so
 some of that is correct; the portfolio pages are mine from Stage 6 and could
 carry the specification reasoning that currently only lives in the catalogue.
+
+---
+
+## Stage 12 — The job pages price the job (2026-09-02)
+
+After the guides were fixed, the nine `/portfolio/[slug]` pages were the
+thinnest content left — **237 words median** — and they sit at the end of the
+most persuasive click path the site has. Someone looked at a photograph of a
+floor and asked to see the job. Arriving at a spec list and 237 words is a
+wasted arrival.
+
+### Derived, not written — again
+
+Same method as the city hubs, for the same reason. Each entry already states
+its own scale in `specs` — "1,850 sq ft", "32 steps", "Matched 28 treads" —
+and its own municipality. That is enough to price the job with the estimator
+that prices everything else, so the page can answer the question a visitor is
+actually asking.
+
+The scale is **parsed out of the spec list the page displays**, not stored a
+second time. A number derived from the list the reader can see cannot disagree
+with it.
+
+| Job | Band |
+| --- | --- |
+| Forest Hill heritage restoration | $25,217 – $35,773 · 1,850 sq ft plus 28 steps, Toronto |
+| Oakville estate staircase | $16,490 – $23,393 · 32 steps, Oakville |
+| Richmond Hill occupied refinish | $6,041 – $8,570 · 1,100 sq ft |
+| Vaughan 4,200 sq ft new build | $67,711 – $96,055 |
+| King West penthouse herringbone | 2,400 sq ft, Toronto |
+
+Every one sits inside its service's published per-unit range, and every one is
+reproducible in `/estimate` with the same inputs — which
+`tests/portfolio-navigation.test.ts` asserts directly against
+`calculateEstimate` rather than against a snapshot.
+
+### The four that get no number
+
+The medallion, the restaurant, the water-damage repair and the deck describe
+themselves by method — "Insurance coordination", "Hidden fasteners" — not by
+scale. They get **no band at all**, and the test asserts that they get none:
+inventing a size to fill the slot is precisely what this repository keeps
+being tempted by and keeps refusing.
+
+Where a number exists but does not cover everything, the page says so. The
+medallion's install is priced; the medallion is not, "because an inlay is not
+priceable by the square foot". Commercial phasing is excluded in the same
+sentence rather than implied to be included.
+
+### What goes wrong, on the page that shows the job
+
+Each job page now names the two most relevant failure modes for its shape of
+work — quoted from the catalogue archetype, which owns them, with a link to
+the rest. "Sanding a floor that has already been sanded to its limit." "Colour
+approved against a modern trim sample."
+
+A job page that shows only the finished photograph is an advertisement. One
+that names what goes wrong and how it is avoided is a specification, and it is
+the difference between a visitor admiring a floor and a visitor trusting the
+shop that built it.
+
+Plus the local context: the tier note, the distance from the workshop, and how
+many of the twelve catalogue job types are taken in that municipality.
+
+### Result
+
+**273–528 words, median 413** (was 195–305, median 237).
+
+### Evidence
+
+- `npm run test` — **344 pass, 0 fail** (338 before; +6).
+- 393 prerendered pages, audit clean, no new URLs.
+- 6 routes × 4 viewports: no horizontal overflow.
+
+### The content programme is now finished
+
+Every section the audit measured as thin has been closed with derived or
+genuinely-known material, and nothing was invented to do it:
+
+| Section | Before | Now |
+| --- | --- | --- |
+| City hubs (32) | 343 | **1,030** |
+| Guides (20) | 175 | **552** |
+| Job pages (9) | 237 | **413** |
+| `/faq` | 142 | **721** |
+| Homepage | 1,614 | **2,193** |
+
+What remains thin is `/answers` at 258 across 40 pages, and that is largely
+correct — they are direct answers to single questions, and padding them would
+make them worse at the one job they have.
+
+The remaining work is not writing. It is the three items in
+`docs/OFFSITE_BLOCKERS.md` that only the shop can do: claim the Google
+Business Profile, take twelve photographs, and decide which installation
+number is right.

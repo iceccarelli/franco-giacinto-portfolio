@@ -1,8 +1,9 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, existsSync } from "node:fs";
-import { projects } from "../data/projects";
+import { projectBand, projectScale, projects } from "../data/projects";
 import { catalog } from "../data/catalog";
+import { calculateEstimate, emptyEstimate } from "../data/estimate";
 import { searchDocs } from "../lib/search-index";
 
 /**
@@ -140,5 +141,85 @@ describe("everything that pointed at a fragment now points at a page", () => {
         assert.ok(slugs.has(slug), `catalog/${entry.slug} points at missing job "${slug}"`);
       }
     }
+  });
+});
+
+/**
+ * The job pages were the thinnest content on the site after the guides were
+ * fixed — 237 words median — sitting at the end of the most persuasive click
+ * path there is. A visitor who looked at a photograph and wanted to see the
+ * job arrived at a spec list.
+ *
+ * The depth added is derived, not written: the scale comes out of the entry's
+ * own `specs`, which is the same list the page displays, so the number cannot
+ * disagree with what the reader can see above it.
+ */
+describe("a job page prices the specification it shows", () => {
+  test("every entry that states a scale gets a band", () => {
+    const withScale = projects.filter((p) => {
+      const s = projectScale(p);
+      return s.sqft !== undefined || s.stairs !== undefined;
+    });
+    // Five of the nine state a size or a step count. The other four —
+    // the medallion, the restaurant, the water-damage repair and the deck —
+    // describe themselves by method ("Insurance coordination", "Hidden
+    // fasteners") rather than by scale, and inventing a size for them to fill
+    // the slot is exactly what this file exists to prevent.
+    assert.equal(withScale.length, 5, `${withScale.length} entries state a scale, expected 5`);
+    for (const p of withScale) {
+      const band = projectBand(p);
+      assert.ok(band, `${p.slug} states a scale but produces no band`);
+      assert.ok(band.high > band.low && band.low > 0, `${p.slug}: incoherent band`);
+      assert.ok(band.basis.length > 0, `${p.slug}: no stated basis`);
+    }
+  });
+
+  test("an entry with no stated scale gets no invented number", () => {
+    // "Insurance coordination, Red oak match, Kitchen refinish" states no size.
+    // A band there would be a number made up to fill a slot.
+    for (const p of projects) {
+      const s = projectScale(p);
+      if (s.sqft === undefined && s.stairs === undefined) {
+        assert.equal(projectBand(p), null, `${p.slug} invented a band from nothing`);
+      }
+    }
+  });
+
+  test("the scale is read from the specs the page displays", () => {
+    const forestHill = projects.find((p) => p.slug === "forest-hill-heritage")!;
+    assert.equal(projectScale(forestHill).sqft, 1850, "1,850 sq ft did not parse");
+    assert.equal(projectScale(forestHill).stairs, 28, '"Matched 28 treads" did not parse');
+
+    const oakville = projects.find((p) => p.slug === "oakville-estate-stair")!;
+    assert.equal(projectScale(oakville).stairs, 32, "32 steps did not parse");
+  });
+
+  test("the band matches what the estimator would say for the same inputs", () => {
+    // The whole claim is that a reader can check it against /estimate.
+    const p = projects.find((p) => p.slug === "vaughan-new-build")!;
+    const band = projectBand(p)!;
+    const direct = calculateEstimate({
+      ...emptyEstimate(),
+      city: p.citySlug,
+      service: "install",
+      sqft: 4200,
+      stairs: 0,
+    });
+    assert.equal(band.low, Math.round(direct.low));
+    assert.equal(band.high, Math.round(direct.high));
+  });
+
+  test("a job the estimator cannot price says so rather than implying coverage", () => {
+    const src = readFileSync("app/portfolio/[slug]/page.tsx", "utf8");
+    assert.match(src, /not priceable by the square foot/i, "the inlay caveat is gone");
+    assert.match(src, /quoted per project/i, "the commercial phasing caveat is gone");
+  });
+
+  test("the page names what goes wrong, not only what it looks like", () => {
+    const src = readFileSync("app/portfolio/[slug]/page.tsx", "utf8");
+    assert.match(src, /What goes wrong on a job like this/);
+    assert.match(src, /failureModes/, "the failure modes are not rendered");
+    // Quoted from the catalogue, which owns them — not restated here.
+    assert.match(src, /All \{archetypes\[0\]!\.failureModes\.length\} failure modes/);
   });
 });
