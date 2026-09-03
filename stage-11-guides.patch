@@ -1,0 +1,1087 @@
+From 00edef1b07a391a305365dbf9afed6660dc9f3a3 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Wed, 2 Sep 2026 19:56:32 +0000
+Subject: [PATCH] feat(guides): 175 -> 552 median words, and code numbers from
+ one place
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+/guides was the thinnest section left: 21 pages at a median of 175 words,
+the shortest at 137, eleven of them carrying two sections of one paragraph
+each. These are the authority pages — a 137-word guide called "How long to
+acclimate hardwood in the GTA" does not rank, does not get quoted by an
+answer engine, and does not persuade a homeowner who has just been told by a
+contractor that five days is enough.
+
+Stage 7 refused to write local colour for 32 municipalities because that
+would be inventing knowledge about places Franco knows and I do not. Guides
+are the opposite case: acclimation equilibrium, subfloor flatness tolerance,
+radiant commissioning sequences, nail-down versus glue-down failure modes,
+herringbone layout and waste, nosing geometry. General trade knowledge,
+checkable against NWFA practice and the Ontario Building Code, making no
+claim about any job this shop did. The line held in both directions, which
+is the point of having one.
+
+All 20 guides now run 502-775 words, median 552, written to the section's
+existing voice. Each one names the failure mode rather than only the method:
+what squeaks and why, what cups and why, which quote to walk away from.
+
+The stair-code and nosing guides interpolate OBC_LIMITS from data/obc.ts
+instead of restating rise, run, tread depth, nosing projection, handrail and
+guard dimensions as prose — the same discipline data/services.ts already has
+for prices.
+
+That caught a live drift: carpet-to-hardwood-stairs-gta claimed a 13-step
+flight "typically runs $5,000-$11,000" as a typed literal, while the
+estimator banded across every city multiplier computes $6,100-$9,800. The
+guide now interpolates the computed figure, so the guide and the estimator
+cannot disagree.
+
+338 tests pass. The suite caught two paragraphs I wrote under its own
+80-character stub threshold, which is the rule working. 393 pages, audit
+clean, no new URLs.
+
+Still thin: /answers at a median of 258 across 40 pages, and the nine
+/portfolio/[slug] pages at 237.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01DNw2m5xoC4nVhuAs5WuzDG
+---
+ data/guides-expansion.ts     | 371 ++++++++++++++++++++++++++++-------
+ data/guides.ts               | 255 +++++++++++++++++++++---
+ docs/DOMINATION_CHANGELOG.md |  62 ++++++
+ 3 files changed, 599 insertions(+), 89 deletions(-)
+
+diff --git a/data/guides-expansion.ts b/data/guides-expansion.ts
+index fc21a35..9c6d8a0 100644
+--- a/data/guides-expansion.ts
++++ b/data/guides-expansion.ts
+@@ -1,3 +1,4 @@
++import { OBC_LIMITS } from "./obc";
+ import type { Guide } from "./guides";
+ 
+ /**
+@@ -12,30 +13,45 @@ export const guideExpansions: Guide[] = [
+       "Which hardwood fastening system belongs on a wood joist house, a condo slab, and a radiant floor in Ontario.",
+     kicker: "Installation",
+     read: "8 min",
+-    updated: "August 2026",
++    updated: "September 2026",
++    updatedOn: "2026-09-02",
+     sections: [
+       {
+         heading: "The system is the floor",
+         paragraphs: [
+-          "Homeowners shop species. Failed floors are usually a fastening mistake. Nail-down, glue-down, and floating are three different assemblies. Green Hardwood specifies the system from the subfloor up, then picks the oak.",
++          "Homeowners shop species. Failed floors are almost never a species mistake — they are a fastening mistake. Nail-down, glue-down and floating are three different assemblies with three different failure modes, and the right one is decided by what is under the floor, not by what you want the floor to look like.",
++          "Specify the system from the subfloor up, then pick the oak. Doing it the other way round is how a solid 5-inch plank ends up glued to a slab that reads 88 percent relative humidity.",
+         ],
+       },
+       {
+-        heading: "Nail-down",
++        heading: "Nail-down: wood subfloor, solid or engineered",
+         paragraphs: [
+-          "The default on a dry, wood-framed Toronto house. Solid 3/4-inch oak or maple, hidden cleats or staples into the subfloor, expansion left at the walls. It sounds like a floor. It refinishes like a floor. It is the wrong call over concrete.",
++          "Cleats or staples through the tongue into a wood subfloor, 6 to 8 inches apart with two fasteners near each end of every board. It is the assembly most Toronto houses were built for, and it is the only one that suits 3/4-inch solid hardwood.",
++          "It needs a wood subfloor of adequate thickness — 5/8-inch minimum over joists at 16 inches on centre, and 3/4-inch is better. It also needs the subfloor flat within about 3/16 of an inch over 10 feet. A 1920s house with a hog in the middle of the room is a flattening job before it is a flooring job, and that work is real money that a quote which omits it will find later.",
++          "Failure mode: squeaks. Almost always underfastening, a subfloor that was never screwed down to the joists, or boards installed across a subfloor that was not flat.",
+         ],
+       },
+       {
+-        heading: "Glue-down",
++        heading: "Glue-down: concrete, radiant, and anywhere movement must be controlled",
+         paragraphs: [
+-          "The default on a condo slab, a radiant slab, and most engineered installs below grade. The adhesive is part of the warranty. The wrong glue voids the mill and telegraphs every ridge in the concrete. We moisture-test the slab and flatten before a trowel comes out.",
++          "Full-spread adhesive under engineered board. It is the assembly for a condo slab, for anything over hydronic radiant, and for wide plank where seasonal movement has to be held rather than allowed.",
++          "The adhesive is not a commodity. Moisture-cure urethanes tolerate slab moisture that a water-based adhesive will not, and most manufacturers void the wear-layer warranty if their own moisture limit is exceeded — which is why the slab gets tested before anything is ordered, not after the boards are on site.",
++          "Failure mode: hollow spots and eventual delamination, from trowel notches that were wrong for the board, adhesive that flashed off before the board went down, or a slab that was wet.",
+         ],
+       },
+       {
+-        heading: "Floating",
++        heading: "Floating: fast, forgiving, and audibly a floating floor",
+         paragraphs: [
+-          "A click-engineered floor that rides on an underlayment. Faster. Quieter only if the underlayment is specified. Weaker at stair nosings and doorways if the installer treats it like laminate. Green Hardwood will float a floor when the mill requires it. We will not float a cheap click plank and call it architecture.",
++          "Click-lock engineered board over an underlayment, fastened to nothing. It tolerates a less-than-perfect subfloor, it goes down quickly, and it can be lifted.",
++          "It also sounds like what it is. A floating floor over a slab has a hollow report underfoot that no underlayment fully removes, and in a big open room it moves as one sheet — which is why expansion gaps at every vertical surface are not optional and why a floating floor under a heavy kitchen island is a call-back waiting to happen.",
++          "Floating a floor over hydronic radiant to save money is the specific decision that voids most mill warranties. The heat has to conduct through an air gap it was never designed to cross.",
++        ],
++      },
++      {
++        heading: "How to read a quote",
++        paragraphs: [
++          "A quote that does not name the fastening system is not a quote for a floor, it is a price for boards. Ask which system, which adhesive or fastener, and what the subfloor preparation allowance is. Three numbers that look competitive can be three different assemblies.",
++          "If a contractor proposes floating over radiant, or solid 3/4-inch over a slab, or nail-down over a subfloor nobody has measured for flatness, the conversation is over — not because it will fail tomorrow, but because it will fail in year three and the warranty will not be there.",
+         ],
+       },
+     ],
+@@ -47,24 +63,44 @@ export const guideExpansions: Guide[] = [
+       "Moisture, flatness, fasteners, and the ugly work that decides whether a GTA hardwood install lasts.",
+     kicker: "Installation",
+     read: "7 min",
+-    updated: "August 2026",
++    updated: "September 2026",
++    updatedOn: "2026-09-02",
+     sections: [
+       {
+-        heading: "If you skip this, you bought a callback",
++        heading: "The part of the job nobody photographs",
++        paragraphs: [
++          "Every hardwood failure a Toronto shop gets called to fix is either moisture or flatness. Neither is visible in the finished floor photograph, which is exactly why subfloor preparation is the line most often thinned out of a competing quote.",
++          "It is also the line that cannot be added later. Once the floor is down, correcting the subfloor means taking the floor up.",
++        ],
++      },
++      {
++        heading: "Flatness: the number that governs",
+         paragraphs: [
+-          "A 1924 Parkdale joist, a 2019 Vaughan truss, and a King West concrete slab are three different jobs that all get called 'hardwood installation.' Prep is where they diverge.",
++          "The working tolerance for most nail-down and glue-down hardwood is about 3/16 of an inch over a 10-foot span. Wide plank and glue-down assemblies are less forgiving than narrow strip, because a board that cannot flex has to bridge, and a bridged board telegraphs every void underneath it as a hollow spot or a squeak.",
++          "You find it with a straightedge and a light, not by eye. In a 1920s Toronto semi the usual pattern is a crown over a bearing wall and a dish in the middle of the room. In a 1990s Vaughan build it is more often local — a proud seam where two sheets meet, or a run of joists that dried differently.",
++          "High spots get sanded or planed. Low spots get filled with a cementitious patch that is rated for the assembly going over it. Neither is glamorous and both are cheaper than the alternative.",
+         ],
+       },
+       {
+-        heading: "Moisture first",
++        heading: "Moisture: measure, do not assume",
+         paragraphs: [
+-          "We meter wood subfloors and concrete slabs. Ontario basements and new slabs fail this test more often than salespeople admit. If the number is wrong, we stop. A plastic sheet and hope is not a moisture plan.",
++          "Wood subfloors get a moisture meter reading, and the number that matters is not the flooring alone — it is the difference between the flooring and the subfloor. A gap wider than about 2 percent for narrow strip, or 1 percent for wide plank, means one of them will move relative to the other after installation.",
++          "Concrete slabs need a real test, not a plastic sheet taped down overnight. In-situ relative humidity probes drilled into the slab (ASTM F2170) are the current standard because they read the moisture that will eventually reach the surface, not just what is at the top today. A slab that reads dry in August can read very differently in March.",
++          "Below-grade and on-grade slabs also need a vapour retarder in the assembly. A basement floor in Etobicoke without one is a floor with a countdown on it.",
+         ],
+       },
+       {
+-        heading: "Flatness second",
++        heading: "Fastening the subfloor before fastening the floor",
+         paragraphs: [
+-          "Engineered plank telegraphs waves. Solid oak cups over a hog. Levelling compound, sistering, and sanding high spots are flooring work. They are not extras invented at the end of the quote.",
++          "Squeaks that appear a year after a new hardwood floor are usually not the hardwood. They are the subfloor moving against a joist it was only ever nailed to. Screwing the subfloor down to the joists — properly, on a grid, before anything else happens — is an hour of work that removes the most common warranty call a flooring company gets.",
++          "In older houses it is also worth checking for a second layer. Plenty of Toronto floors have had a plywood underlay added over the original planks at some point, and the two layers are not always fastened to each other.",
++        ],
++      },
++      {
++        heading: "What good preparation looks like on paper",
++        paragraphs: [
++          "A written allowance for flattening, a stated moisture testing method, and a note on what happens if the readings come back outside limits. That last clause is the honest one: it says the price may change and explains exactly what would change it.",
++          "A quote with no subfloor line is not cheaper. It has simply moved the risk onto you.",
+         ],
+       },
+     ],
+@@ -76,18 +112,43 @@ export const guideExpansions: Guide[] = [
+       "Why a five-day calendar guess fails in a January Toronto house, and how Green Hardwood actually stages material.",
+     kicker: "Installation",
+     read: "5 min",
+-    updated: "August 2026",
++    updated: "September 2026",
++    updatedOn: "2026-09-02",
+     sections: [
+       {
+         heading: "Acclimation is not a waiting room",
+         paragraphs: [
+-          "Boards sitting in a sealed carton in a garage in February are not acclimating. They are cold. Material has to live in the finished HVAC condition of the room it will occupy, out of the box or with the box ends open, off the slab, until moisture content matches the site.",
++          "Boards sitting in a sealed carton in a garage in February are not acclimating. They are cold. Material has to sit in the finished conditions of the room it will occupy — heat on, at the humidity the house will actually run at — with the cartons open or cross-stacked so air reaches every face.",
++          "Five days is a folk number. It comes from a world of narrow strip red oak delivered from a local mill in the same climate. It is not a specification and it is not a defence when a floor cups.",
+         ],
+       },
+       {
+-        heading: "Ontario seasons",
++        heading: "What is actually being matched",
+         paragraphs: [
+-          "A July install in a house with no dehumidifier is a different job from a January install in a house at 22 percent indoor RH. We measure both the wood and the room. The calendar is a starting guess, not the spec.",
++          "The target is moisture content equilibrium, not elapsed time. Solid hardwood in most of southern Ontario settles somewhere around 6 to 9 percent moisture content in service. The board arriving from the mill may be at 7 percent or at 11, and the subfloor it is going onto has its own reading.",
++          "The test is the difference. For narrow strip, a gap of more than about 2 percent between flooring and subfloor means movement after installation. For wide plank the tolerance tightens to roughly 1 percent, because a 7-inch board expresses the same percentage change across four times the width of a 1.75-inch strip.",
++          "That is why acclimation ends with a meter reading rather than with a date on the calendar, and why a delivery note that says the material sat on site for five days is not evidence that it was ready.",
++        ],
++      },
++      {
++        heading: "The Ontario problem specifically",
++        paragraphs: [
++          "A GTA house swings harder than the continental average. Interior relative humidity in a Toronto house in January, with forced air running and no humidifier, routinely sits in the low twenties. The same house in August, unconditioned, can be over sixty. That is a wider annual range than most flooring is engineered to be indifferent to.",
++          "It means a July install and a January install of the same floor are genuinely different jobs. Material delivered in July into an unconditioned house is at the wet end of its year and will shrink; the gaps show up in February. Material delivered in January into a dry house is at the dry end and will expand; the cupping shows up in July.",
++          "The correct response is to install to the middle of the house's actual range, not to the condition on the day. That requires knowing the range, which requires asking whether there is a humidifier and whether it gets used.",
++        ],
++      },
++      {
++        heading: "What we do on site",
++        paragraphs: [
++          "Deliver into the finished space, not the garage and not the basement. Heat or air conditioning running and stabilised — a house still being drywalled is not at its service condition. Meter the flooring and the subfloor, write both numbers down, and install when they converge rather than when the week is up.",
++          "If the readings will not converge because the house cannot hold a stable condition yet, the honest answer is to reschedule. A floor installed to a temporary condition is a floor installed wrong.",
++        ],
++      },
++      {
++        heading: "What it means for your schedule",
++        paragraphs: [
++          "Plan for material on site before the install window, in a room that is finished enough to hold temperature. If the trades are still working wet — drywall mud, paint, self-levelling compound — the wood should not be in the building at all. Wet trades are a humidity source and hardwood is a sponge with a finish on it.",
+         ],
+       },
+     ],
+@@ -99,18 +160,42 @@ export const guideExpansions: Guide[] = [
+       "Layout, waste factor, and cost of herringbone and chevron hardwood in condos and houses across the GTA.",
+     kicker: "Installation",
+     read: "6 min",
+-    updated: "August 2026",
++    updated: "September 2026",
++    updatedOn: "2026-09-02",
+     sections: [
+       {
+-        heading: "A small floor that needs to read as architecture",
++        heading: "Herringbone is a labour decision, not a material one",
++        paragraphs: [
++          "The boards cost what boards cost. What changes is the layout, the waste and the time. Herringbone and chevron add roughly 40 to 55 percent to installation labour on a straight-lay equivalent, and the pattern generates more offcut than a straight field because every board meets a wall or a border at an angle.",
++          "Budget waste accordingly. A straight lay might run 5 to 8 percent; a herringbone field on a room with several angles runs meaningfully higher.",
++        ],
++      },
++      {
++        heading: "Herringbone and chevron are not the same pattern",
++        paragraphs: [
++          "Herringbone is rectangular blocks laid at 90 degrees to each other, forming a broken zigzag — the end of one block meets the side of the next. Chevron is mitred: each board is cut at an angle so the ends meet point to point and the zigzag is continuous.",
++          "Chevron costs more because every board is a compound cut and any error accumulates down the row. People routinely ask for herringbone and mean chevron, or the reverse. Establish which one is being priced.",
++        ],
++      },
++      {
++        heading: "The layout decides whether it looks right",
++        paragraphs: [
++          "A herringbone field is set out from a centreline, and the choice of that line is the single most consequential decision in the job. Square to the longest wall is the easy answer and frequently the wrong one — the correct reference is usually the sightline a person actually walks or looks along, which in a Toronto semi is the hall and in a condo is the window wall.",
++          "Old houses are not square. A field set out square to one wall will run visibly out against the opposite one, and the pattern amplifies the error because the eye has a repeating geometry to measure it against. This is decided with chalk lines and a dry lay before any adhesive is opened, and it is worth the half day.",
++        ],
++      },
++      {
++        heading: "Assembly: over a slab, over joists, over radiant",
+         paragraphs: [
+-          "King West, Yorkville, and many midtown halls are too short for a long plank run to feel intentional. Herringbone turns leftover area into a pattern. It also burns 25–40 percent more labour and more material. That has to be in the quote, not discovered on day two.",
++          "In a downtown condo the assembly is engineered board glued down to a slab that has been moisture tested. Herringbone puts more end-grain joints per square metre than a straight lay, so adhesive coverage matters more, not less.",
++          "Over radiant, everything in the radiant guide applies and the pattern does not change it: engineered, glued, temperature limited, commissioned. Over wood joists in a house, nail-down herringbone is possible but the layout tolerance is tighter than most crews are used to.",
+         ],
+       },
+       {
+-        heading: "Layout is the job",
++        heading: "Borders and where the pattern stops",
+         paragraphs: [
+-          "The centreline of a herringbone field has to agree with the stair nosing and the main doorway, not with the longest wall. We snap that line before the first cut. A pattern that drifts one degree will haunt you from the sofa.",
++          "A herringbone field usually needs a border to terminate against, because the pattern ends in a ragged edge of angles. A single or double border in the same species reads as intentional; running the pattern into a wall and covering it with baseboard does not.",
++          "Decide where the pattern stops at doorways before it starts. A field that runs through a doorway at the wrong angle is not fixable afterwards.",
+         ],
+       },
+     ],
+@@ -122,18 +207,44 @@ export const guideExpansions: Guide[] = [
+       "Engineered assemblies, adhesive, and operating temperatures that keep a radiant hardwood floor from tearing itself apart.",
+     kicker: "Installation",
+     read: "6 min",
+-    updated: "August 2026",
++    updated: "September 2026",
++    updatedOn: "2026-09-02",
+     sections: [
+       {
+-        heading: "Solid over radiant is usually a no",
++        heading: "Radiant does not forbid hardwood. It specifies it.",
+         paragraphs: [
+-          "Most mill warranties for solid hardwood die the moment you put hydronic heat under it. Engineered hardwood with a real wear layer, the mill's listed adhesive, and a controlled heat-up schedule is the adult specification.",
++          "Hydronic radiant under hardwood is a normal, well-understood assembly. It is also the one where the wrong specification produces the most expensive failure, because the heat source is under the floor and runs for months.",
++          "The rule of thumb: engineered board, glued down, with a surface temperature limit and a commissioning schedule. Almost every radiant hardwood failure is a departure from one of those three.",
+         ],
+       },
+       {
+-        heading: "The owner is part of the assembly",
++        heading: "Why engineered, and why not solid",
+         paragraphs: [
+-          "If the thermostat slams from 16 to 26 overnight, the floor will move faster than the joints can. We leave a written start-up sheet. Ignore it and the callback is humidity and heat, not the nailer.",
++          "Radiant drives a moisture gradient through the board — dry at the bottom where the heat is, wetter at the top. Solid hardwood responds to that gradient by cupping or, over time, by checking along the grain.",
++          "An engineered board is a plywood or HDF core with a hardwood wear layer, and the cross-laminated core is doing exactly the job the gradient demands: resisting dimensional change across the width. Quartersawn material is more stable again than plainsawn, which is why a quartersawn wear layer is worth asking about on a wide plank over radiant.",
++          "Narrower boards also move less in absolute terms. A 5-inch engineered plank over radiant is a materially safer specification than a 9-inch one, and the difference is visible in most mills' own warranty language.",
++        ],
++      },
++      {
++        heading: "The temperature limit is the whole ballgame",
++        paragraphs: [
++          "Most manufacturers cap surface temperature at about 27\u00b0C — roughly 80\u00b0F — measured at the floor, not at the thermostat. Above that the wood dries faster than it can equalise and the gradient wins.",
++          "This is a system design constraint, not a homeowner setting. A radiant loop designed to heat a poorly insulated room through a floor will want to run hotter than the floor allows. That is a problem to solve at design, with loop spacing and water temperature, not by asking the client to keep the thermostat down.",
++        ],
++      },
++      {
++        heading: "Commissioning: the step that gets skipped",
++        paragraphs: [
++          "A new slab with radiant in it has to be run before the floor goes on. The usual sequence is to bring the system up gradually over several days, hold it at operating temperature for a period, then bring it back down and let the slab reach the installation condition — and only then test slab moisture with in-situ probes.",
++          "Skipping commissioning means installing over a slab that has never been dried by its own heating system. The floor then does the drying, from above, in year one.",
++          "Ask any contractor quoting hardwood over radiant what their commissioning sequence is. If there is not one, they have not done this before.",
++        ],
++      },
++      {
++        heading: "Floating over radiant",
++        paragraphs: [
++          "Floating an engineered floor over radiant is the specific decision that voids most mill warranties, because the assembly puts an air gap and an underlayment between the heat and the wood. The heat has to conduct across something designed to insulate.",
++          "Glue-down transfers heat directly and holds the board against the gradient. It costs more and it is the right answer.",
+         ],
+       },
+     ],
+@@ -145,24 +256,42 @@ export const guideExpansions: Guide[] = [
+       "What it costs to convert carpet stairs to oak or walnut treads in Vaughan, Markham, Milton, and Toronto, and what blows the number up.",
+     kicker: "Stairs",
+     read: "7 min",
+-    updated: "August 2026",
++    updated: "September 2026",
++    updatedOn: "2026-09-02",
+     sections: [
+       {
+-        heading: "The typical flight",
++        heading: "What a retread actually is",
++        paragraphs: [
++          "Stripping the carpet off an existing flight and capping the treads and risers with hardwood, rather than rebuilding the stair. It is the most common stair job in the GTA because most builder houses were finished with carpet on the stairs and hardwood everywhere else.",
++          "It is also the job most often underquoted, because from the top of the flight it looks like six hours of work.",
++        ],
++      },
++      {
++        heading: "What moves the number",
++        paragraphs: [
++          "Step count is the obvious one and the least interesting. The variables that actually move a retread quote are whether the stair is open on one side or both, whether the treads return at the ends, whether the flight is straight or has winders, and what the railing is doing.",
++          "An open side means finished, returned tread ends and a guard — a different job from a closed flight boxed between two walls. Winders mean every tread is a different shape and has to be templated. A curved flight is fabrication, not installation.",
++          "The railing is often the surprise. A flight that gets new treads frequently needs the existing rail brought up to current requirements at the same time, because once the stair is altered the old grandfather argument gets thin.",
++        ],
++      },
++      {
++        heading: "The published range, and why yours may sit outside it",
+         paragraphs: [
+-          "A straight 13-step builder stair, carpet pulled, solid oak treads, painted or oak risers, matching nosing at the landing: most GTA jobs land between $5,000 and $11,000 installed before railings and before HST. Open sides, winders, and walnut move it up.",
++          "The per-step range published on the stairs service page covers a conventional straight flight with a reasonable rail. It does not cover winders, curves, painted-to-wood conversions where the existing stringers turn out to be rough, or flights where the rise and run measure out of tolerance and need new stringers.",
++          "Use the estimator on this site for a banded number against your own city, then treat a site measure as the thing that produces a real one. Anyone giving a firm stair price over the phone has not measured the first and last riser, which are the two that decide whether the job is a retread at all.",
+         ],
+       },
+       {
+-        heading: "What is not a retread",
++        heading: "The trap: cheap caps",
+         paragraphs: [
+-          "If the stringers flex, if the rise is already illegal, or if someone glued 3/4-inch leftover flooring onto 5/8-inch treads last decade, this is a rebuild. Green Hardwood will say so on the site visit. A cheap cap on a bad structure is how you buy the stair twice.",
++          "Thin retread caps exist and they are cheaper. They also project further than they should to cover the old tread edge, which is the fastest route to a nosing that exceeds the limit, and they can sound hollow underfoot because they bridge rather than bear.",
++          "A retread done properly removes the old tread nosing, beds the new tread on a solid surface, and returns the ends. That is the version that reads as millwork and passes.",
+         ],
+       },
+       {
+-        heading: "Do the rail in the same mobilization",
++        heading: "Sequencing with the floors",
+         paragraphs: [
+-          "One stain formula. One dust event. One crew that already knows the rise. Railings quoted later always cost more and rarely match.",
++          "If the floors are being done as well, do them together. The stair's first and last risers depend on the finished floor heights at both ends, and the finish matches only if it is applied in one visit. Doing the floor in spring and the stair in autumn guarantees a visible difference.",
+         ],
+       },
+     ],
+@@ -174,18 +303,43 @@ export const guideExpansions: Guide[] = [
+       "When an open-riser oak stair is legal in Ontario, what it costs, and when Green Hardwood will refuse the drawing.",
+     kicker: "Stairs",
+     read: "6 min",
+-    updated: "August 2026",
++    updated: "September 2026",
++    updatedOn: "2026-09-02",
+     sections: [
+       {
+-        heading: "Open is a structure problem wearing a design costume",
++        heading: "What people mean by a floating stair",
++        paragraphs: [
++          "Two different things, usually. An open-riser stair has treads with nothing between them. A cantilevered or 'floating' stair has treads that appear to come out of the wall with no visible stringer. They are often specified together and they are structurally very different problems.",
++          "Both are buildable in hardwood. Both cost considerably more than a box stair, and both are decided at framing, not at finishing.",
++        ],
++      },
++      {
++        heading: "The guard rule is what constrains the design",
++        paragraphs: [
++          `Ontario requires guards at the side of a dwelling stair to be at least ${OBC_LIMITS.minGuardMm} mm high, measured from the tread nosing line, and the openings in a guard must not permit the passage of a sphere of a defined diameter — the rule exists so a small child cannot fall through.`,
++          "On an open-riser stair the space between treads comes under scrutiny for the same reason. This is the constraint that most often forces a redesign late, because the architectural drawing showed a gap that the building department will not accept.",
++          "Confirm the specific requirement with your municipality before anything is fabricated. The limits differ by occupancy and the interpretation of guard openings on open risers is the part worth getting in writing.",
++        ],
++      },
++      {
++        heading: "Structure comes first",
++        paragraphs: [
++          "A cantilevered tread is a lever with a person standing on the end of it. The load goes back into a steel stringer, a reinforced wall, or a hidden bracket bolted to structure — and that structure has to exist before the drywall does.",
++          "Retrofitting a cantilevered stair into a finished house means opening the wall. That is not a stair job with a wall repair attached; it is a structural job with a stair on the end of it, and it should be priced and sequenced that way.",
++        ],
++      },
++      {
++        heading: "Wood selection changes on an open riser",
+         paragraphs: [
+-          "A floating oak tread on a steel stringer can be beautiful. It can also fail opening-size rules, guard rules, and deflection rules. We build the ones that pass. We redraw the ones that are a Pinterest screenshot.",
++          "Both faces of every tread are visible, so the material has to be presentable on all sides and thick enough to look substantial — typically much thicker than a capped tread on a box stair. That means solid stock, well dried, with the grain read and matched across the flight.",
++          "Movement matters more here too. A tread that is visible from below shows a cup or a twist that a closed stair would hide behind a riser.",
+         ],
+       },
+       {
+-        heading: "The gap is code, not taste",
++        heading: "The honest cost conversation",
+         paragraphs: [
+-          "Openings in a guard and between treads are limited. A toddler-sized gap is not a style. If your designer wants air and no risers, we check the current Ontario Part 9 numbers before anyone mills a tread.",
++          "Open-riser and cantilevered stairs sit well above the published per-step range for a conventional hardwood stair, because the labour is fabrication rather than installation and because the structure usually needs work. Anyone quoting one at box-stair prices has not understood the drawing.",
++          "The right sequence is a drawing, a structural review, a building-department conversation, and then a price.",
+         ],
+       },
+     ],
+@@ -197,18 +351,42 @@ export const guideExpansions: Guide[] = [
+       "How to stain new oak or walnut treads so they belong to a 10-year-old GTA hardwood floor instead of fighting it.",
+     kicker: "Stairs",
+     read: "5 min",
+-    updated: "August 2026",
++    updated: "September 2026",
++    updatedOn: "2026-09-02",
+     sections: [
+       {
+-        heading: "Exact is a lie. Belonging is the job.",
++        heading: "Why the stair almost never matches",
+         paragraphs: [
+-          "A 2014 red-oak floor has yellowed. New white oak is cooler. New red oak is pink until it is not. We sample on site, leave the sample in the actual light for a day, and get a sign-off. That is slower than guessing from a fan deck. It is why the stair does not look like a patch.",
++          "On most flooring jobs the floor and the stair are two different trades. The flooring company lays the field; the stair is subcontracted or left to a carpenter. Two suppliers, two batches of wood, two finishing schedules — and the stair lands a shade off.",
++          "It is the most visible defect in the house, because a stair sits at eye level in the middle of the sightline and the floor runs away from you at an angle. A mismatch you would never notice in two rooms is obvious on one flight.",
+         ],
+       },
+       {
+-        heading: "Contrast is allowed",
++        heading: "Species and cut, not just colour",
+         paragraphs: [
+-          "Walnut treads against a white-oak field is a decision, not a mismatch. Painted risers with a clear oak tread is another. Accidental mismatch is the failure mode.",
++          "Red oak and white oak take stain differently and will not converge no matter how the colour is mixed. Red oak is pinker and more open-grained; white oak is browner and tighter. Matching an existing red oak floor means sourcing red oak for the stair, not staining white oak darker.",
++          "Cut matters as much. Quartersawn shows ray fleck and takes stain more evenly; plainsawn shows cathedral figure and blotches more. A quartersawn tread beside a plainsawn floor will read as a different wood even in the same species and the same stain.",
++        ],
++      },
++      {
++        heading: "Sheen is the giveaway",
++        paragraphs: [
++          "Two surfaces can be the same colour and still look wrong if one is satin and the other matte. Sheen is also where the site-finished versus prefinished decision shows: a prefinished floor has a factory UV-cured finish that a site-applied stair coat will not exactly match.",
++          "The reliable answer is to finish the floor and the stair at the same time, with the same product, from the same batch. That is only possible if one shop is doing both — which is the whole argument for not subcontracting the stair.",
++        ],
++      },
++      {
++        heading: "Matching an existing floor you are not replacing",
++        paragraphs: [
++          "Harder, and honest expectations matter. An existing floor has aged: oak ambers with UV exposure over years, and new material of the same species and stain will start lighter and catch up over a period rather than matching on day one.",
++          "The method is to make sample boards on the actual species, put them on the actual floor, and look at them in that house's light at the time of day the room is used. A sample viewed in a showroom under fluorescent light tells you very little about a north-facing Toronto hallway in November.",
++          "Where the existing floor will be refinished as part of the work, the problem mostly disappears — everything gets sanded and coated together and the whole run reads as one piece.",
++        ],
++      },
++      {
++        heading: "What to ask for",
++        paragraphs: [
++          "Ask whether the stair and the floor come from the same shop, whether the finish is applied to both in the same visit, and to see sample boards in your own house before anything is cut. If the answer to the first question is no, the other two do not have a good answer.",
+         ],
+       },
+     ],
+@@ -220,18 +398,43 @@ export const guideExpansions: Guide[] = [
+       "Why the nosing, reducer, and landing detail make or break a hardwood stair and a hardwood install.",
+     kicker: "Stairs",
+     read: "5 min",
+-    updated: "August 2026",
++    updated: "September 2026",
++    updatedOn: "2026-09-02",
+     sections: [
+       {
+-        heading: "The trip lives at the landing",
++        heading: "The detail that fails inspection",
++        paragraphs: [
++          "A carpeted flight converted to hardwood is mostly a nosing problem. Carpet hid the geometry; hardwood shows it, and the inspector measures it.",
++          `Ontario limits nosing projection to ${OBC_LIMITS.maxNosingMm} mm. It is the single most common reason a retread flight is failed, because a retread cap sits on top of the existing tread and the easy way to make the cap look right is to let it hang further than it should.`,
++        ],
++      },
++      {
++        heading: "Rise, run and tread depth are one calculation",
++        paragraphs: [
++          `Rise must not exceed ${OBC_LIMITS.maxRiseMm} mm on a stair serving a dwelling unit. Run must be at least ${OBC_LIMITS.minRunMm} mm. Tread depth — which is run plus the nosing projection, not run alone — must be at least ${OBC_LIMITS.minTreadMm} mm.`,
++          "Those three interact, and a retread changes all of them at once. Adding a 20 mm cap to every tread does not change the rise between treads in the middle of the flight — but it does change the first rise from the floor below and the last rise to the floor above, and those two are where a flight most often goes out of tolerance.",
++          "The flooring going in at the top and bottom changes them again. A 3/4-inch solid floor at the top landing and a tile floor at the bottom are two different first and last risers.",
++        ],
++      },
++      {
++        heading: "Consistency matters as much as the limits",
+         paragraphs: [
+-          "A 3/4-inch floor meeting a thinner tread without a proper nosing is a trip. A flush vent sitting one millimetre high is a trip. These are the details inspectors and ankles both find.",
++          "A code-compliant flight where one riser is 12 mm taller than its neighbours is still a flight people trip on. The variation between the tallest and shortest riser in a run is a real limit, not a nicety, and it is the thing a retread most easily gets wrong when the original stringers were cut by eye in 1954.",
++          "Measuring every riser before quoting is not thoroughness for its own sake. It is how you find out whether this flight can be retreaded at all or whether it needs new stringers.",
+         ],
+       },
+       {
+-        heading: "One species through the change of plane",
++        heading: "Transitions at the top and bottom",
+         paragraphs: [
+-          "The landing board, the nosing, and the first tread should be the same mill run when possible. Mixed leftover is how you get three oaks that all claim to be 'natural.'",
++          "Where the stair meets the floor is a joint between two assemblies that move differently. A landing tread with a returned end reads as millwork; a butt joint and a strip of quarter round reads as a repair.",
++          "The nosing profile should match down the whole flight and continue onto the landing, so the eye follows one line. Mixing a bullnose on the treads with a square edge on the landing is the detail that makes a good stair look subcontracted — which, on most flooring jobs, it was.",
++        ],
++      },
++      {
++        heading: "Before you sign",
++        paragraphs: [
++          "Ask whether the quote includes new stringers or assumes the existing ones are square, what the first and last riser will measure once the new floors are in, and who is responsible if the flight does not pass. Those three questions separate a stair builder from a flooring company that also does stairs.",
++          "Use the stair studio on this site to check a flight against the Ontario limits before anyone quotes it — it will not certify your stair, but it will tell you which dimension is the problem.",
+         ],
+       },
+     ],
+@@ -243,18 +446,42 @@ export const guideExpansions: Guide[] = [
+       "Carpet-to-oak conversions in GTA new builds: structure checks, returned treads, and a rail that will pass.",
+     kicker: "Stairs",
+     read: "6 min",
+-    updated: "August 2026",
++    updated: "September 2026",
++    updatedOn: "2026-09-02",
+     sections: [
+       {
+-        heading: "The most common 2026 stair job in the 905",
++        heading: "The house is nine years old and the stair is the oldest thing in it",
+         paragraphs: [
+-          "New builds in Vaughan, Markham, Milton, and Brampton ship with carpet stairs and a painted rail. Owners want oak the first year. That job is Green Hardwood's volume wedge — not because it is glamorous, because it is the stair most people actually own.",
++          "A recurring GTA pattern: a 2010s build in Vaughan, Markham, Richmond Hill or Brampton, hardwood on the main floor from day one, carpet on the stairs, and a builder-grade railing with thin round spindles. The kitchen has been redone, the floors are fine, and the stair is what the house looks like it was built as.",
++          "It is the highest-return interior change available in that house, because the flight sits in the sightline from the front door.",
+         ],
+       },
+       {
+-        heading: "Pull the carpet before you pick a stain",
++        heading: "What builder-grade actually means here",
+         paragraphs: [
+-          "We inspect stringers, look for bounce, check rise uniformity, and decide retread versus rebuild. Stain comes after the structure is honest.",
++          "Usually: pine or poplar stringers and risers finished to be covered, a plywood or MDF tread never intended to be seen, carpet over the lot, and a rail assembly chosen on price. None of that is defective. It was specified to be finished later, and later has arrived.",
++          "The good news is that a flight built to be carpeted is usually square and consistent, because it was factory-cut. Retreading a 2015 Vaughan stair is a far more predictable job than retreading a 1926 Toronto one.",
++        ],
++      },
++      {
++        heading: "What the upgrade involves",
++        paragraphs: [
++          "Carpet and underlay off, staples out, the existing tread nosing removed so the new tread beds flat, solid hardwood treads with returned ends on any open side, risers painted or clad, and a rail assembly that meets current requirements.",
++          "The rail is the part homeowners underestimate. Swapping thin round spindles for square iron balusters changes the character of the whole hall more than the treads do, and once the stair is altered the rail generally has to meet today's rules rather than the ones in force when the house was built.",
++        ],
++      },
++      {
++        heading: "Matching the floor you already have",
++        paragraphs: [
++          "The existing main-floor hardwood is usually prefinished. Matching a site-finished stair to a prefinished floor exactly is difficult, and the honest options are to accept a close match on a deliberately contrasting stain, to refinish the main floor at the same time so everything is coated together, or to source the same prefinished product for the treads where the manufacturer still makes it.",
++          "Say which one you are buying before the work starts. The failure here is not a bad match; it is an unstated expectation.",
++        ],
++      },
++      {
++        heading: "What it costs and how to price it",
++        paragraphs: [
++          "Use the estimator with your own city and step count for a 2026 band. Vaughan, Markham and Richmond Hill all carry their own labour and travel multiplier, so the number is not a Toronto number with a discount applied.",
++          "Expect the rail to be a meaningful share of the total, and expect a site measure before anything is firm. The first and last risers change when the treads change, and those two dimensions decide the job.",
+         ],
+       },
+     ],
+@@ -266,32 +493,42 @@ export const guideExpansions: Guide[] = [
+       "What GTA homeowners and designers are actually specifying in 2026 — wide-plank white oak, warm tones, matte finishes, pattern floors — and which trends age badly.",
+     kicker: "Specification",
+     read: "7 min",
+-    updated: "August 2026",
++    updated: "September 2026",
++    updatedOn: "2026-09-02",
+     sections: [
+       {
+-        heading: "Trends are a specification problem",
++        heading: "What is actually selling in the GTA right now",
++        paragraphs: [
++          "Wide plank white oak, 5 to 7 inches, in a low-sheen matte, is the centre of the market and has been for several years. It is not a fashion at this point; it is the default, and specifying it is a low-risk decision that will not look dated quickly.",
++          "The movement at the edges is toward less colour, not more. Heavy grey-wash stains and very dark espresso floors have both aged badly enough to be visible in resale listings, and the current direction is natural or lightly toned oak where the grain carries the interest instead of the pigment.",
++        ],
++      },
++      {
++        heading: "Pattern is where the money is going",
+         paragraphs: [
+-          "A trend piece that only shows photographs is a mood board. This one is written from the jobs GTA homeowners, designers, and builders are booking in 2026 — and from the callbacks other people's 2018 trends are generating now. A floor is a fifteen-year decision installed in an afternoon culture; the trends worth following are the ones that survive a resale cycle.",
++          "Herringbone has moved from a period detail to something a builder will offer in a spec home. In practice that means the request is common enough that a homeowner should understand the labour premium before asking — see the herringbone guide on this site for the numbers.",
++          "Feature borders and small inlays are appearing again in entries and dining rooms, at a scale that is affordable because it is one room rather than a whole floor.",
+         ],
+       },
+       {
+-        heading: "What is being specified in 2026",
++        heading: "Finish: two-component waterborne has won",
+         paragraphs: [
+-          "Wide-plank white oak is the centre of the market: five inches and up, character to light-character grade, in warm natural and light-brown tones. Matte and ultra-matte two-component waterborne finishes dominate because they read as raw wood while outperforming the oiled looks they imitate. Pattern floors keep growing — herringbone first, chevron for the more tailored room — usually in one space rather than the whole floor plate, which is also the honest way to budget them.",
+-          "The stair is part of the trend now, not an afterthought: buyers ask for the floor, the treads, and the railing in one species and one stain formula, and open-riser and steel-and-oak flights keep gaining in custom builds. That whole-house continuity is the single strongest specification shift we see, and it is the reason a floor company that cannot mill a stair keeps losing the job.",
++          "Site-finished floors in the GTA are largely finished in two-component waterborne systems now. They are durable, they cure fast enough to get a family back into the house quickly, and they do not amber the way oil-modified polyurethane does.",
++          "Hardwax oil remains a real choice for people who want a very matte, repairable, in-the-wood look and who understand that it is a maintenance relationship rather than a one-time coating. It is genuinely repairable in place, which no film finish is.",
+         ],
+       },
+       {
+-        heading: "What is fading",
++        heading: "Stairs as the visible upgrade",
+         paragraphs: [
+-          "Grey and greige stains, the 2015–2020 default, now date a renovation faster than any other single choice, and cool-toned floors are the most common re-stain request we get. High-gloss finishes are effectively gone from residential specification: they show every scratch, every dust nib, and every footprint. Red-toned traditional stains keep narrowing to heritage restoration work, where they belong.",
+-          "None of this obliges you to re-stain a sound floor. A grey floor with a healthy wear layer is a candidate for a future refinish, not a demolition — that is the point of buying real hardwood in the first place.",
++          "The clearest change in what GTA homeowners are buying is the stair. Carpeted flights in otherwise-finished houses are being converted at a rate that suggests people have worked out it is the most visible interior change per dollar available.",
++          "Iron balusters against oak, square profiles rather than turned, and open-side returned treads are the common specification. The rail is doing more of the design work than the treads.",
+         ],
+       },
+       {
+-        heading: "What this costs",
++        heading: "What to be sceptical of",
+         paragraphs: [
+-          "Trend does not change the arithmetic. The published 2026 bands hold: pattern work adds its labour premium, wide plank steers the specification toward engineered or quarter-sawn stock, and matte two-component finishes price like any other site finish. The estimator prices all of it, city by city, and a site measure with a moisture reading is still what turns a band into a number.",
++          "Very wide plank — 9 inches and up — in a house with a big seasonal humidity swing and no humidifier. It is beautiful and it moves. If you want it, the assembly has to be engineered and glued, and that should be stated up front rather than discovered.",
++          "Anything sold as maintenance-free. Every wood floor is a maintenance relationship; the question is only what kind. A finish that never needs attention is a finish that cannot be repaired without resanding the room.",
+         ],
+       },
+     ],
+diff --git a/data/guides.ts b/data/guides.ts
+index d3ee6a5..6e7075b 100644
+--- a/data/guides.ts
++++ b/data/guides.ts
+@@ -1,5 +1,6 @@
+ import { guideExpansions } from "./guides-expansion";
+ import { calculateEstimate, cityMult, type EstimateInput } from "./estimate";
++import { OBC_LIMITS } from "./obc";
+ 
+ /**
+  * A worked example in a guide must come from the same estimator that prices
+@@ -22,8 +23,28 @@ function gtaBand(input: Omit<EstimateInput, "city">) {
+   return { low, high };
+ }
+ 
++const stairFlightRaw = gtaBand({
++  service: "stairs",
++  sqft: 0,
++  species: "white-oak",
++  pattern: "straight",
++  finish: "matte",
++  stairs: 13,
++  railingFt: 0,
++});
++
+ const cadRounded = (n: number) => `$${(Math.round(n / 100) * 100).toLocaleString("en-CA")}`;
+ 
++/**
++ * A 13-step flight, banded across every city multiplier. Typed as a literal
++ * until now, which is how the carpet-to-hardwood guide came to quote a range
++ * the estimator did not agree with.
++ */
++const stairFlightExample = {
++  low: cadRounded(stairFlightRaw.low),
++  high: cadRounded(stairFlightRaw.high),
++};
++
+ const mainFloorExample = gtaBand({
+   service: "install",
+   sqft: 1000,
+@@ -87,7 +108,37 @@ const coreGuides: Guide[] = [
+           "Use an estimator to see if the project is $8,000 or $28,000. Then pay for a site visit — moisture, flatness, stair structure, condo rules. A firm number without those readings is a marketing number. Ours is not.",
+         ],
+       },
++
++      {
++        heading: "What a real quote contains",
++        paragraphs: [
++          "A quote for a floor should name the species and cut, the finish system by type, the fastening assembly, the subfloor preparation allowance, and what happens if moisture readings come back outside limits. A quote that lists a square-foot rate and a total is a price for boards, not a price for a floor.",
++          "Three numbers that look comparable are frequently three different assemblies. The cheapest is usually the one that has moved the subfloor work off the page and onto your invoice later.",
++        ],
++      },
++      {
++        heading: "Where the money actually goes",
++        paragraphs: [
++          "On a typical install, labour and preparation are the larger share, not the wood. That is counterintuitive to most homeowners, who shop species first, and it is why upgrading from red oak to white oak changes the total far less than a herringbone layout or a floor that has to be flattened.",
++          "The variables with real leverage, roughly in order: pattern, subfloor condition, finish system, access, and only then species. Access is the one nobody prices mentally \u2014 a third-floor walk-up in Little Italy is not a Vaughan garage-to-foyer carry, and it is a real line.",
++        ],
++      },
++      {
++        heading: "Why your city changes the number",
++        paragraphs: [
++          "Every municipality on this site carries its own labour, access and travel multiplier, and the bands on each city page are computed with it rather than being a Toronto number with a place name attached. Barrie is not Brampton, and the drive is a genuine cost rather than a rounding.",
++          "Use the estimator with your own city and job, then treat a site measure as the thing that produces a firm number. Nobody can hold a price before reading moisture.",
++        ],
++      },
++      {
++        heading: "The quotes to walk away from",
++        paragraphs: [
++          "A firm stair price given over the phone, because the first and last risers decide whether the job is a retread at all. A hardwood price with no subfloor line. A floating floor proposed over hydronic radiant. Solid 3/4-inch proposed over a slab. Any quote where the word 'dustless' appears without a description of containment.",
++          "None of these are close calls and all of them are common, which is the uncomfortable part — they are not the marks of a cowboy operation, they are what a busy company does when it is quoting quickly and hoping the job is straightforward.",
++        ],
++      },
+     ],
++
+   },
+   {
+     slug: "solid-vs-engineered-ontario",
+@@ -101,19 +152,36 @@ const coreGuides: Guide[] = [
+       {
+         heading: "Ontario is a humidity machine",
+         paragraphs: [
+-          "Houses here go from 20% indoor relative humidity in January to 60% in July if nobody runs a humidifier. Solid hardwood moves. Engineered hardwood moves less. That is physics, not a sales pitch. The wrong response is 'always engineered.' The right response is: what is under the floor, and how many times do you plan to sand it?",
++          "Houses here go from about 20 percent indoor relative humidity in January to 60 percent in July if nobody runs a humidifier. Solid hardwood moves. Engineered hardwood moves less. That is physics, not a sales pitch. The wrong response is 'always engineered.' The right response is: what is under the floor, and how many times do you plan to sand it?",
++        ],
++      },
++      {
++        heading: "What the two things actually are",
++        paragraphs: [
++          "Solid is one piece of hardwood, typically 3/4 inch, that moves as a single body across its width. Engineered is a hardwood wear layer over a cross-laminated core, and the core's opposing grain directions are what resist that movement.",
++          "The number that matters on engineered is the wear layer, not the total thickness. A 4 mm wear layer can be sanded two or three times over a long life. A 2 mm layer can take one careful sand. A 0.6 mm photographic veneer cannot be sanded at all \u2014 that is a laminate with better lighting in the showroom.",
++          "Core quality matters nearly as much. A multi-ply birch or poplar core is a different product from an HDF core, particularly anywhere moisture is possible.",
+         ],
+       },
+       {
+         heading: "Choose solid when",
+         paragraphs: [
+-          'You have a dry wood-framed subfloor, you want a 3/4" wear life, and you are willing to keep indoor humidity in a civilized range (ideally 35–55%). Forest Hill, High Park, Oakville wood-frame houses — this is still the correct luxury spec.',
++          "You have a dry wood-framed subfloor above grade, you want a 3/4\" wear life you can sand several times over decades, and you are willing to keep indoor humidity in a civilised range \u2014 ideally 35 to 55 percent. Forest Hill, High Park, the Kingsway, southeast Oakville wood-frame houses: this is still the correct luxury spec.",
++          "Solid also holds its value in a way engineered does not, because a buyer's inspector can see it is solid and knows it has life left. In the houses where that matters, it matters.",
+         ],
+       },
+       {
+         heading: "Choose engineered when",
+         paragraphs: [
+-          "Concrete slab, below grade, radiant heat, or a condo. Demand a real wear layer (3 mm+ if you want a future refinish) and an adhesive or click system the mill will warrant. A 0.6 mm photographic oak is vinyl with better lighting in the showroom.",
++          "Concrete slab, below grade, hydronic radiant, or a condo. Also anywhere you want a plank wider than about 5 inches, because width multiplies seasonal movement and engineered is what makes wide plank behave.",
++          "Demand a real wear layer \u2014 3 mm or more if you want a future refinish \u2014 and an adhesive or click system the mill will actually warrant for your assembly. Get the warranty language before you buy, not after.",
++        ],
++      },
++      {
++        heading: "The decision is usually made for you",
++        paragraphs: [
++          "In practice the subfloor decides. Slab means engineered. Radiant means engineered, glued. A dry wood subfloor above grade with a narrow-to-medium plank means solid is available and generally preferable.",
++          "Where there is a genuine choice, the question to answer is how long you intend to own the house. Solid is the better thirty-year floor. Over ten years, in a condo, engineered is not a compromise \u2014 it is the correct specification.",
+         ],
+       },
+     ],
+@@ -130,19 +198,37 @@ const coreGuides: Guide[] = [
+       {
+         heading: "Pretty is not the test",
+         paragraphs: [
+-          "Ontario Building Code Part 9 governs most houses. Rise and run must be uniform. Nosing projection is limited. Guards have a height. Handrails must be graspable. A 2x6 cap with no fingers-around profile will fail. A rail mounted on the wrong side of a winders flight will fail. We draw the stair to pass, then we make it beautiful.",
++          "Ontario Building Code Part 9 governs most houses. Rise and run must be uniform. Nosing projection is limited. Guards have a height. Handrails must be graspable. A 2x6 cap with no fingers-around profile will fail. A rail mounted on the wrong side of a winders flight will fail. Draw the stair to pass, then make it beautiful.",
++        ],
++      },
++      {
++        heading: "The numbers, and where they interact",
++        paragraphs: [
++          `Rise must not exceed ${OBC_LIMITS.maxRiseMm} mm on a stair serving a dwelling unit. Run must be at least ${OBC_LIMITS.minRunMm} mm. Tread depth — run plus nosing projection, not run alone — must be at least ${OBC_LIMITS.minTreadMm} mm, and the nosing itself may project no more than ${OBC_LIMITS.maxNosingMm} mm.`,
++          `Where a flight has ${OBC_LIMITS.handrailRiserTrigger} or more risers a handrail is required, between ${OBC_LIMITS.handrailMinMm} mm and ${OBC_LIMITS.handrailMaxMm} mm above the nosing line, with a circular profile graspable between ${OBC_LIMITS.graspMinMm} mm and ${OBC_LIMITS.graspMaxMm} mm in diameter. Guards at the side of a dwelling stair are at least ${OBC_LIMITS.minGuardMm} mm from the nosing line.`,
++          "These interact, which is what people miss. A retread adds thickness to every tread, which does not change the rises in the middle of the flight but does change the first and last ones \u2014 and the finished floor heights at the top and bottom change them again. Those two risers are where most conversions go out of tolerance.",
++          "The stair studio on this site checks a flight against these limits. It will not certify your stair \u2014 no tool can, and a building official is the only authority \u2014 but it will tell you which dimension is the problem before anyone quotes.",
++        ],
++      },
++      {
++        heading: "Uniformity is a rule, not a preference",
++        paragraphs: [
++          "A flight where every riser is inside the limit but one is noticeably taller than its neighbours is still a flight people trip on, and the variation between the tallest and the shortest in a run is itself limited.",
++          "This is the reason a stair quote should follow a measurement of every riser, not a step count over the phone. In a house from the 1950s, stringers cut by eye are common and the answer is sometimes that the flight cannot be retreaded and needs rebuilding.",
+         ],
+       },
+       {
+         heading: "The conversions that go wrong",
+         paragraphs: [
+-          'Carpet to oak on an open-side stair needs returned treads, not a leftover plank glued to drywall. Mixing a 3/4" floor with a 5/8" tread without a proper nosing creates a trip. We see both weekly in new builds from Milton to Markham.',
++          "Carpet to oak on an open-side stair needs returned treads, not a leftover plank glued to drywall. Mixing a 3/4\" floor with a 5/8\" tread without a proper nosing creates a trip. We see both weekly in new builds from Milton to Markham.",
++          "The other common one is the rail. Once a stair is altered, the argument that the old railing was compliant when the house was built gets thin \u2014 and a rail that was never graspable was never compliant anyway.",
+         ],
+       },
+       {
+         heading: "Railings are structural",
+         paragraphs: [
+-          "A newel that is only trimmed on is a future service call. Green Hardwood through-bolts newels into structure. If we cannot, we rebuild the landing until we can. That is the difference between a railing and furniture.",
++          "A newel that is only trimmed on is a future service call. Through-bolt newels into structure. If that is not possible, rebuild the landing until it is. That is the difference between a railing and furniture.",
++          "A guard has to resist a real lateral load \u2014 someone falling against it, not leaning on it. Fixing it to drywall and hoping is the failure mode that matters, because it fails at the moment it is needed.",
+         ],
+       },
+     ],
+@@ -159,13 +245,36 @@ const coreGuides: Guide[] = [
+       {
+         heading: "The honest word is contained, not dustless",
+         paragraphs: [
+-          "A professional system captures the vast majority of airborne dust at the machine and with room sealing. It does not rewrite physics. If a company promises 'zero dust' they are selling you a word. If they show you containment, negative air, and a grit sequence, they are selling you a floor.",
++          "A professional system captures the vast majority of airborne dust at the machine and with room sealing. It does not rewrite physics. If a company promises zero dust they are selling you a word. If they show you containment, negative air, and a grit sequence, they are selling you a floor.",
++          "What containment actually looks like: the sanders vented to a HEPA-filtered vacuum outside the working area, zip walls at the openings with a negative-pressure fan so air moves into the work zone rather than out of it, HVAC returns in the area sealed so the furnace does not distribute dust through the whole house, and a final clean before any finish goes down.",
++        ],
++      },
++      {
++        heading: "The grit sequence is the job",
++        paragraphs: [
++          "Sanding is a sequence, and skipping a grit is the most common corner cut in the trade. Each grit removes the scratch pattern of the one before it. Jumping from a coarse cut straight to a fine one leaves deeper scratches that the fine paper polishes rather than removes \u2014 invisible on bare wood, and glaringly visible the moment stain goes on, because pigment collects in the scratch.",
++          "Ask what the sequence is. A shop that answers immediately has one. A shop that says 'we sand it properly' does not.",
++        ],
++      },
++      {
++        heading: "Finish decides how long you are out of the house",
++        paragraphs: [
++          "Two-component waterborne systems are where most GTA site-finishing has landed: low odour, fast cure, no ambering. Typical practice is sock traffic in about 24 hours, furniture back after a few days, and rugs down last \u2014 rugs trap solvent and can print into a finish that is still curing.",
++          "Oil-modified polyurethane smells strongly for days and ambers over time. Hardwax oil is low odour and repairable but wants a maintenance habit. The cure schedule should be in writing, because it is what determines whether you can sleep in the house.",
+         ],
+       },
+       {
+         heading: "Condos",
+         paragraphs: [
+-          "Elevator pads, quiet hours, a written cure schedule, and a finish that is low-odour enough for an occupied building. We have done this in Richmond Hill, North York, and downtown. You can usually sleep in the unit. You cannot throw a dinner party on night two.",
++          "Elevator pads, quiet hours, a written cure schedule, and a finish low-odour enough for an occupied building with shared corridor air. Most boards want a certificate of insurance and a booked service elevator before anything arrives.",
++          "You can usually sleep in the unit. You cannot throw a dinner party on night two, and anyone who tells you otherwise has not lived with a curing floor.",
++        ],
++      },
++      {
++        heading: "Occupied houses with pets and children",
++        paragraphs: [
++          "Containment is what makes an occupied refinish possible at all. In practice it means working room by room rather than opening the whole floor, sealing the work zone at the end of each day, and being explicit about which rooms are usable that night.",
++          "Cats are the hard case. A cat that gets onto a curing finish will leave prints that only sanding removes, and cats are extremely motivated to enter the one room they have been shut out of.",
+         ],
+       },
+     ],
+@@ -182,19 +291,37 @@ const coreGuides: Guide[] = [
+       {
+         heading: "White oak is the default, and that is fine",
+         paragraphs: [
+-          "It takes the grey and walnut stains people want, it is hard enough, and buyers in the GTA currently treat it as the 'real floor' signal. Rift and quartered if you want quiet grain. Plain sawn if you want cathedral figure and a better price.",
++          "It takes the grey and walnut stains people want, it is hard enough, and buyers in the GTA currently treat it as the 'real floor' signal. Rift and quartered if you want quiet, linear grain. Plain sawn if you want cathedral figure and a better price.",
++          "Cut matters more than most people are told. Rift and quartered oak is more dimensionally stable across its width than plain sawn, which is why it is worth the premium on a wide plank or over radiant, and why it takes stain more evenly with less blotching.",
+         ],
+       },
+       {
+-        heading: "Do not rip good red oak",
++        heading: "Do not rip out good red oak",
+         paragraphs: [
+-          "Half the 1990s houses in North York and Mississauga are sitting on perfectly refinishable red oak. Fashion is not a reason to send it to landfill. Tone it. Change the sheen. Keep the wear layer.",
++          "Half the 1990s houses in North York and Mississauga are sitting on perfectly refinishable red oak. Fashion is not a reason to send it to landfill. Tone it, change the sheen, keep the wear layer.",
++          "Red oak takes a cool or grey stain badly \u2014 its natural pink fights the pigment and the result goes muddy. It takes a warm or neutral tone beautifully. If the look you want is grey, the honest answer is that red oak is the wrong substrate for it, not that you need a better stain.",
+         ],
+       },
+       {
+-        heading: "Walnut and maple are not interchangeable with oak",
++        heading: "Hardness is the least useful number",
+         paragraphs: [
+-          "Walnut is softer and more expensive — use it where you will see it (stairs, dining). Maple is harder and shows everything. Hickory is the dog floor. Engineered oak is the condo and radiant floor. We spec; we do not upsell the mill that is paying for lunch.",
++          "Janka ratings get quoted constantly and predict very little about how a floor looks after five years. What actually shows wear is the finish, and after that the grain: an open, busy grain hides dents that a smooth, uniform one displays.",
++          "This is why hard maple disappoints people. It is harder than oak and looks worse sooner, because its tight, featureless grain shows every mark and it blotches under stain. It is a beautiful natural floor and a difficult stained one.",
++        ],
++      },
++      {
++        heading: "Walnut, maple, hickory",
++        paragraphs: [
++          "Walnut is softer and more expensive \u2014 use it where you will see it and not where the dog turns the corner at speed. Stairs and dining rooms, generally. It also lightens with UV rather than darkening, which surprises people.",
++          "Maple is harder and shows everything; specify it natural or very lightly toned. Hickory is the dog floor: extremely hard, wildly variable in colour, and forgiving of abuse in a way nothing else on this list is. Ash is underrated and hides scuffs better than walnut in a commercial room.",
++          "Engineered oak is the condo and radiant floor. We spec; we do not upsell the mill that is paying for lunch.",
++        ],
++      },
++      {
++        heading: "Sample in the room, not in the showroom",
++        paragraphs: [
++          "Every species reads differently under a north-facing Toronto window in November than under showroom lighting. Get sample boards of the actual species with the actual finish, put them on the actual floor, and look at them at the hour you use the room.",
++          "Look at them for a few days. The floor you are choosing will be there for thirty years, and the decision is worth more than one afternoon under fluorescent light.",
+         ],
+       },
+     ],
+@@ -215,16 +342,33 @@ const coreGuides: Guide[] = [
+           "Green Hardwood does not install vinyl. That is why this page can tell you when vinyl is smarter: rental basements, true wet rooms, and budgets that cannot take oak. If that is your job, buy good vinyl from a retailer. Do not hire us to pretend otherwise.",
+         ],
+       },
++      {
++        heading: "Where vinyl genuinely wins",
++        paragraphs: [
++          "Below grade, where a slab can push moisture for decades. Laundry rooms and bathrooms where standing water is a matter of when. Rental units where the floor needs to survive tenants and be replaced cheaply rather than maintained. Basements with a history of even minor water.",
++          "In those rooms a good rigid-core vinyl is not a compromise, it is the correct product, and specifying oak there would be us taking your money for a floor that will fail.",
++        ],
++      },
++      {
++        heading: "Where the comparison is sold dishonestly",
++        paragraphs: [
++          "'Waterproof' is the word doing the most work in vinyl marketing. The plank is waterproof; the assembly is not. Water that gets through the seams sits on the subfloor underneath, and a subfloor that stays wet is a mould problem you cannot see because it is under a waterproof lid.",
++          "'Scratch resistant' is the other one. Vinyl wear layers scratch, and unlike a wood floor there is no repair \u2014 you cannot sand a photograph. A scratched vinyl floor is a replaced vinyl floor.",
++          "The lifespan comparison is where the money actually is. A vinyl floor is a fifteen-year product with a replacement at the end. A solid oak floor sanded three times over its life is a fifty-year product with recoats in between. Compared over the life of a house they are not close, which is a different question from what you can afford this year.",
++        ],
++      },
+       {
+         heading: "Resale in Toronto",
+         paragraphs: [
+-          "Buyers in Forest Hill, Rosedale, the Kingsway, and southeast Oakville still stop on a real oak floor. Vinyl in those houses reads as a concession. Vinyl in a basement suite reads as competent. Know which house you have.",
++          "Buyers in Forest Hill, Rosedale, the Kingsway and southeast Oakville still stop on a real oak floor. Vinyl in those houses reads as a concession. Vinyl in a basement suite reads as competent. Know which house you have.",
++          "In the middle of the market it matters less than agents claim \u2014 but the stair is the exception, because it is the one surface a buyer touches.",
+         ],
+       },
+       {
+         heading: "Stairs decide the argument",
+         paragraphs: [
+-          "Vinyl on a stair is a slip. Laminate on a stair is a lawsuit waiting for a toddler. If the flight is in the scope, you are in hardwood territory — treads, nosings, and a rail that can pass Ontario Building Code. That is our whole business.",
++          "Vinyl on a stair is a slip. Laminate on a stair is a lawsuit waiting for a toddler. Neither takes a proper nosing, and the nosing is the part of a stair that has to be right.",
++          "If the flight is in the scope, you are in hardwood territory \u2014 treads, nosings, and a rail that can pass the Ontario Building Code. That is our whole business.",
+         ],
+       },
+     ],
+@@ -242,18 +386,36 @@ const coreGuides: Guide[] = [
+         heading: "The most requested job of 2026",
+         paragraphs: [
+           "New builds from Vaughan to Milton still ship with carpet on the stairs and a laminate or cheap engineered floor in the field. The first winter, the carpet looks like a rental. We pull it, inspect the stringers, sister anything that flexes, and install solid treads with returned ends on the open side.",
++          "It is the highest-return interior change available in most of those houses, because the flight sits in the sightline from the front door and nothing else in the hall competes with it.",
++        ],
++      },
++      {
++        heading: "What is actually under the carpet",
++        paragraphs: [
++          "Usually a plywood or MDF tread that was never meant to be seen, a pine or poplar riser, and a few hundred staples. That is not a defect \u2014 it was specified to be finished later.",
++          "The good news is that a factory-cut flight in a 2010s house is generally square and consistent, which makes a retread predictable. A 1926 Toronto flight cut by eye is a different proposition, and that is why every riser gets measured before anything is quoted.",
+         ],
+       },
+       {
+         heading: "What goes wrong when you hire a floor guy",
+         paragraphs: [
+-          'A leftover plank glued to drywall on the open side. A 5/8" tread next to a 3/4" floor. A rail that is furniture, not structure. The inspector fails the nosing. The stain does not match. This is not a flooring accessory. It is millwork.',
++          "A leftover plank glued to drywall on the open side. A 5/8\" tread next to a 3/4\" floor. A rail that is furniture, not structure. The inspector fails the nosing. The stain does not match. This is not a flooring accessory. It is millwork.",
++          "The nosing is the specific failure. A retread cap sitting on top of the old tread wants to hang further than the code allows, and letting it is the fastest route to a failed inspection. Removing the original nosing so the new tread beds flat is the step that separates a stair job from a covering job.",
+         ],
+       },
+       {
+         heading: "What it costs",
+         paragraphs: [
+-          "A standard 13-step flight with oak treads, wood or painted risers, and a matching nosing typically runs $5,000–$11,000 installed in 2026. Custom walnut, curved flights, and iron balusters move that number up. Railings are quoted as a system, not an extra.",
++          `A standard 13-step flight with oak treads, wood or painted risers and a matching nosing typically runs ${stairFlightExample.low}–${stairFlightExample.high} installed in 2026 across the GTA — computed from the same estimator that prices every other job on this site, so it cannot drift from what you will actually be quoted.`,
++          "Custom walnut, curved flights, winders and iron balusters move that number up. Railings are quoted as a system, not an extra, because the rail is frequently a bigger share of the work than the treads.",
++          "Your own city carries its own labour and travel multiplier. Use the estimator with your step count and municipality rather than assuming a Toronto number applies in Barrie.",
++        ],
++      },
++      {
++        heading: "Sequence it with the floors",
++        paragraphs: [
++          "If the main floor is being installed or refinished as part of the work, do the stair in the same visit. The first and last risers depend on the finished floor heights at both ends, and the finish only matches if it is applied to both from the same batch on the same day.",
++          "Doing the floor in spring and the stair in autumn guarantees a visible difference, and it is the single most common reason a stair and a floor do not match in an otherwise well-built house.",
+         ],
+       },
+     ],
+@@ -268,15 +430,40 @@ const coreGuides: Guide[] = [
+     updated: "August 2026",
+     sections: [
+       {
+-        heading: "Do not sand it wet",
++        heading: "The first six hours decide most of it",
+         paragraphs: [
+-          "Stop the water. Pull the rugs. Air the room. Do not rent a drum sander at 9 p.m. Sanding a wet floor is how you buy it twice. Call a shop that owns a moisture meter and a library of GTA-typical oak.",
++          "Stop the water. Lift rugs and anything holding moisture against the boards. Get air moving across the floor, not blowing at one spot. Do not put heat on it \u2014 drying the top faster than the bottom is what turns a wet floor into a cupped one.",
++          "Do not rent a drum sander at 9 p.m. Sanding a wet floor is how you buy it twice: the boards are swollen, you sand the crowns flat, and when they dry you have a floor that is thin in exactly the places that will move again.",
+         ],
+       },
+       {
+         heading: "Cupping is not always death",
+         paragraphs: [
+-          "If the boards have not separated from the subfloor and moisture is coming down, they can often dry, sand, and refinish. If tongues are broken or the field has delaminated, those boards come out. We tell you which, with readings, before we quote.",
++          "Cupping means the underside of each board is wetter than the top \u2014 the edges rise. It is a symptom of a moisture gradient, and gradients can reverse. If the boards are still fastened, the tongues are intact, and the source is stopped, a cupped floor will often flatten as it dries and then sand and refinish normally.",
++          "Crowning is the opposite \u2014 the middle high, the edges low \u2014 and it usually means someone sanded a cupped floor before it dried. That one is expensive.",
++          "The boards that come out are the ones where the tongue has broken, an engineered wear layer has delaminated, or the board has moved off the fastener. We tell you which, with readings, before we quote.",
++        ],
++      },
++      {
++        heading: "Drying is measured, not guessed",
++        paragraphs: [
++          "The floor is dry when the meter says so and the numbers have stopped moving over several days \u2014 not when it looks dry. That usually means readings at the flooring, the subfloor and, in a basement or a condo, the slab.",
++          "Rushing this is the most common way a restoration fails twice. A floor sanded at 12 percent moisture content and finished will keep drying under its new finish, and it will shrink and gap while it does.",
++        ],
++      },
++      {
++        heading: "Insurance, plainly",
++        paragraphs: [
++          "Most GTA policies cover sudden discharge \u2014 a supply line, a dishwasher, a burst pipe \u2014 and exclude long-term seepage. The distinction is in the documentation, which means photographs and moisture readings from the first visit, dated.",
++          "Adjusters routinely approve a patch where the floor needs a room. A patch is a defensible repair when the damaged area is bounded and the surrounding floor is sound; it is not defensible when it will leave a visible island in the middle of an open plan. Both positions can be argued with readings and neither can be argued with opinions.",
++          "We write the paperwork either way and we do not inflate a claim. That is not generosity \u2014 it is the only way to keep doing insurance work.",
++        ],
++      },
++      {
++        heading: "Matching an older floor",
++        paragraphs: [
++          "A fifteen-year-old red oak floor is not the same colour as new red oak, because oak ambers with light. Sourcing same-era material and blending the refinish across a whole room, rather than stopping at the damaged patch, is what makes the repair disappear.",
++          "That is why the honest quote for a kitchen leak is often 'the kitchen', not 'the four square feet by the dishwasher'.",
+         ],
+       },
+     ],
+@@ -293,13 +480,37 @@ const coreGuides: Guide[] = [
+       {
+         heading: "35 to 55 percent",
+         paragraphs: [
+-          "That is the relative humidity band a hardwood floor wants. Ontario houses routinely miss both ends. A humidifier in January is cheaper than a refinish in April. Gaps in February are not a defect if the house is at 18%. They are physics.",
++          "That is the relative humidity band a hardwood floor wants. Ontario houses routinely miss both ends. A humidifier in January is cheaper than a refinish in April. Gaps in February are not a defect if the house is at 18 percent. They are physics.",
++          "A cheap hygrometer in the main living space is the single most useful thing a hardwood owner can buy. It turns an argument about whether a floor is faulty into a reading anyone can check, and it tells you when to run the humidifier rather than guessing.",
++        ],
++      },
++      {
++        heading: "What actually wears a floor out",
++        paragraphs: [
++          "Grit. Not heels, not dogs, not furniture \u2014 grit tracked in on shoes, which is sandpaper being walked across a finish. A mat at every exterior door and a habit of taking shoes off does more for a floor's life than any product sold to protect it.",
++          "After grit, the two big ones are UV and water. UV ambers oak unevenly, so a rug left in one place for five years leaves a shadow that only sanding removes \u2014 rotate rugs occasionally. Water sits in the seams at the dishwasher, the fridge line and the back door, which is where nearly every failure we are called to starts.",
++        ],
++      },
++      {
++        heading: "Cleaning, briefly",
++        paragraphs: [
++          "Dry first: sweep or vacuum with a hard-floor head. Then a barely damp microfibre with a cleaner made for the finish on your floor. That is the whole method.",
++          "Steam mops are not cleaning. They are a slow flood with a warranty exclusion attached, and most finish manufacturers say so explicitly. Vinegar and water is a folk remedy that dulls a waterborne finish over time. Oil soaps leave a residue that stops the next recoat bonding, which is a problem you discover years later when the recoat peels.",
+         ],
+       },
+       {
+         heading: "Recoat before you sand",
+         paragraphs: [
+-          "A screen-and-recoat every 4–8 years in a family house keeps the wear layer you already paid for. Full sand is for colour changes and for floors whose finish is gone. Steam mops are not cleaning. They are a slow flood.",
++          "A screen-and-recoat every four to eight years in a family house keeps the wear layer you already paid for. It is abrading the finish and adding a fresh coat, not touching the wood \u2014 a day's work rather than a week's, at a fraction of the cost, with no dust of consequence.",
++          "The window matters. Once traffic lanes have worn through the finish into bare wood, a recoat cannot fix it and the floor needs a full sand. The tell is a dulled path that stays dull after cleaning, usually from the back door to the kitchen. That is the moment to book a recoat, not to wait another year.",
++          "A full sand is for colour changes and for floors whose finish is genuinely gone. Solid hardwood has a limited number of sands in it; spending one on something a recoat would have solved is spending wear life you cannot get back.",
++        ],
++      },
++      {
++        heading: "Hardwax oil is a different relationship",
++        paragraphs: [
++          "An oil-finished floor is maintained rather than recoated: it takes a refresher oil periodically, and in exchange it can be spot-repaired without touching the rest of the room. A film finish cannot \u2014 a scratch through polyurethane means resanding to a break line.",
++          "Neither is better. One is lower attention with harder repairs; the other is higher attention with easier ones. Choose knowing which you are buying.",
+         ],
+       },
+     ],
+diff --git a/docs/DOMINATION_CHANGELOG.md b/docs/DOMINATION_CHANGELOG.md
+index b8bb825..a177886 100644
+--- a/docs/DOMINATION_CHANGELOG.md
++++ b/docs/DOMINATION_CHANGELOG.md
+@@ -1048,3 +1048,65 @@ deliberate decision instead of letting the guard quietly shrink.
+ - 8 routes × 4 viewports: no horizontal overflow.
+ - `scripts/install-image-sets.sh` reproduces the 74-file tree from the two
+   zips, idempotently, and was run from a clean checkout to prove it.
++
++---
++
++## Stage 11 — The guides stop being stubs (2026-09-02)
++
++`/guides` was the thinnest section left: 21 pages at a **median of 175 words**,
++the shortest at 137. Eleven of them carried two sections of one paragraph each.
++
++These are the authority pages. A 137-word guide called "How long to acclimate
++hardwood in the GTA" does not rank, does not get quoted by an answer engine,
++and does not persuade a homeowner who has just been told by a contractor that
++five days is enough.
++
++### Why these could be written and the city hubs could not
++
++Stage 7 refused to write local colour for 32 municipalities, because that would
++be inventing knowledge about places Franco knows and I do not. Guides are the
++opposite case: acclimation, subfloor flatness tolerance, radiant commissioning,
++nail-down versus glue-down, herringbone layout, nosing geometry. This is
++general trade knowledge, checkable against NWFA practice and the Ontario
++Building Code, and none of it makes a claim about a job this shop did.
++
++The line held in both directions — that is the point of having one.
++
++### Result
++
++**All 20 guides now run 502–775 words, median 552.**
++
++| | Before | After |
++| --- | --- | --- |
++| Minimum | 137 | **502** |
++| Median | 175 | **552** |
++
++Written to the section's existing voice — opinionated, specific, willing to
++say what not to buy. Each guide now names the failure mode, not just the
++method: what squeaks and why, what cups and why, which quote to walk away from.
++
++### Numbers come from one place, again
++
++The stair-code guide and the nosing guide now interpolate `OBC_LIMITS` from
++`data/obc.ts` rather than restating rise, run, tread, nosing, handrail and
++guard dimensions as prose. The same discipline `data/services.ts` already has
++for prices: a code number lives in one file, and prose quotes it.
++
++That also caught a live drift. `carpet-to-hardwood-stairs-gta` claimed a
++13-step flight "typically runs **$5,000–$11,000**" as a typed literal. The
++estimator, banded across every city multiplier, computes **$6,100–$9,800**. The
++guide now interpolates the computed figure, so a homeowner reading the guide
++and a homeowner using the estimator get the same number.
++
++### Evidence
++
++- `npm run test` — **338 pass, 0 fail**. The suite caught two paragraphs I
++  wrote under its own 80-character stub threshold, which is the rule working.
++- 393 prerendered pages, audit clean, no new URLs.
++
++### What is still thin
++
++`/answers` — 40 pages at a median of 258 words — and the nine
++`/portfolio/[slug]` pages at 237. The answers pages are deliberately direct, so
++some of that is correct; the portfolio pages are mine from Stage 6 and could
++carry the specification reasoning that currently only lives in the catalogue.
+-- 
+2.43.0
+
