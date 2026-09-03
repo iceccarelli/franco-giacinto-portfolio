@@ -1,3 +1,5 @@
+import { calculateEstimate, emptyEstimate, type ServiceKind } from "@/data/estimate";
+
 export type Project = {
   slug: string;
   title: string;
@@ -165,3 +167,92 @@ export const projectFilters = [
   { id: "commercial", label: "Commercial" },
   { id: "deck", label: "Decks" },
 ] as const;
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Pricing a job page.
+
+   The nine job pages were the thinnest content the site had after Stage 11 —
+   237 words median — and they sit at the end of the most persuasive click
+   path there is: someone looked at a photograph of a floor and wanted to see
+   the job. Arriving at 237 words and a spec list is a wasted arrival.
+
+   The honest way to deepen them is the same method the city hubs used: derive,
+   do not invent. Each entry already states its own scale in `specs` — "1,850
+   sq ft", "32 steps" — and its own municipality. That is enough to price the
+   job with the same estimator that prices everything else on the site, which
+   turns "here is a floor we could build" into "here is what a floor like this
+   costs in your city, today, checkable against the tool".
+
+   Nothing here asserts what the job actually cost. It states what this
+   specification would be quoted at now, which is a different and defensible
+   claim — and the one a reader is trying to answer anyway.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** Which estimator service prices this kind of job. */
+export const projectServiceKind: Record<Project["category"], ServiceKind> = {
+  install: "install",
+  refinish: "refinish",
+  stairs: "stairs",
+  repair: "repair",
+  deck: "deck",
+  // Neither has an estimator line of its own. A medallion is quoted from a
+  // drawing and a fit-out from a phasing plan, so both are priced here as the
+  // install they sit inside — and the page says so rather than implying the
+  // number covers the inlay or the phasing.
+  custom: "install",
+  commercial: "install",
+};
+
+/**
+ * The scale of the job, read out of its own spec list.
+ *
+ * Parsed rather than stored twice: `specs` is what the page displays, so a
+ * number derived from it cannot disagree with what the reader can see. An
+ * entry with no parseable scale returns undefined and the page shows no band,
+ * which is the correct behaviour for "Insurance coordination, Red oak match".
+ */
+export function projectScale(project: Project): { sqft?: number; stairs?: number } {
+  const scale: { sqft?: number; stairs?: number } = {};
+  for (const spec of project.specs) {
+    const sqft = /^([\d,]+)\s*sq\s*ft$/i.exec(spec.trim());
+    if (sqft) scale.sqft = Number(sqft[1]!.replace(/,/g, ""));
+    const steps = /^(\d+)\s*steps?$/i.exec(spec.trim());
+    if (steps) scale.stairs = Number(steps[1]!);
+    // "Matched 28 treads" — a stair package attached to a floor job.
+    const treads = /(\d+)\s*treads?$/i.exec(spec.trim());
+    if (treads && !scale.stairs) scale.stairs = Number(treads[1]!);
+  }
+  return scale;
+}
+
+/**
+ * What this specification would be quoted at today, in its own municipality.
+ *
+ * Returns null when the entry states no scale — better a missing band than a
+ * number invented to fill a slot.
+ */
+export function projectBand(project: Project) {
+  const scale = projectScale(project);
+  if (!scale.sqft && !scale.stairs) return null;
+
+  const kind = projectServiceKind[project.category];
+  const result = calculateEstimate({
+    ...emptyEstimate(),
+    city: project.citySlug,
+    service: kind,
+    sqft: scale.sqft ?? 800,
+    stairs: kind === "stairs" ? (scale.stairs ?? 13) : (scale.stairs ?? 0),
+  });
+
+  const basis: string[] = [];
+  if (scale.sqft) basis.push(`${scale.sqft.toLocaleString("en-CA")} sq ft`);
+  if (scale.stairs) basis.push(`${scale.stairs} step${scale.stairs === 1 ? "" : "s"}`);
+
+  return {
+    low: Math.round(result.low),
+    high: Math.round(result.high),
+    timeline: result.timeline,
+    basis: basis.join(" plus "),
+    kind,
+  };
+}
