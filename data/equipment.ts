@@ -55,6 +55,34 @@ export type Equipment = {
   without: { instead: string; consequence: string };
   /** How to tell, on a quote or a site visit, whether it is in play. */
   howToTell: string[];
+  /**
+   * The illustration at the top of the page. Four renditions exist for every
+   * one of these (see data/images.ts); the page cross-fades between them.
+   *
+   * These are commissioned renderings of a machine CLASS, not photographs of
+   * anything in the Sterling Road shop, and the page says so under every one.
+   * The honesty rule in this file's header is not softened by having pictures.
+   */
+  image: string;
+  imageAlt: string;
+  /**
+   * The failure this machine class prevents, photographed.
+   *
+   * Six of the ten have one, because six of these defects are visually
+   * checkable by a homeowner standing in a room and four are not. An entry
+   * with no honest image gets none rather than a decorative stand-in.
+   */
+  defectImage?: string;
+  defectAlt?: string;
+  /**
+   * The diagnosis pages this defect image illustrates.
+   *
+   * The link runs both ways and it is the most valuable join in the site: a
+   * visitor searching "dark ring around my refinished floor" lands on a
+   * diagnosis, and one click away is the machine whose absence caused it.
+   * Nobody else in this market connects the symptom to the equipment.
+   */
+  problemSlugs?: string[];
   /** Which published services depend on it. */
   serviceSlugs: string[];
   relatedGuides: string[];
@@ -88,6 +116,12 @@ export const equipment: Equipment[] = [
       "Ask what the grit sequence is. A shop with a real machine and a real method answers immediately and names the grits. A shop that says 'we sand it properly' does not have a sequence.",
       "Ask to see a floor they finished, in daylight, from a low angle looking toward a window. Raking light shows chatter that overhead light hides completely.",
     ],
+    image: "/images/equipment/eq-belt-sander.jpg",
+    imageAlt:
+      "A walk-behind belt floor sander mid-pass in an empty room, with the boundary between raw sanded oak and old finish running across the floor and the dust hose trailing off-frame.",
+    defectImage: "/images/equipment/defect-chatter.jpg",
+    defectAlt:
+      "Regular parallel ripple across a sanded floor, thrown into relief by low light from a window. Exaggerated here so it reads at this size; on a real floor it is subtle until you get your eye down to it.",
     serviceSlugs: ["sanding-refinishing", "hardwood-repairs"],
     relatedGuides: ["dust-free-sanding-toronto", "hardwood-floor-maintenance-ontario"],
     relatedMethods: [],
@@ -117,6 +151,12 @@ export const equipment: Equipment[] = [
       "Look at a finished job at the wall line and in the doorways, not in the middle of the room. Then look at the same floor under a window.",
       "Ask specifically how the edge is blended into the field. 'With the buffer' is the right shape of answer.",
     ],
+    image: "/images/equipment/eq-edger.jpg",
+    imageAlt:
+      "A hand-held rotary edge sander worked hard against a baseboard beside a cast-iron radiator, in the band of floor the big machine physically cannot reach.",
+    defectImage: "/images/equipment/defect-edge-halo.jpg",
+    defectAlt:
+      "A refinished room seen from the doorway with a visibly darker, cloudier band running around the perimeter against the baseboard — the edging failure, and the first thing visible from a hall.",
     serviceSlugs: ["sanding-refinishing"],
     relatedGuides: ["dust-free-sanding-toronto"],
     relatedMethods: [],
@@ -146,6 +186,9 @@ export const equipment: Equipment[] = [
       "Ask directly: 'does this floor need a full refinish, or would a screen and recoat do?' A shop that answers 'recoat' on a floor that only needs one has just told you a great deal about how it operates.",
       "The tell that a recoat is not enough is wear through the finish into bare wood in the traffic lane. Once there is bare wood, a recoat cannot fix it.",
     ],
+    image: "/images/equipment/eq-multi-disc-sander.jpg",
+    imageAlt:
+      "A multi-disc floor buffer with an abrasive pad fitted, standing on a uniformly matte sanded floor in daylight from a bank of windows.",
     serviceSlugs: ["sanding-refinishing"],
     relatedGuides: ["hardwood-floor-maintenance-ontario", "dust-free-sanding-toronto"],
     relatedMethods: [],
@@ -182,6 +225,9 @@ export const equipment: Equipment[] = [
       "Ask whether the HVAC returns in the work area get sealed. A shop that has thought about it says yes before you finish the question.",
       "Ask what the containment looks like at the doorway. 'Zip wall and a negative air fan' is a specification; 'we tape plastic up' is not.",
     ],
+    image: "/images/equipment/eq-dust-containment-system.jpg",
+    imageAlt:
+      "A HEPA extractor with its hose connected to a floor machine, and a taped plastic barrier sealing the doorway behind it.",
     serviceSlugs: ["sanding-refinishing", "hardwood-repairs", "commercial-hardwood"],
     relatedGuides: ["dust-free-sanding-toronto"],
     relatedMethods: [],
@@ -219,6 +265,13 @@ export const equipment: Equipment[] = [
       "Ask for the readings in writing. A shop that measures is happy to write the numbers on the quote; it protects them as much as you.",
       "On a slab, ask which test. 'In-situ RH probes' is the current standard. A plastic sheet taped down overnight is not a test.",
     ],
+    image: "/images/equipment/eq-moisture-meter.jpg",
+    imageAlt:
+      "A hand-held wood moisture meter held against a plywood subfloor, screen legible at just over nine percent, with racked boards waiting behind it.",
+    defectImage: "/images/equipment/defect-cupping.jpg",
+    defectAlt:
+      "Solid boards visibly cupped — edges standing higher than centres — with a straightedge laid across them showing the gap. This is what a floor laid over a subfloor that was never measured does in month four.",
+    problemSlugs: ["hardwood-floor-cupping", "hardwood-floor-crowning"],
     serviceSlugs: [
       "hardwood-installation",
       "sanding-refinishing",
@@ -253,6 +306,9 @@ export const equipment: Equipment[] = [
       "Walk a floor the company installed at least a year ago. A year is long enough for one full humidity cycle, which is what exposes underfastening.",
       "Ask what fastener and what spacing they use for the board width you are buying. There is a right answer and it is specific.",
     ],
+    image: "/images/equipment/eq-flooring-nailer.jpg",
+    imageAlt:
+      "A pneumatic flooring cleat nailer set on the tongue of an oak board mid-row, mallet beside it, several racked rows already fastened behind.",
     serviceSlugs: ["hardwood-installation"],
     relatedGuides: ["solid-vs-engineered-ontario", "hardwood-flooring-cost-gta-2026"],
     relatedMethods: ["nail-down-solid-hardwood"],
@@ -284,6 +340,13 @@ export const equipment: Equipment[] = [
       "Ask which adhesive, by name, and what slab RH it is rated to. Then ask what the slab actually read.",
       "Ask what trowel notch that adhesive specifies for your board. A shop that knows the answer has read the data sheet.",
     ],
+    image: "/images/equipment/eq-adhesive-trowel.jpg",
+    imageAlt:
+      "A notched trowel drawing a fresh bed of adhesive across a subfloor, ridges sharp and evenly spaced, with engineered boards already set into the wet bed at the edge of frame.",
+    defectImage: "/images/equipment/defect-hollow-spot.jpg",
+    defectAlt:
+      "A lifted board over a patchy adhesive bed, bare subfloor showing through the gaps. The floor above this sounds hollow underfoot and eventually releases.",
+    problemSlugs: ["hollow-spots-hardwood-floor"],
     serviceSlugs: ["hardwood-installation", "commercial-hardwood"],
     relatedGuides: ["solid-vs-engineered-ontario", "best-hardwood-species-toronto-homes"],
     relatedMethods: ["glue-down-engineered-hardwood"],
@@ -320,6 +383,13 @@ export const equipment: Equipment[] = [
       "Ask for the finish system by name and whether it is one- or two-component. Ask how many coats, and whether the floor is abraded between them.",
       "Ask for the cure schedule in writing: sock traffic, furniture, rugs. A shop that has done occupied houses gives you three different numbers without hesitating.",
     ],
+    image: "/images/equipment/eq-finish-application.jpg",
+    imageAlt:
+      "A T-bar applicator pulling a coat of waterborne finish across a sanded oak floor, the wet edge crossing the frame as a sheen boundary.",
+    defectImage: "/images/equipment/defect-lap-lines.jpg",
+    defectAlt:
+      "Streaks and stripe boundaries in the sheen of a finished floor, where one pass dried before the next was joined to it.",
+    problemSlugs: ["cloudy-white-hardwood-finish"],
     serviceSlugs: ["sanding-refinishing", "hardwood-installation", "commercial-hardwood"],
     relatedGuides: ["dust-free-sanding-toronto", "hardwood-floor-maintenance-ontario"],
     relatedMethods: [],
@@ -358,6 +428,9 @@ export const equipment: Equipment[] = [
       "Ask whether the treads are templated individually. On any flight older than about twenty years the honest answer has to be yes.",
       "Ask who builds the stair — them, or a subcontractor. The answer decides whether the finish will match the floor.",
     ],
+    image: "/images/equipment/eq-stair-fabrication-bench.jpg",
+    imageAlt:
+      "An oak stair tread clamped in a jig on a workshop bench, hand tools and a track saw beside it, sawdust on the bench top.",
     serviceSlugs: ["hardwood-stairs", "hardwood-railings", "custom-inlays"],
     relatedGuides: [
       "ontario-stair-code-hardwood",
@@ -397,11 +470,38 @@ export const equipment: Equipment[] = [
       "Push a newel post on a stair they have built. Firmly. It should not move at all.",
       "Ask what the newel is anchored into. 'Structure' with a specific noun after it — stringer, joist, blocking — is the answer. 'It's screwed down' is not.",
     ],
+    image: "/images/equipment/eq-railing-anchorage.jpg",
+    imageAlt:
+      "The base of an oak newel post meeting a stair stringer, with the counterbored bolt visible before the wood plug goes in — the structural fixing, shown once.",
+    defectImage: "/images/equipment/defect-loose-newel.jpg",
+    defectAlt:
+      "A newel post surface-fixed through a finished floor rather than anchored into structure, with the joint already opening at the base.",
+    problemSlugs: ["loose-stair-railing"],
     serviceSlugs: ["hardwood-railings", "hardwood-stairs"],
     relatedGuides: ["ontario-stair-code-hardwood", "carpet-to-hardwood-stairs-gta"],
     relatedMethods: ["hardwood-railing-through-bolt"],
   },
 ];
+
+/**
+ * Rendered under every equipment and defect image on the site.
+ *
+ * The photography is commissioned AI rendering, exactly like the rest of the
+ * site's imagery (docs/HONEST-LIMITS.md). On these pages the stakes are a
+ * little higher than elsewhere, because a photograph of a machine sitting in
+ * a workshop reads as a photograph of OUR machine in OUR workshop unless
+ * something says otherwise. So something says otherwise, on the page, under
+ * the picture, every time.
+ *
+ * `tests/equipment.test.ts` fails the build if an equipment image renders
+ * without it.
+ */
+export const EQUIPMENT_IMAGE_DISCLOSURE =
+  "Commissioned illustration of the machine class, not a photograph of our own equipment.";
+
+/** The same sentence for a defect image, where the claim being made differs. */
+export const DEFECT_IMAGE_DISCLOSURE =
+  "Commissioned illustration of the defect, not a photograph of a job we were called to.";
 
 export const equipmentCategories = [
   { id: "sanding", label: "Sanding", blurb: "The machines that take a floor back to bare wood." },
@@ -432,4 +532,21 @@ export function servicesFor(item: Equipment) {
 /** The machine classes a given service depends on. */
 export function equipmentForService(serviceSlug: string) {
   return equipment.filter((e) => e.serviceSlugs.includes(serviceSlug));
+}
+
+/**
+ * The equipment entry whose defect image illustrates a given diagnosis, if
+ * one does. Returns undefined rather than a near-enough picture: a photograph
+ * of the wrong defect on a diagnosis page is worse than no photograph, because
+ * a reader will try to match their floor to it.
+ */
+export function equipmentForProblem(problemSlug: string) {
+  return equipment.find(
+    (e) => e.defectImage !== undefined && (e.problemSlugs ?? []).includes(problemSlug),
+  );
+}
+
+/** Every entry carrying a defect image, in file order. */
+export function defectLibrary() {
+  return equipment.filter((e) => e.defectImage !== undefined && e.defectAlt !== undefined);
 }

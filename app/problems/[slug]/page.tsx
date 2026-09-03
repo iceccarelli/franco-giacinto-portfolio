@@ -5,7 +5,9 @@ import { AlertTriangle, ArrowRight, Clock, Eye, Wrench } from "lucide-react";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { JsonLd } from "@/components/json-ld";
 import { Button } from "@/components/ui/button";
+import { PhotoRotator } from "@/components/photo-rotator";
 import { company } from "@/data/company";
+import { DEFECT_IMAGE_DISCLOSURE, equipmentForProblem } from "@/data/equipment";
 import { getGuide } from "@/data/guides";
 import { getProblem, problems, problemTitle } from "@/data/problems";
 import { getService } from "@/data/services";
@@ -72,6 +74,7 @@ export default async function ProblemPage({ params }: { params: Promise<Params> 
   const u = urgency[problem.urgency];
   const o = outlook[problem.outlook];
 
+  const defect = equipmentForProblem(problem.slug);
   const crumbs = [
     { name: "Home", path: "/" },
     { name: "Diagnose", path: "/problems" },
@@ -134,6 +137,34 @@ export default async function ProblemPage({ params }: { params: Promise<Params> 
             <h2 className="text-xs tracking-[0.16em] uppercase">What it looks like</h2>
           </div>
           <p className="mt-3 text-lg text-fg">{problem.looksLike}</p>
+          {/*
+            A picture of the defect, where an honest one exists — four of the
+            sixteen diagnoses. "What it looks like" is the section a visitor
+            arrived for, and until now it was a paragraph asking them to
+            picture something. The join lives in data/equipment.ts, which owns
+            the image, so a diagnosis never claims a picture it does not have.
+          */}
+          {defect?.defectImage && defect.defectAlt && (
+            <figure className="mt-5">
+              <PhotoRotator
+                src={defect.defectImage}
+                alt={defect.defectAlt}
+                seed={problem.slug}
+                ratio="aspect-[16/9]"
+                sizes="(min-width: 768px) 720px, 100vw"
+                kenBurns
+                className="rounded-xl shadow-[var(--shadow-card)]"
+              />
+              <figcaption className="mt-3 text-sm text-muted">
+                {defect.defectAlt} <span className="text-fg">{DEFECT_IMAGE_DISCLOSURE}</span>
+              </figcaption>
+              <p className="mt-3 text-sm">
+                <Link href={`/equipment/${defect.slug}`} className="text-primary hover:underline">
+                  What prevents it: {defect.name}
+                </Link>
+              </p>
+            </figure>
+          )}
         </section>
 
         {/* Causes, ranked, each with its tell ------------------------------ */}

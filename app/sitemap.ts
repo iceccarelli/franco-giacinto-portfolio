@@ -105,6 +105,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified,
       changeFrequency: "monthly" as const,
       priority: e.category === "sanding" || e.category === "dust" ? 0.7 : 0.6,
+      // Both the machine and, where one exists, the defect it prevents. The
+      // defect images are the ones worth surfacing in image search: nobody
+      // else publishes a picture of what a bad refinish looks like.
+      images: [`${BASE}${e.image}`, ...(e.defectImage ? [`${BASE}${e.defectImage}`] : [])],
     })),
     ...problems.map((p) => ({
       url: `${BASE}/problems/${p.slug}`,

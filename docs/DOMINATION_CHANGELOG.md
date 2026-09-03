@@ -1307,3 +1307,123 @@ the photographs are not, and the verification needs preparing.**
 - 6 routes × 4 viewports (320/390/768/1440): no horizontal overflow.
 - Every guide, method and service slug referenced by the new data resolves —
   asserted, not eyeballed.
+
+---
+
+## Stage 14 — Sixty-four photographs, and the machines stop being described (2026-09-03)
+
+Two agents were given one brief and each delivered a full pair. So there are
+**four renditions of all sixteen subjects**, not two, and the correct response
+to that was to widen the variant system rather than throw half of them away.
+
+### The variant system was hard-coded to two
+
+`data/images.ts` held an array of paths and `variantsOf` appended `-2`. That
+worked for exactly as long as every photograph had a twin. It is now a map of
+path to rendition count, `IMAGES_WITH_VARIANTS` is derived from its keys so
+every existing call site is untouched, and the manifest is checked against the
+disk in **both directions** — a listed file that is missing, and a file on disk
+nothing will ever serve. The second direction is the one that matters here:
+sixty-four images could have shipped in the repository, cost their bytes in
+every clone, and never once been rendered.
+
+| | Before | Now |
+| --- | --- | --- |
+| Images on disk | 74 | **138** |
+| Subjects in the manifest | 37 | **53** |
+| Subjects with four renditions | 0 | **16** |
+
+### The rotator already existed. It was extended, not replaced.
+
+`components/photo-rotator.tsx` was already in the repository, cross-fading two
+renditions on `/about` and `/showroom`, already pausing on hover, off-screen,
+in a hidden tab, and under reduced motion. Rewriting it would have been the
+wrong instinct twice over — it would have broken two working pages and thrown
+away discipline that was already correct.
+
+Three things were added:
+
+- **`seed`** — rotates the sequence so the first frame is exactly what
+  `pickVariant` would have chosen for that slug. Ten cards in a grid therefore
+  open on different frames instead of fading in lockstep, which reads worse
+  than a static grid because it advertises the repetition. `tests/images.test.ts`
+  asserts `variantsFrom(src, seed)[0] === pickVariant(src, seed)`, which is the
+  property that lets the server render a correct still and the motion be a
+  pure enhancement on top of it.
+- **`kenBurns`** — 1.00 → 1.06 over eighteen seconds, alternating. Opt-in per
+  call site, because it is wrong on anything a reader studies: a moisture-meter
+  screen should hold still while it is being read. On in the hero and on the
+  defect images, off in every grid.
+- **`priority`** — first frame only, so `tests/layout.test.ts`'s one-eager-image
+  rule still holds with four images stacked in one container.
+
+The reduced-motion guard is stated twice on purpose. The global block in
+`globals.css` already clamps every animation to 0.01ms, which freezes the drift
+at its starting transform — correct, but by accident. `.gh-kenburns` now says
+`animation: none` explicitly, and a test asserts it, so deleting the global
+rule cannot silently re-enable a drifting photograph in someone's face.
+
+### The defect library is the actual weapon
+
+Ten machine images were the ask. The six **defect** images were not, and they
+are the ones worth having:
+
+| Defect | Caused by | Joined to |
+| --- | --- | --- |
+| Chatter marks | Belt sander | — |
+| The perimeter halo | Edger | — |
+| Cupping | Moisture meter | `/problems/hardwood-floor-cupping`, `/hardwood-floor-crowning` |
+| Hollow spots | Adhesive & trowel | `/problems/hollow-spots-hardwood-floor` |
+| Lap lines | Finish application | `/problems/cloudy-white-hardwood-finish` |
+| A newel that moves | Railing anchorage | `/problems/loose-stair-railing` |
+
+Four diagnosis pages now open with a picture of the symptom under the heading
+"What it looks like" — a section that until today was a paragraph asking the
+reader to imagine something — and each links to the machine whose absence
+caused it. **Nobody in this market connects a symptom to the equipment.** A
+visitor searching "dark ring around my refinished floor" lands on a diagnosis
+and is one click from the reason.
+
+The other four machine classes get **no defect image**, and a test pins that
+list by name. Their failures are not visually checkable, and filling the slot
+with a near-enough picture is the same error as inventing a price band for a
+job with no stated scale.
+
+### What the pictures did not change
+
+The rule in `data/equipment.ts` is untouched: this layer describes what the
+work *requires*, never what we own. Photographs make that rule easier to break,
+not harder, so the enforcement grew with the imagery:
+
+- `EQUIPMENT_IMAGE_DISCLOSURE` — *"Commissioned illustration of the machine
+  class, not a photograph of our own equipment"* — renders under every instance,
+  and a test fails the build if any surface shows an equipment image without it.
+- The same for defects, with different words, because the claim differs: not a
+  photograph of a job we were called to.
+- Both the index's *"not an asset list"* and the detail page's *"not an
+  inventory"* are asserted alongside the images, in one test, so the two cannot
+  drift apart.
+- Alt text is checked for words that would turn an illustration into a customer
+  reference.
+
+The chatter caption says the ripple is exaggerated so it reads at that size.
+That sentence costs nothing and it is the difference between teaching someone
+what to look for and setting them up to not find it.
+
+### Also
+
+Both `.zip` files were untracked and `*.zip` added to `.gitignore`, with a
+hygiene test — the same history as the three `.patch` files, for the same
+reason: the web UI is the easy way to move bytes into a repository, and
+archives are transport, not source.
+
+### Evidence
+
+- `npm run test` — **385 pass, 0 fail** (362 before; +23).
+- `npm run build` — 404 prerendered pages, unchanged. No new URLs; this stage
+  adds depth, not surface.
+- `npm run audit:site` — clean.
+- 10 routes × 4 viewports (320/390/768/1440): no horizontal overflow, no
+  console errors beyond the Vercel analytics 404s that only occur off-platform.
+- `/about` and `/showroom` — the two pages that already used the rotator —
+  swept alongside the new ones and unchanged.

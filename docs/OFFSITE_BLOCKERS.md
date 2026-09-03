@@ -268,7 +268,19 @@ repair disappears, and a slider is the only way to prove it.
 
 ---
 
-## 13. Photograph the machines — unlocks a section that is already built
+## 13. Photograph the machines — the renders are placeholders, not the answer
+
+> **Updated in Stage 14.** Sixty-four commissioned renderings now illustrate the
+> ten machine classes and six defects, four renditions each, cross-fading. They
+> are labelled on every page as illustrations of a machine *class*, and
+> `tests/equipment.test.ts` fails the build if that label disappears.
+>
+> **Nothing below is closed by them.** The renders make the section look
+> finished; only real photographs make it *true*. And none of them may be
+> uploaded to the Google Business Profile — Google prohibits stock and
+> off-location imagery, and a photo violation on a new profile is a suspension.
+
+### The original blocker, unchanged
 
 `/equipment` and its ten pages went live in Stage 13. They describe **what the
 work requires**, not what is parked at Sterling Road, and every page says so in

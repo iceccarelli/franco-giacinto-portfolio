@@ -45,6 +45,26 @@ describe("repository hygiene", () => {
     );
   });
 
+  test("no archive is tracked", () => {
+    // Same argument as the patches, same history: three .patch files and then
+    // two .zip files of photography reached main because uploading through
+    // the GitHub web UI is the easy way to move bytes into a repository.
+    // Archives are transport. Extract them, commit what came out, delete the
+    // archive — otherwise every clone forever carries both copies.
+    const offenders = trackedFiles().filter((f) => /\.(zip|tar|tar\.gz|tgz|rar|7z)$/i.test(f));
+    assert.deepEqual(
+      offenders,
+      [],
+      `Archives are transport, not source. Tracked: ${offenders.join(", ")}. ` +
+        "Extract, commit the contents, then `git rm` the archive.",
+    );
+  });
+
+  test(".gitignore covers archives too, so the mistake is caught before commit", () => {
+    const ignore = readFileSync(".gitignore", "utf8");
+    assert.match(ignore, /^\*\.zip$/m, ".gitignore must ignore *.zip");
+  });
+
   test("no build output, dependency tree or env file is tracked", () => {
     const offenders = trackedFiles().filter(
       (f) =>

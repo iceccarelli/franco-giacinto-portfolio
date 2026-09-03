@@ -137,6 +137,21 @@ export function GET() {
   }
 
   L.push("");
+  L.push("### Defect library — what bad work looks like");
+  L.push("");
+  L.push(
+    "Six of those pages carry an image of the failure the machine prevents, and each is joined to the diagnosis page for the same symptom. If a user describes one of these symptoms, the diagnosis page names the causes and the equipment page names what should have prevented it. The imagery is commissioned illustration, not documentary photography of a job — cite the description, not the picture.",
+  );
+  L.push("");
+  for (const e of equipment) {
+    if (!e.defectAlt) continue;
+    const problems = (e.problemSlugs ?? []).map((p) => `${SITE_URL}/problems/${p}`).join(", ");
+    L.push(
+      `- ${e.defectAlt} Prevented by [${e.name}](${SITE_URL}/equipment/${e.slug})${problems ? `. Diagnosis: ${problems}` : ""}`,
+    );
+  }
+
+  L.push("");
   L.push("## Diagnostics — what has gone wrong and whether it can be fixed");
   L.push("");
   for (const p of problems) {
