@@ -265,3 +265,49 @@ copy, buy, or fake. It costs nothing. It needs no photographer.
 
 Repair is the one to shoot first: the whole claim of that service is that the
 repair disappears, and a slider is the only way to prove it.
+
+---
+
+## 13. Photograph the machines — unlocks a section that is already built
+
+`/equipment` and its ten pages went live in Stage 13. They describe **what the
+work requires**, not what is parked at Sterling Road, and every page says so in
+plain words. That is honest and it is defensible, but it is the weaker version
+of what this section can be.
+
+The stronger version is the same pages with a photograph of the actual machine
+at the top of each one, and the disclaimer replaced by an inventory. Nobody in
+this market publishes that. It is unfaked and unfakeable, and it converts a
+specification into evidence.
+
+### The shot list — ten frames, one afternoon in the shop
+
+| # | Frame | Why |
+| --- | --- | --- |
+| 1 | The belt machine, whole, on a floor | The single most recognisable object in the trade |
+| 2 | The edger, in hand or on the floor | Proves the perimeter is not an afterthought |
+| 3 | The multi-disc / buffer with a pad fitted | The blend step nobody photographs |
+| 4 | The extractor, hose connected to a machine | This is the "dust-free" claim, physically |
+| 5 | Zip wall or a doorway seal on a real job | Containment as a system, not an accessory |
+| 6 | A moisture meter reading a subfloor, screen legible | The number in the frame is the whole point |
+| 7 | The flooring nailer mid-row | The install claim |
+| 8 | A notched trowel and a spread bed of adhesive | The trowel notch is the specification |
+| 9 | The stair bench with a tread on it | Millwork, not carpentry |
+| 10 | A counterbored newel bolt before it is plugged | The hidden fixing, visible once |
+
+Same four rules as blocker #12: real, unfiltered, landscape, taken on a job or
+in the shop. A machine on a clean white background looks like a catalogue and
+will be read as one.
+
+### What happens in the code when they arrive
+
+The pages already have the slot. Delivering the ten files means:
+
+1. Each `Equipment` entry gains `image` and `imageAlt`.
+2. The "What this page is" panel changes from *specification* to *inventory*,
+   and the honesty note in `tests/equipment.test.ts` is updated in the same
+   commit — not before, and not after.
+3. `/llms.txt` and `/llms-full.txt` drop the "not an inventory" caveat, which
+   is generated from the same source.
+
+Until then the caveat stays, and the test enforces it.

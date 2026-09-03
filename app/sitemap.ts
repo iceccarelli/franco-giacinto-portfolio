@@ -5,6 +5,7 @@ import { projects } from "@/data/projects";
 import { cities } from "@/data/areas";
 import { SITE_URL } from "@/lib/site-url";
 import { guides, updatedDate } from "@/data/guides";
+import { equipment } from "@/data/equipment";
 import { methods } from "@/data/methods";
 import { problems } from "@/data/problems";
 import { matrixPages } from "@/data/matrix";
@@ -32,6 +33,7 @@ const staticRoutes: {
   { path: "/areas", priority: 0.8, changeFrequency: "monthly" },
   { path: "/guides", priority: 0.75, changeFrequency: "weekly" },
   { path: "/methods", priority: 0.85, changeFrequency: "monthly" },
+  { path: "/equipment", priority: 0.75, changeFrequency: "monthly" },
   { path: "/answers", priority: 0.8, changeFrequency: "weekly" },
   { path: "/problems", priority: 0.85, changeFrequency: "monthly" },
   { path: "/glossary", priority: 0.7, changeFrequency: "monthly" },
@@ -94,6 +96,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly" as const,
       priority: m.cluster === "stairs" || m.cluster === "installation" ? 0.8 : 0.7,
       images: [`${BASE}${m.image}`],
+    })),
+    // Machinery and tooling. No competitor in this market publishes an
+    // equipment layer, so these carry an unusual amount of unclaimed
+    // long-tail intent ("drum vs belt sander floor", "wood moisture meter").
+    ...equipment.map((e) => ({
+      url: `${BASE}/equipment/${e.slug}`,
+      lastModified,
+      changeFrequency: "monthly" as const,
+      priority: e.category === "sanding" || e.category === "dust" ? 0.7 : 0.6,
     })),
     ...problems.map((p) => ({
       url: `${BASE}/problems/${p.slug}`,

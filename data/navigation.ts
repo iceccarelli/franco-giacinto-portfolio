@@ -125,6 +125,7 @@ export const navSections: NavSection[] = [
         links: [
           { label: "Guides", href: "/guides", blurb: "Long-form, one subject each" },
           { label: "Methods", href: "/methods", blurb: "Nail-down, glue-down, floating, and when each applies" },
+          { label: "Machinery & tooling", href: "/equipment", blurb: "The machines that decide the outcome, and how to check for them" },
           { label: "Answers", href: "/answers", blurb: "Direct answers to the questions we get asked" },
           { label: "Glossary", href: "/glossary", blurb: "The vocabulary, defined once" },
         ],
@@ -212,6 +213,7 @@ export const footerColumns: NavGroup[] = [
       { label: "Job catalogue", href: "/catalog" },
       { label: "Guides", href: "/guides" },
       { label: "Methods", href: "/methods" },
+      { label: "Machinery & tooling", href: "/equipment" },
       { label: "Diagnose a problem", href: "/problems" },
       { label: "Answers", href: "/answers" },
       { label: "Glossary", href: "/glossary" },
