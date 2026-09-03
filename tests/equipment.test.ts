@@ -2,14 +2,20 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+  DEFECT_IMAGE_DISCLOSURE,
+  EQUIPMENT_IMAGE_DISCLOSURE,
+  defectLibrary,
   equipment,
   equipmentByCategory,
   equipmentCategories,
+  equipmentForProblem,
   equipmentForService,
   getEquipment,
   servicesFor,
 } from "../data/equipment";
 import { guides } from "../data/guides";
+import { IMAGE_VARIANTS } from "../data/images";
+import { problems } from "../data/problems";
 import { methods } from "../data/methods";
 import { services } from "../data/services";
 import { searchDocs } from "../lib/search-index";
@@ -231,5 +237,202 @@ describe("the layer is reachable", () => {
         `${f} publishes the equipment layer without the caveat that stops it reading as a kit list`,
       );
     }
+  });
+});
+
+describe("the imagery is labelled for what it is", () => {
+  const index = readFileSync(new URL("../app/equipment/page.tsx", import.meta.url), "utf8");
+  const detail = readFileSync(
+    new URL("../app/equipment/[slug]/page.tsx", import.meta.url),
+    "utf8",
+  );
+  const problemPage = readFileSync(
+    new URL("../app/problems/[slug]/page.tsx", import.meta.url),
+    "utf8",
+  );
+
+  test("the disclosure says the machine is not ours, in those words", () => {
+    // The specific risk this closes: a photograph of a sander in a workshop
+    // reads as OUR sander in OUR workshop. The words have to deny it.
+    assert.match(EQUIPMENT_IMAGE_DISCLOSURE, /not a photograph of our own equipment/i);
+    assert.match(DEFECT_IMAGE_DISCLOSURE, /not a photograph of a job/i);
+  });
+
+  test("the service and method cross-links disclose too", () => {
+    // These two were missed on the first pass: thumbnails were added to the
+    // "What this job runs on" and "What this method runs on" blocks, thirteen
+    // pages rendered equipment photography, and no test knew those files
+    // existed. The real guard is now in scripts/audit-site.mjs, which reads
+    // every built page instead of the three files someone thought to name —
+    // this assertion is the cheap early warning that runs before the build.
+    for (const f of ["../app/services/[slug]/page.tsx", "../app/methods/[slug]/page.tsx"]) {
+      const src = readFileSync(new URL(f, import.meta.url), "utf8");
+      if (!/e\.image/.test(src)) continue;
+      assert.match(
+        src,
+        /EQUIPMENT_IMAGE_DISCLOSURE/,
+        `${f} renders an equipment thumbnail with no disclosure`,
+      );
+    }
+  });
+
+  test("the post-build audit checks every page, not just the ones we named", () => {
+    const audit = readFileSync(new URL("../scripts/audit-site.mjs", import.meta.url), "utf8");
+    assert.match(
+      audit,
+      /renders equipment imagery with no disclosure/,
+      "the audit no longer catches an undisclosed equipment image on an unnamed page",
+    );
+  });
+
+  test("every surface that renders an equipment image also renders the disclosure", () => {
+    for (const [name, src] of [
+      ["the index", index],
+      ["the detail page", detail],
+    ] as const) {
+      assert.match(
+        src,
+        /EQUIPMENT_IMAGE_DISCLOSURE|DEFECT_IMAGE_DISCLOSURE/,
+        `${name} renders equipment imagery with no disclosure`,
+      );
+    }
+    assert.match(
+      problemPage,
+      /DEFECT_IMAGE_DISCLOSURE/,
+      "a diagnosis page shows a defect photograph with nothing saying it is an illustration",
+    );
+  });
+
+  test("having pictures did not soften the inventory rule", () => {
+    // The failure mode: someone adds photographs, decides the page now looks
+    // like proof, and quietly drops the sentence. Both must survive together.
+    assert.match(index, /not an asset list/i);
+    assert.match(detail, /not an inventory/i);
+  });
+
+  test("every entry has an image, and every image is in the variant manifest", () => {
+    for (const e of equipment) {
+      assert.ok(e.image?.startsWith("/images/equipment/"), `${e.slug} has no image`);
+      assert.ok(e.imageAlt && e.imageAlt.length > 40, `${e.slug} has thin or missing alt text`);
+      assert.equal(
+        IMAGE_VARIANTS[e.image],
+        4,
+        `${e.image} is not declared with four renditions, so the rotator has nothing to rotate`,
+      );
+    }
+  });
+
+  test("alt text describes the work, never a customer", () => {
+    const forbidden = /\b(client|customer|homeowner's|Mr\.|Mrs\.|Ms\.)\b/i;
+    for (const e of equipment) {
+      for (const alt of [e.imageAlt, e.defectAlt].filter(Boolean) as string[]) {
+        assert.ok(!forbidden.test(alt), `${e.slug} alt text refers to a person: "${alt}"`);
+      }
+    }
+  });
+
+  test("a defect image always comes with a description, and vice versa", () => {
+    for (const e of equipment) {
+      assert.equal(
+        e.defectImage === undefined,
+        e.defectAlt === undefined,
+        `${e.slug} has one half of a defect image`,
+      );
+    }
+    assert.equal(defectLibrary().length, 6, "the defect library should be six entries");
+  });
+
+  test("the four with no honest defect image get none, not a stand-in", () => {
+    // Filling the slot with a near-enough picture is the same failure as
+    // inventing a price band for a job with no stated scale.
+    const without = equipment.filter((e) => !e.defectImage).map((e) => e.slug);
+    assert.deepEqual(
+      without.sort(),
+      [
+        "dust-containment-system",
+        "flooring-nailer",
+        "multi-disc-sander",
+        "stair-fabrication-bench",
+      ],
+      "the set of entries with no defect image has changed — was that deliberate?",
+    );
+  });
+});
+
+describe("the symptom joins to the machine that prevents it", () => {
+  test("every problemSlug resolves to a real diagnosis page", () => {
+    const known = new Set(problems.map((p) => p.slug));
+    for (const e of equipment) {
+      for (const slug of e.problemSlugs ?? []) {
+        assert.ok(known.has(slug), `${e.slug} points at unknown problem "${slug}"`);
+      }
+    }
+  });
+
+  test("only an entry that HAS a defect image claims to illustrate a diagnosis", () => {
+    for (const e of equipment) {
+      if ((e.problemSlugs ?? []).length === 0) continue;
+      assert.ok(
+        e.defectImage,
+        `${e.slug} claims a diagnosis page but has no image to put on it`,
+      );
+    }
+  });
+
+  test("the lookup returns the entry, and undefined rather than a near-enough one", () => {
+    assert.equal(equipmentForProblem("hardwood-floor-cupping")?.slug, "moisture-meter");
+    assert.equal(equipmentForProblem("loose-stair-railing")?.slug, "railing-anchorage");
+    assert.equal(equipmentForProblem("squeaking-stairs"), undefined);
+  });
+
+  test("no two entries claim the same diagnosis page", () => {
+    const seen = new Map<string, string>();
+    for (const e of equipment) {
+      for (const slug of e.problemSlugs ?? []) {
+        const prior = seen.get(slug);
+        assert.equal(prior, undefined, `${slug} is claimed by both ${prior} and ${e.slug}`);
+        seen.set(slug, e.slug);
+      }
+    }
+  });
+});
+
+describe("the motion is an enhancement, never the content", () => {
+  const rotator = readFileSync(
+    new URL("../components/photo-rotator.tsx", import.meta.url),
+    "utf8",
+  );
+  const css = readFileSync(new URL("../app/globals.css", import.meta.url), "utf8");
+
+  test("it does not start under reduced motion", () => {
+    assert.match(rotator, /prefers-reduced-motion: reduce/);
+    assert.match(css, /@media \(prefers-reduced-motion: reduce\)[\s\S]{0,200}\.gh-kenburns/);
+  });
+
+  test("the Ken Burns drift is explicitly cancelled, not merely clamped", () => {
+    // The global reduced-motion block already clamps every animation to
+    // 0.01ms, which freezes this one correctly but by accident. Deleting that
+    // global rule must not silently re-enable a drifting photograph.
+    const guard = css.slice(css.lastIndexOf(".gh-kenburns"));
+    assert.match(guard, /animation: none/);
+  });
+
+  test("it pauses off-screen and in a hidden tab", () => {
+    assert.match(rotator, /IntersectionObserver/);
+    assert.match(rotator, /visibilityState|visibilitychange/);
+  });
+
+  test("exactly one frame can be eager, and it is the first", () => {
+    assert.match(rotator, /priority && i === 0/);
+  });
+
+  test("only the visible frame is described to assistive technology", () => {
+    assert.match(rotator, /aria-hidden=\{i !== index\}/);
+  });
+
+  test("the drift is slow enough not to compete with the text", () => {
+    const m = css.match(/animation: gh-kenburns-drift (\d+)s/);
+    assert.ok(m, "the Ken Burns animation has no duration");
+    assert.ok(Number(m![1]) >= 12, `a ${m![1]}s drift is a slideshow effect, not a Ken Burns move`);
   });
 });

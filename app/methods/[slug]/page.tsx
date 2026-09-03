@@ -15,7 +15,7 @@ import {
 import { answers } from "@/data/answers";
 import { company } from "@/data/company";
 import { getGuide } from "@/data/guides";
-import { equipment } from "@/data/equipment";
+import { EQUIPMENT_IMAGE_DISCLOSURE, equipment } from "@/data/equipment";
 import { getMethod, methods } from "@/data/methods";
 import { getService } from "@/data/services";
 import { breadcrumbLd, clampDescription, faqLd, webPageLd } from "@/lib/seo";
@@ -196,14 +196,30 @@ export default async function MethodPage({ params }: { params: Promise<Params> }
                   <li key={e.slug}>
                     <Link
                       href={`/equipment/${e.slug}`}
-                      className="block rounded-xl bg-surface p-4 shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
+                      className="flex gap-4 overflow-hidden rounded-xl bg-surface p-4 shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
                     >
-                      <p className="font-medium">{e.name}</p>
-                      <p className="mt-1 text-sm text-muted">{e.summary}</p>
+                      {/*
+                        A static seeded thumbnail, not a rotator. Six drifting
+                        tiles in a cross-link list is motion competing with the
+                        page it is meant to serve.
+                      */}
+                      <Photo
+                        src={e.image}
+                        alt={e.imageAlt}
+                        ratio="1/1"
+                        slot="thumb"
+                        seed={e.slug}
+                        className="size-20 shrink-0 rounded-lg"
+                      />
+                      <span className="min-w-0">
+                        <span className="block font-medium">{e.name}</span>
+                        <span className="mt-1 block text-sm text-muted">{e.summary}</span>
+                      </span>
                     </Link>
                   </li>
                 ))}
               </ul>
+              <p className="mt-3 text-xs text-muted">{EQUIPMENT_IMAGE_DISCLOSURE}</p>
             </div>
           )}
 

@@ -6,7 +6,15 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { JsonLd } from "@/components/json-ld";
 import { Button } from "@/components/ui/button";
 import { company } from "@/data/company";
-import { equipment, equipmentCategories, getEquipment, servicesFor } from "@/data/equipment";
+import { PhotoRotator } from "@/components/photo-rotator";
+import {
+  DEFECT_IMAGE_DISCLOSURE,
+  EQUIPMENT_IMAGE_DISCLOSURE,
+  equipment,
+  equipmentCategories,
+  getEquipment,
+  servicesFor,
+} from "@/data/equipment";
 import { getGuide } from "@/data/guides";
 import { getMethod } from "@/data/methods";
 import { breadcrumbLd, clampDescription, webPageLd } from "@/lib/seo";
@@ -94,25 +102,46 @@ export default async function EquipmentPage({ params }: { params: Promise<Params
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <Breadcrumbs items={crumbs} className="pt-4" />
         </div>
-        <div className="mx-auto max-w-6xl px-4 pb-10 sm:px-6">
-          <p className="text-xs tracking-[0.18em] text-accent uppercase">
-            Equipment · {category?.label ?? item.category}
-          </p>
-          <h1 className="mt-3 max-w-3xl font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
-            {item.name}
-          </h1>
-          <p className="mt-4 max-w-2xl text-lg text-muted">{item.summary}</p>
-          <p className="mt-3 max-w-2xl text-sm text-muted">
-            Also called: {item.alsoCalled.join(", ")}.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Button asChild>
-              <Link href="/estimate">Price the work it does</Link>
-            </Button>
-            <Button asChild variant="outline">
-              <Link href="/equipment">All equipment</Link>
-            </Button>
+        <div className="mx-auto grid max-w-6xl items-center gap-8 px-4 pb-10 sm:px-6 lg:grid-cols-2">
+          <div>
+            <p className="text-xs tracking-[0.18em] text-accent uppercase">
+              Equipment · {category?.label ?? item.category}
+            </p>
+            <h1 className="mt-3 font-display text-4xl leading-[1.08] font-medium sm:text-5xl">
+              {item.name}
+            </h1>
+            <p className="mt-4 text-lg text-muted">{item.summary}</p>
+            <p className="mt-3 text-sm text-muted">Also called: {item.alsoCalled.join(", ")}.</p>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Button asChild>
+                <Link href="/estimate">Price the work it does</Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/equipment">All equipment</Link>
+              </Button>
+            </div>
           </div>
+          {/*
+            Four renditions, cross-fading, seeded by the slug so ten equipment
+            pages do not all open on the same frame. Ken Burns is ON here: this
+            is the one image on the page a reader dwells on, and the drift is
+            slow enough (18s, 6% scale) that it never competes with the text.
+          */}
+          <figure>
+            <PhotoRotator
+              src={item.image}
+              alt={item.imageAlt}
+              seed={item.slug}
+              ratio="aspect-[4/3]"
+              sizes="(min-width: 1024px) 592px, 100vw"
+              kenBurns
+              priority
+              className="rounded-xl shadow-[var(--shadow-card)]"
+            />
+            <figcaption className="mt-3 text-sm text-muted">
+              {item.imageAlt} <span className="text-fg">{EQUIPMENT_IMAGE_DISCLOSURE}</span>
+            </figcaption>
+          </figure>
         </div>
       </section>
 
@@ -135,13 +164,38 @@ export default async function EquipmentPage({ params }: { params: Promise<Params
             ))}
           </ul>
 
-          <div className="mt-10 rounded-xl bg-surface p-6 shadow-[var(--shadow-card)]">
-            <div className="flex items-center gap-2 text-primary">
-              <AlertTriangle className="size-4" aria-hidden="true" />
-              <h2 className="text-xs tracking-[0.16em] uppercase">What happens without it</h2>
+          <div className="mt-10 overflow-hidden rounded-xl bg-surface shadow-[var(--shadow-card)]">
+            {/*
+              The defect, photographed. This is the most useful image on the
+              page: the paragraph tells you what goes wrong, and the picture
+              tells you what it looks like from a doorway. Six of the ten
+              machine classes have one; the other four describe failures that
+              are not visually checkable, and they get no image rather than a
+              decorative stand-in.
+            */}
+            {item.defectImage && item.defectAlt && (
+              <figure>
+                <PhotoRotator
+                  src={item.defectImage}
+                  alt={item.defectAlt}
+                  seed={`${item.slug}-defect`}
+                  ratio="aspect-[16/9]"
+                  sizes="(min-width: 1024px) 720px, 100vw"
+                  kenBurns
+                />
+                <figcaption className="px-6 pt-4 text-sm text-muted">
+                  {item.defectAlt} <span className="text-fg">{DEFECT_IMAGE_DISCLOSURE}</span>
+                </figcaption>
+              </figure>
+            )}
+            <div className="p-6">
+              <div className="flex items-center gap-2 text-primary">
+                <AlertTriangle className="size-4" aria-hidden="true" />
+                <h2 className="text-xs tracking-[0.16em] uppercase">What happens without it</h2>
+              </div>
+              <p className="mt-3 font-medium">{item.without.instead}</p>
+              <p className="mt-2 text-muted">{item.without.consequence}</p>
             </div>
-            <p className="mt-3 font-medium">{item.without.instead}</p>
-            <p className="mt-2 text-muted">{item.without.consequence}</p>
           </div>
 
           <div className="mt-10">

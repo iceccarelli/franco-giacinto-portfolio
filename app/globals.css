@@ -454,3 +454,48 @@ input[type="range"]:focus-visible::-webkit-slider-thumb {
 .leaflet-popup-content {
   margin: 12px 14px;
 }
+
+/* ---------------------------------------------------------------- Ken Burns
+
+   A very slow scale-and-drift on the visible frame of a PhotoRotator.
+
+   Deliberately understated: 1.00 -> 1.06 over eighteen seconds, with about a
+   percent of translation. The test of a Ken Burns move is that a reader who
+   looks away and back cannot say whether it moved, while a reader who watches
+   feels the photograph is alive. Anything faster reads as a slideshow effect
+   and pulls attention off the text, which on these pages is the actual
+   product.
+
+   `alternate` rather than `infinite` forward: a hard reset back to 1.00 at the
+   end of each cycle is a visible jump, and it always lands mid-view because
+   the fade interval and the drift duration are deliberately not multiples of
+   one another.
+
+   `will-change` is set but not `transform: translateZ(0)` — the compositor
+   hint is worth the layer here because the element is already animating
+   opacity, and forcing a second layer would double it.                     */
+@keyframes gh-kenburns-drift {
+  from {
+    transform: scale(1) translate3d(0, 0, 0);
+  }
+  to {
+    transform: scale(1.06) translate3d(-1.1%, -0.9%, 0);
+  }
+}
+
+.gh-kenburns {
+  animation: gh-kenburns-drift 18s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+/* A drifting photograph is a vestibular trigger. The global reduced-motion
+   block already clamps every animation to 0.01ms, which would freeze this
+   one at its starting transform — correct, but by accident. Say it on
+   purpose, so deleting the global rule does not silently re-enable this. */
+@media (prefers-reduced-motion: reduce) {
+  .gh-kenburns {
+    animation: none;
+    will-change: auto;
+    transform: none;
+  }
+}

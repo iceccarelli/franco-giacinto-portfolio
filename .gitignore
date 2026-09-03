@@ -12,5 +12,6 @@ next-env.d.ts
 # scripts/apply-patch.sh has been quietly removing them on the next branch.
 # Ignoring them stops the round trip at the source.
 *.patch
+*.zip
 *.diff
 .env*

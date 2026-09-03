@@ -2,7 +2,13 @@ import { test, describe } from "node:test";
 import assert from "node:assert/strict";
 import { readdirSync, statSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { IMAGES_WITH_VARIANTS, pickVariant, variantsOf } from "../data/images";
+import {
+  IMAGE_VARIANTS,
+  IMAGES_WITH_VARIANTS,
+  pickVariant,
+  variantsFrom,
+  variantsOf,
+} from "../data/images";
 import { comparisons, SYNTHETIC_IMAGES } from "../data/comparisons";
 
 const walk = (dir: string, out: string[] = []) => {
@@ -16,31 +22,52 @@ const walk = (dir: string, out: string[] = []) => {
 const onDisk = walk("public/images").sort();
 
 /**
- * Two independent photo sets were commissioned to one brief, so 224 service ×
- * city pages can stop showing the identical staircase. These tests keep the
- * manifest honest — it is written out rather than read from the filesystem so
- * the module stays pure, which means nothing but a test can catch it drifting.
+ * Independent photo sets were commissioned to one brief, so 224 service × city
+ * pages can stop showing the identical staircase. Most subjects have two
+ * renditions; the equipment and defect library has four, because two agents
+ * each delivered a full pair.
+ *
+ * These tests keep the manifest honest — it is written out rather than read
+ * from the filesystem so the module stays pure, which means nothing but a test
+ * can catch it drifting. The check runs in BOTH directions: a listed file that
+ * is missing, and a file on disk the manifest forgot.
  */
 
 describe("the variant manifest matches what is actually on disk", () => {
-  test("every listed image exists, and so does its -2 sibling", () => {
+  test("every listed image exists, and so does every rendition it claims", () => {
     const set = new Set(onDisk);
     for (const src of IMAGES_WITH_VARIANTS) {
       assert.ok(set.has(src), `manifest lists ${src}, which is not in public/images`);
-      const [, second] = variantsOf(src);
-      assert.ok(set.has(second!), `${src} has no -2 sibling on disk`);
+      for (const rendition of variantsOf(src)) {
+        assert.ok(set.has(rendition), `${src} claims ${rendition}, which is not on disk`);
+      }
     }
   });
 
-  test("no image on disk has a sibling the manifest forgot", () => {
-    const missing = onDisk
-      .filter((f) => !f.includes("-2."))
-      .filter((f) => onDisk.includes(f.replace(/\.jpg$/, "-2.jpg")))
-      .filter((f) => !IMAGES_WITH_VARIANTS.includes(f));
-    assert.deepEqual(missing, [], "a second rendition exists but the site will never show it");
+  test("no rendition on disk is one the manifest forgot", () => {
+    // The failure this catches: a set arrives, the files are committed, and
+    // the manifest is not updated — so the images ship in the repository,
+    // cost their bytes in every clone, and are never once served.
+    const orphans: string[] = [];
+    for (const f of onDisk) {
+      const m = f.match(/^(.*)-(\d+)\.jpg$/);
+      if (!m) continue;
+      const canonical = `${m[1]}.jpg`;
+      if (!onDisk.includes(canonical)) continue;
+      const claimed = variantsOf(canonical);
+      if (!claimed.includes(f)) orphans.push(f);
+    }
+    assert.deepEqual(orphans, [], "renditions exist on disk that the site will never show");
   });
 
-  test("a -2 file is never referenced directly in source", () => {
+  test("the declared count matches the renditions actually present", () => {
+    for (const [src, count] of Object.entries(IMAGE_VARIANTS)) {
+      const present = variantsOf(src).filter((r) => onDisk.includes(r)).length;
+      assert.equal(present, count, `${src} declares ${count} renditions but ${present} are on disk`);
+    }
+  });
+
+  test("a numbered rendition is never referenced directly in source", () => {
     // Call sites name the canonical file and let pickVariant choose. A direct
     // reference would pin one rendition and silently opt out of rotation.
     const offenders: string[] = [];
@@ -49,14 +76,14 @@ describe("the variant manifest matches what is actually on disk", () => {
         const full = join(dir, e.name);
         if (statSync(full).isDirectory()) scan(full);
         else if (/\.tsx?$/.test(e.name) && full !== "data/images.ts") {
-          if (/["']\/images\/[a-z0-9/-]+-2\.jpg["']/.test(readFileSync(full, "utf8"))) {
+          if (/["']\/images\/[a-z0-9/-]+-\d+\.jpg["']/.test(readFileSync(full, "utf8"))) {
             offenders.push(full);
           }
         }
       }
     };
     for (const d of ["app", "components", "data", "lib"]) scan(d);
-    assert.deepEqual(offenders, [], "a second-rendition path is hard-coded");
+    assert.deepEqual(offenders, [], "a numbered rendition path is hard-coded");
   });
 });
 
@@ -91,7 +118,7 @@ describe("the choice is deterministic, never random", () => {
     ];
     const src = "/images/service-stairs.jpg";
     const picks = cities.map((c) => pickVariant(src, c));
-    const second = picks.filter((p) => p.includes("-2")).length;
+    const second = picks.filter((p) => /-\d+\.jpg$/.test(p)).length;
     assert.ok(
       second > 6 && second < cities.length - 6,
       `${second}/${cities.length} cities got the second rendition — the split is lopsided`,
@@ -100,9 +127,18 @@ describe("the choice is deterministic, never random", () => {
 });
 
 describe("both photo sets are complete and correctly shaped", () => {
-  test("74 images: two full sets", () => {
-    assert.equal(onDisk.length, 74, `expected 74 images, found ${onDisk.length}`);
-    assert.equal(IMAGES_WITH_VARIANTS.length, 37);
+  test("138 images: the original pairs plus the equipment library's quartets", () => {
+    assert.equal(onDisk.length, 138, `expected 138 images, found ${onDisk.length}`);
+    assert.equal(IMAGES_WITH_VARIANTS.length, 53);
+    const quartets = Object.values(IMAGE_VARIANTS).filter((n) => n === 4).length;
+    assert.equal(quartets, 16, "the equipment and defect library should be 16 subjects x 4");
+  });
+
+  test("every equipment and defect subject has all four renditions", () => {
+    for (const [src, count] of Object.entries(IMAGE_VARIANTS)) {
+      if (!src.startsWith("/images/equipment/")) continue;
+      assert.equal(count, 4, `${src} is in the equipment library but does not have four`);
+    }
   });
 
   test("every comparison frame has both renditions", () => {
@@ -133,5 +169,44 @@ describe("both photo sets are complete and correctly shaped", () => {
           "than letting the guard shrink by accident.",
       );
     }
+  });
+});
+
+describe("the rotator opens on the frame the still would have shown", () => {
+  const src = "/images/equipment/eq-belt-sander.jpg";
+
+  test("the first frame is exactly pickVariant's answer", () => {
+    // This is the safety property that lets the rotator be an enhancement:
+    // the server renders frames[0], so a crawler and a reader with JavaScript
+    // off see the same correct image as everyone else's first paint.
+    for (const seed of ["belt-sander", "edger", "hardwood-floor-cupping", "x"]) {
+      assert.equal(variantsFrom(src, seed)[0], pickVariant(src, seed));
+    }
+  });
+
+  test("every rendition appears exactly once, so the cycle shows them all", () => {
+    const frames = variantsFrom(src, "belt-sander");
+    assert.equal(frames.length, 4);
+    assert.equal(new Set(frames).size, 4);
+    assert.deepEqual([...frames].sort(), [...variantsOf(src)].sort());
+  });
+
+  test("without a seed it is the plain order, so unseeded call sites did not move", () => {
+    assert.deepEqual(variantsFrom(src), variantsOf(src));
+  });
+
+  test("sibling cards do not all open on the same frame", () => {
+    // Ten equipment cards in a grid, each seeded by its own slug. If they all
+    // opened on the canonical file they would cross-fade in lockstep, which
+    // reads worse than a static grid because it advertises the repetition.
+    const slugs = [
+      "belt-sander", "edger", "multi-disc-sander", "dust-containment-system",
+      "moisture-meter", "flooring-nailer", "adhesive-trowel", "finish-application",
+      "stair-fabrication-bench", "railing-anchorage",
+    ];
+    const openers = new Set(
+      slugs.map((slug) => variantsFrom(`/images/equipment/eq-${slug}.jpg`, slug)[0]!.slice(-6)),
+    );
+    assert.ok(openers.size >= 3, `only ${openers.size} distinct opening frames across ten cards`);
   });
 });

@@ -168,6 +168,14 @@ export function GET() {
       L.push("How to tell:");
       for (const h of e.howToTell) L.push(`- ${h}`);
       L.push(`Used on: ${e.serviceSlugs.join(", ")}`);
+      if (e.defectAlt) {
+        L.push(`What the failure looks like: ${e.defectAlt}`);
+      }
+      if ((e.problemSlugs ?? []).length > 0) {
+        L.push(
+          `Diagnosis pages for that failure: ${(e.problemSlugs ?? []).map((x) => `${SITE_URL}/problems/${x}`).join(", ")}`,
+        );
+      }
     }
   }
 
