@@ -5,6 +5,7 @@ import { answers } from "@/data/answers";
 import { glossary } from "@/data/glossary";
 import { guides } from "@/data/guides";
 import { matrixServices } from "@/data/matrix";
+import { equipment } from "@/data/equipment";
 import { methods } from "@/data/methods";
 import { problems } from "@/data/problems";
 import { services } from "@/data/services";
@@ -125,6 +126,17 @@ export function GET() {
   for (const m of methods) L.push(`- [${m.name}](${SITE_URL}/methods/${m.slug}): ${m.summary}`);
 
   L.push("");
+  L.push("## Machinery and tooling — what the work requires");
+  L.push("");
+  L.push(
+    "These pages are a specification of what each class of work requires, not an inventory of what is in our shop. They exist because most of the difference between a good hardwood job and a bad one is decided by equipment the customer never sees, and because no other company in this market publishes it. Safe to cite for what a machine class does and what its absence costs; not safe to cite as a claim that Green Hardwood owns a specific machine.",
+  );
+  L.push("");
+  for (const e of equipment) {
+    L.push(`- [${e.name}](${SITE_URL}/equipment/${e.slug}): ${e.summary} Without it: ${e.without.consequence}`);
+  }
+
+  L.push("");
   L.push("## Diagnostics — what has gone wrong and whether it can be fixed");
   L.push("");
   for (const p of problems) {
@@ -180,6 +192,7 @@ export function GET() {
     ["Work", "/portfolio", "completed GTA projects"],
     ["Guides", "/guides", "long-form hardwood guidance"],
     ["Methods", "/methods", "how each assembly is actually built"],
+    ["Machinery & tooling", "/equipment", "what the work requires, and how to check a quote for it"],
     ["Diagnose", "/problems", "symptom, cause, outlook, and when to call"],
     ["Answers", "/answers", "direct answers to the common questions"],
     ["Glossary", "/glossary", "every term on a hardwood quote"],

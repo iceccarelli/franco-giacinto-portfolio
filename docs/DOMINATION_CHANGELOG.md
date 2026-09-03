@@ -1205,3 +1205,105 @@ The remaining work is not writing. It is the three items in
 `docs/OFFSITE_BLOCKERS.md` that only the shop can do: claim the Google
 Business Profile, take twelve photographs, and decide which installation
 number is right.
+
+---
+
+## Stage 13 — The equipment layer, and a Google Business Profile that is ready to claim (2026-09-03)
+
+Two things ship together because they are the same argument from two
+directions: what makes this company checkable, and where a searcher checks.
+
+### The gap nobody in this market has filled
+
+Every hardwood company in the GTA sells the same four adjectives — dust-free,
+seamless, custom, guaranteed. Not one of them publishes what those adjectives
+are made of. "Dust-free sanding" is a claim about an extraction system.
+"We match the repair" is a claim about a moisture meter. "The stair does not
+move" is a claim about anchorage into structure.
+
+`/equipment` turns those adjectives into ten checkable specifications:
+
+| Class | Category | The failure it prevents |
+| --- | --- | --- |
+| Belt sander | Sanding | Chatter and dish marks, visible only after stain |
+| Edger | Sanding | The dark halo around every room |
+| Multi-disc sander | Sanding | The edge and the field never blending |
+| Dust containment | Dust | An occupied refinish that is not actually liveable |
+| Moisture meter | Measurement | Cupping in month four, on a floor laid over a wet slab |
+| Flooring nailer | Installation | Split tongues and a floor that squeaks in year one |
+| Adhesive & trowel | Installation | Hollow spots and boards that release |
+| Finish application | Finishing | Lap lines, and a cure schedule that was never real |
+| Stair fabrication bench | Stairs | A retread that reads as carpentry, not millwork |
+| Railing anchorage | Stairs | A guard that fails at the moment it is needed |
+
+Each page answers three questions that **can** be answered honestly: what the
+machine does, what it means for the floor you end up with, and — the section
+that matters most — how to tell, on a quote or a site visit, whether it is in
+play. Those questions are explicitly framed as ones to ask everyone quoting
+you, not only us. A trade that cannot answer them is telling you something.
+
+### The honesty rule, and the test that enforces it
+
+This file was one sentence away from being the invented-testimonial mistake
+with a model number attached. "We run a Bona Belt" asserts an asset, and this
+repository has no verified equipment inventory.
+
+So `data/equipment.ts` describes **what the work requires**, never what we own,
+and `tests/equipment.test.ts` enforces that rather than trusting the comment:
+
+- No prose field may match `we|our|Green Hardwood + own|run|use|operate|have`.
+- No brand name may appear anywhere in the data — sixteen of them are checked
+  by name, because a brand turns a specification into a purchase claim and it
+  is the first thing that will get typed in when someone edits this file.
+- Both the index and the detail page must carry the disclosure in the rendered
+  markup, and both agent surfaces must carry it too.
+- The structured data must be `DefinedTerm`, never `Product`. A `Product` node
+  asserts a thing we own and offer for sale; this page describes neither.
+
+Blocker #13 documents the ten photographs that convert this section from a
+specification into an inventory, and step 2 of that blocker says the test
+changes in the same commit as the photographs — not before.
+
+### Where it plugs in
+
+Nothing about this section is an island:
+
+- Every service page gains a **"What this job runs on"** block, so a visitor
+  starts from the job rather than the machine.
+- Every method page gains **"What this method runs on"**.
+- `alsoCalled` carries the search demand — nobody types "multi-disc sander",
+  they type "buffer" — and the site search indexes those aliases, not the
+  trade names.
+- `/llms.txt` and `/llms-full.txt` publish the whole layer with the caveat
+  attached, so an answer engine can cite what a machine class does without
+  being able to cite it as a claim about our shop.
+
+### Google Business Profile — the verdict
+
+`docs/GBP_LAUNCH.md` is the runbook. Short version: **the website is ready,
+the photographs are not, and the verification needs preparing.**
+
+- **Service areas.** The core municipality list is **exactly 20**, which is
+  exactly Google's cap. No trimming needed, no arbitrary cut to make.
+- **NAP.** One tested string, matching `/card`, `card.vcf`, the LocalBusiness
+  node and every agent surface. There is nothing to reconcile.
+- **Services.** Eight, each with a published band that already matches
+  `/api/services.json`.
+- **Reviews.** `company.reviews` is `null` and the schema stays gated. The
+  profile will start at zero, honestly, which is the only version that
+  survives.
+- **Two traps, both stated in the runbook.** Do not upload the AI renderings —
+  Google's own policy is that stock photos and images from other locations are
+  not allowed, and photo violations suspend profiles. And the name must be
+  exactly `Green Hardwood`: no city, no keyword, no "Flooring & Stairs".
+
+### Evidence
+
+- `npm run test` — **362 pass, 0 fail** (344 before; +18, all in the new suite).
+- `npm run build` — **404 prerendered pages** (393 before; +11).
+- `npm run audit:site` — clean. No broken links, no duplicate titles, no
+  missing canonicals or alt text. New schema types: `DefinedTerm`,
+  `DefinedTermSet`.
+- 6 routes × 4 viewports (320/390/768/1440): no horizontal overflow.
+- Every guide, method and service slug referenced by the new data resolves —
+  asserted, not eyeballed.

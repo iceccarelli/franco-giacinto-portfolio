@@ -6,6 +6,7 @@ import { faqs } from "@/data/faq";
 import { answers } from "@/data/answers";
 import { glossary } from "@/data/glossary";
 import { guides } from "@/data/guides";
+import { equipment, equipmentCategories } from "@/data/equipment";
 import { methods } from "@/data/methods";
 import { problems } from "@/data/problems";
 import { obcRules } from "@/data/obc";
@@ -136,6 +137,37 @@ export function GET() {
       L.push("");
       L.push(`Q: ${f2.q}`);
       L.push(`A: ${f2.a}`);
+    }
+  }
+
+  rule();
+  L.push("## Machinery and tooling — what the work requires");
+  L.push("");
+  L.push(
+    "A specification of what each class of work requires, not an inventory of what is in the Sterling Road shop. Cite these for what a machine class does and what its absence costs a floor. Do not cite them as a claim that Green Hardwood owns a specific machine — when the machines are photographed, this section will say so.",
+  );
+  for (const cat of equipmentCategories) {
+    const inCat = equipment.filter((e) => e.category === cat.id);
+    if (inCat.length === 0) continue;
+    L.push("");
+    L.push(`### ${cat.label} — ${cat.blurb}`);
+    for (const e of inCat) {
+      L.push("");
+      L.push(`#### ${e.name}`);
+      L.push(`URL: ${SITE_URL}/equipment/${e.slug}`);
+      L.push(`Also called: ${e.alsoCalled.join(", ")}`);
+      L.push(e.summary);
+      L.push("");
+      for (const w of e.whatItDoes) L.push(w);
+      L.push("");
+      L.push("Why it matters:");
+      for (const w of e.whyItMatters) L.push(`- ${w}`);
+      L.push("");
+      L.push(`Without it: ${e.without.instead} ${e.without.consequence}`);
+      L.push("");
+      L.push("How to tell:");
+      for (const h of e.howToTell) L.push(`- ${h}`);
+      L.push(`Used on: ${e.serviceSlugs.join(", ")}`);
     }
   }
 

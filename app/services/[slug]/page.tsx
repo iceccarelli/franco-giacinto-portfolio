@@ -20,6 +20,7 @@ import { getService, seoNameOf, services } from "@/data/services";
 import { breadcrumbLd, clampDescription, faqLd, serviceLd, webPageLd } from "@/lib/seo";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { isMatrixService, matrixForService } from "@/data/matrix";
+import { equipmentForService } from "@/data/equipment";
 import { methods } from "@/data/methods";
 
 const categoryMap: Record<string, (typeof projects)[number]["category"]> = {
@@ -73,6 +74,7 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
   const others = services.filter((s) => s.slug !== service.slug).slice(0, 3);
   const cityPages = isMatrixService(service.slug) ? matrixForService(service.slug) : [];
   const serviceMethods = methods.filter((m) => m.relatedService === service.slug);
+  const serviceEquipment = equipmentForService(service.slug);
   const crumbs = [
     { name: "Home", path: "/" },
     { name: "Services", path: "/services" },
@@ -222,6 +224,28 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
                     >
                       <p className="font-medium">{m.name}</p>
                       <p className="mt-1 text-sm text-muted">{m.headline}</p>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {serviceEquipment.length > 0 && (
+            <div className="mt-10">
+              <h2 className="font-display text-2xl">What this job runs on</h2>
+              <p className="mt-2 text-sm text-muted">
+                The equipment classes this work depends on, and what a shop without each one does
+                instead. Worth reading before you compare quotes.
+              </p>
+              <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+                {serviceEquipment.map((e) => (
+                  <li key={e.slug}>
+                    <Link
+                      href={`/equipment/${e.slug}`}
+                      className="block rounded-xl bg-surface p-4 shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
+                    >
+                      <p className="font-medium">{e.name}</p>
+                      <p className="mt-1 text-sm text-muted">{e.summary}</p>
                     </Link>
                   </li>
                 ))}

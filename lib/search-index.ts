@@ -1,5 +1,6 @@
 import { answers } from "@/data/answers";
 import { cities } from "@/data/areas";
+import { equipment } from "@/data/equipment";
 import { faqs } from "@/data/faq";
 import { glossary } from "@/data/glossary";
 import { guides } from "@/data/guides";
@@ -23,6 +24,7 @@ export type SearchKind =
   | "Area"
   | "Guide"
   | "Method"
+  | "Equipment"
   | "Term"
   | "Project"
   | "Species"
@@ -177,6 +179,25 @@ const staticPages: SearchDoc[] = [
     keywords: ["how to install hardwood", "method", "assembly", "process", "technique"],
   },
   {
+    id: "page-equipment",
+    kind: "Page",
+    title: "Machinery & tooling",
+    description:
+      "The machines that decide flatness, dust, moisture and anchorage — and how to tell whether a quote includes them.",
+    path: "/equipment",
+    primary: "Machinery & tooling",
+    keywords: [
+      "equipment",
+      "machines",
+      "tools",
+      "sander",
+      "buffer",
+      "dust extraction",
+      "moisture meter",
+      "nailer",
+    ],
+  },
+  {
     id: "page-answers",
     kind: "Page",
     title: "Hardwood questions, answered",
@@ -223,6 +244,17 @@ export const searchDocs: SearchDoc[] = [
     path: `/methods/${m.slug}`,
     primary: m.name,
     keywords: [m.cluster, m.headline, m.when],
+  })),
+  ...equipment.map<SearchDoc>((e) => ({
+    id: `equipment-${e.slug}`,
+    kind: "Equipment",
+    title: e.name,
+    description: e.summary,
+    path: `/equipment/${e.slug}`,
+    primary: e.name,
+    // `alsoCalled` is where the search demand actually lives: nobody types
+    // "multi-disc sander", they type "buffer".
+    keywords: [...e.alsoCalled, e.category, e.seoTitle, e.without.instead],
   })),
   ...answers.map<SearchDoc>((a) => ({
     id: `answer-${a.slug}`,
@@ -319,6 +351,7 @@ const KIND_WEIGHT: Record<SearchKind, number> = {
   Page: 5,
   Area: 4,
   Method: 4,
+  Equipment: 4,
   Guide: 3,
   Term: 3,
   Species: 2,

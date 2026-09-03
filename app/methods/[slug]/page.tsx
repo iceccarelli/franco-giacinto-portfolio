@@ -15,6 +15,7 @@ import {
 import { answers } from "@/data/answers";
 import { company } from "@/data/company";
 import { getGuide } from "@/data/guides";
+import { equipment } from "@/data/equipment";
 import { getMethod, methods } from "@/data/methods";
 import { getService } from "@/data/services";
 import { breadcrumbLd, clampDescription, faqLd, webPageLd } from "@/lib/seo";
@@ -56,6 +57,7 @@ export default async function MethodPage({ params }: { params: Promise<Params> }
   const service = getService(method.relatedService);
   const guides = method.relatedGuides.map(getGuide).filter((g) => g !== undefined);
   const siblings = methods.filter((m) => m.cluster === method.cluster && m.slug !== method.slug);
+  const kit = equipment.filter((e) => e.relatedMethods.includes(method.slug));
   const relatedAnswers = answers
     .filter((a) => a.primaryService === method.relatedService)
     .slice(0, 4);
@@ -183,6 +185,25 @@ export default async function MethodPage({ params }: { params: Promise<Params> }
                   </AccordionItem>
                 ))}
               </Accordion>
+            </div>
+          )}
+
+          {kit.length > 0 && (
+            <div className="mt-10">
+              <h2 className="font-display text-2xl">What this method runs on</h2>
+              <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+                {kit.map((e) => (
+                  <li key={e.slug}>
+                    <Link
+                      href={`/equipment/${e.slug}`}
+                      className="block rounded-xl bg-surface p-4 shadow-[var(--shadow-card)] transition-colors hover:bg-bg-warm"
+                    >
+                      <p className="font-medium">{e.name}</p>
+                      <p className="mt-1 text-sm text-muted">{e.summary}</p>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
 
