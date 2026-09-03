@@ -20,7 +20,7 @@ import { getService, seoNameOf, services } from "@/data/services";
 import { breadcrumbLd, clampDescription, faqLd, serviceLd, webPageLd } from "@/lib/seo";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { isMatrixService, matrixForService } from "@/data/matrix";
-import { equipmentForService } from "@/data/equipment";
+import { EQUIPMENT_IMAGE_DISCLOSURE, equipmentForService } from "@/data/equipment";
 import { methods } from "@/data/methods";
 
 const categoryMap: Record<string, (typeof projects)[number]["category"]> = {
@@ -265,6 +265,7 @@ export default async function ServicePage({ params }: { params: Promise<Params> 
                   </li>
                 ))}
               </ul>
+              <p className="mt-3 text-xs text-muted">{EQUIPMENT_IMAGE_DISCLOSURE}</p>
             </div>
           )}
           {service.faqs.length > 0 && (

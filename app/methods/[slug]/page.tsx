@@ -15,7 +15,7 @@ import {
 import { answers } from "@/data/answers";
 import { company } from "@/data/company";
 import { getGuide } from "@/data/guides";
-import { equipment } from "@/data/equipment";
+import { EQUIPMENT_IMAGE_DISCLOSURE, equipment } from "@/data/equipment";
 import { getMethod, methods } from "@/data/methods";
 import { getService } from "@/data/services";
 import { breadcrumbLd, clampDescription, faqLd, webPageLd } from "@/lib/seo";
@@ -219,6 +219,7 @@ export default async function MethodPage({ params }: { params: Promise<Params> }
                   </li>
                 ))}
               </ul>
+              <p className="mt-3 text-xs text-muted">{EQUIPMENT_IMAGE_DISCLOSURE}</p>
             </div>
           )}
 

@@ -189,6 +189,42 @@ for (const { route, html } of pages) {
   if (!/application\/ld\+json/.test(html)) warn(`${route} — no structured data`);
 }
 
+/* ------------------------------- 5b. the equipment imagery says what it is */
+
+/**
+ * Every page that renders an equipment or defect photograph must also render
+ * the sentence saying it is a commissioned illustration of the machine class
+ * rather than a photograph of our own equipment.
+ *
+ * This check lives HERE, in the post-build audit, and not in the unit tests,
+ * and the reason is a bug it caught on the day it was written.
+ * `tests/equipment.test.ts` asserted the disclosure by reading the SOURCE of
+ * three files — the equipment index, the equipment detail page and the
+ * diagnosis page. It passed. Meanwhile thirteen service and method pages had
+ * been given equipment thumbnails, rendered them, and carried no disclosure
+ * at all, because no test knew those files existed.
+ *
+ * A source-reading test can only check the files you thought to name. Reading
+ * the built HTML checks all 404 pages and cannot be out of date, because the
+ * thing it inspects is the thing the crawler gets.
+ */
+
+const EQUIPMENT_IMAGE = "%2Fimages%2Fequipment%2F";
+const DISCLOSURES = [
+  "not a photograph of our own equipment",
+  "not a photograph of a job we were called to",
+];
+
+for (const { route, html } of pages) {
+  if (!html.includes(EQUIPMENT_IMAGE) && !html.includes("/images/equipment/")) continue;
+  if (!DISCLOSURES.some((d) => html.includes(d))) {
+    fail(
+      `${route} — renders equipment imagery with no disclosure. A photograph of a machine ` +
+        "reads as a photograph of OUR machine unless the page says otherwise.",
+    );
+  }
+}
+
 /* ------------------------------------------------- 6. the layout system */
 
 /**

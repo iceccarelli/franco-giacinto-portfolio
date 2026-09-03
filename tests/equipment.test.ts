@@ -258,6 +258,33 @@ describe("the imagery is labelled for what it is", () => {
     assert.match(DEFECT_IMAGE_DISCLOSURE, /not a photograph of a job/i);
   });
 
+  test("the service and method cross-links disclose too", () => {
+    // These two were missed on the first pass: thumbnails were added to the
+    // "What this job runs on" and "What this method runs on" blocks, thirteen
+    // pages rendered equipment photography, and no test knew those files
+    // existed. The real guard is now in scripts/audit-site.mjs, which reads
+    // every built page instead of the three files someone thought to name —
+    // this assertion is the cheap early warning that runs before the build.
+    for (const f of ["../app/services/[slug]/page.tsx", "../app/methods/[slug]/page.tsx"]) {
+      const src = readFileSync(new URL(f, import.meta.url), "utf8");
+      if (!/e\.image/.test(src)) continue;
+      assert.match(
+        src,
+        /EQUIPMENT_IMAGE_DISCLOSURE/,
+        `${f} renders an equipment thumbnail with no disclosure`,
+      );
+    }
+  });
+
+  test("the post-build audit checks every page, not just the ones we named", () => {
+    const audit = readFileSync(new URL("../scripts/audit-site.mjs", import.meta.url), "utf8");
+    assert.match(
+      audit,
+      /renders equipment imagery with no disclosure/,
+      "the audit no longer catches an undisclosed equipment image on an unnamed page",
+    );
+  });
+
   test("every surface that renders an equipment image also renders the disclosure", () => {
     for (const [name, src] of [
       ["the index", index],
